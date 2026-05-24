@@ -220,8 +220,9 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     .loading-center{display:flex;justify-content:center;padding:40px}
     .autosave-pill{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;padding:3px 9px;border-radius:20px;transition:opacity .4s}
-    .autosave-saving{background:rgba(245,197,24,.12);color:var(--gold);border:1px solid rgba(245,197,24,.25)}
+    .unsaved-pill{background:rgba(231,76,60,.12);color:var(--red);border:1px solid rgba(231,76,60,.35);animation:pulse-warn 2s ease-in-out infinite}
     .autosave-ok{background:rgba(39,174,96,.12);color:var(--green);border:1px solid rgba(39,174,96,.25)}
+    @keyframes pulse-warn{0%,100%{opacity:1}50%{opacity:.6}}
     .toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.82rem;opacity:0;transition:all .3s;z-index:500;white-space:nowrap;pointer-events:none}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     .toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}
@@ -305,7 +306,7 @@
 <!-- Header -->
 <header class="header" id="header" style="display:none">
   <div style="display:flex;align-items:center;gap:8px">
-    <img src="logo.png" alt="Uncle Predictor" class="logo-img-sm">
+    <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img-sm">
     <div class="logo">UNCLE <span>PREDICTOR</span></div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
@@ -349,7 +350,7 @@
   <!-- ═══════════════ LOGIN ═══════════════ -->
   <div class="view active" id="view-login">
     <div class="login-box">
-      <img src="logo.png" alt="Uncle Predictor" class="logo-img">
+      <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img">
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
       <div class="card" style="text-align:left">
         <div class="form-group"><label class="form-label">O teu nome</label>
@@ -366,7 +367,7 @@
   <!-- ═══════════════ LIGA PICKER (pós-login) ═══════════════ -->
   <div class="view" id="view-league-picker">
     <div style="max-width:360px;margin:20px auto;text-align:center">
-      <img src="logo.png" alt="Uncle Predictor" class="logo-img-md" style="margin-bottom:6px">
+      <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img-md" style="margin-bottom:6px">
       <div style="font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;color:var(--gold)">AS TUAS LIGAS</div>
       <div style="color:var(--sub);font-size:.82rem;margin:8px 0 22px">Escolhe a liga ou vê a classificação geral</div>
       <div id="league-picker-list" style="width:100%;margin-bottom:12px"></div>
@@ -390,9 +391,8 @@
     </div>
     <div id="liga-selector"></div>
     <div id="lb-content"><div class="loading-center"><div class="spinner"></div></div></div>
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-outline" style="flex:1;font-size:.78rem;min-width:140px" onclick="showLeagueSwitcher()">🏆 Entrar / Mudar de Liga</button>
-      <button class="btn btn-outline" style="flex:1;font-size:.78rem;min-width:140px" onclick="showLeaguePicker()">↩ Ver todas as ligas</button>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <button class="btn btn-outline btn-full" style="font-size:.78rem" onclick="showLeaguePicker()">🏆 Ver todas as ligas / Entrar numa nova liga</button>
     </div>
   </div>
 
@@ -420,7 +420,10 @@
       <div id="joker-info" class="alert alert-info" style="font-size:.78rem;margin:0;flex:1">
         🃏 Tens <strong id="joker-left">1</strong> JOKER disponível nesta jornada — <strong>dobra os pontos</strong> obtidos no jogo onde o usas!
       </div>
-      <div id="autosave-status" style="flex-shrink:0"></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span id="unsaved-badge" style="display:none" class="autosave-pill unsaved-pill">⚠ Não guardado</span>
+        <button id="save-bets-btn" class="btn btn-primary" style="font-size:.78rem;padding:6px 14px" onclick="saveBets()">💾 Guardar</button>
+      </div>
     </div>
     <div id="bets-content"><div class="loading-center"><div class="spinner"></div></div></div>
   </div>
@@ -433,7 +436,10 @@
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
       <div id="prebets-status" class="alert alert-info" style="font-size:.78rem;margin:0;flex:1">Carregando...</div>
-      <div id="prebet-autosave-status" style="flex-shrink:0"></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span id="prebet-unsaved-badge" style="display:none" class="autosave-pill unsaved-pill">⚠ Não guardado</span>
+        <button id="save-prebets-btn" class="btn btn-primary" style="font-size:.78rem;padding:6px 14px" onclick="savePrebetsAuto()">💾 Guardar</button>
+      </div>
     </div>
     <div id="prebets-content"><div class="loading-center"><div class="spinner"></div></div></div>
   </div>
@@ -620,6 +626,7 @@
     <div id="admin-panel" style="display:none">
       <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
         <button class="btn btn-outline atab-active" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('results')" id="atab-results">Resultados</button>
+        <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('specials')" id="atab-specials">Pré-Apostas</button>
         <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('users')" id="atab-users">Participantes</button>
         <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('leagues')" id="atab-leagues">Ligas</button>
         <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('config')" id="atab-config">Config</button>
@@ -663,6 +670,42 @@
         </div>
         <div id="admin-leagues-list"></div>
       </div>
+      <!-- ── PAINEL PRÉ-APOSTAS FINAIS ── -->
+      <div id="apanel-specials" style="display:none">
+        <div class="card">
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:4px">🏆 Resultados Finais do Torneio</div>
+          <div style="font-size:.72rem;color:var(--sub);margin-bottom:14px">Preenche após o torneio terminar. Os pontos de pré-apostas são calculados automaticamente quando guardares.</div>
+          <div class="form-group">
+            <label class="form-label">🏆 Campeão do Mundo <span style="color:var(--gold)">+8pts</span></label>
+            <select class="form-select" id="sp-champion"><option value="">— Selecionar —</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🥈 Vice-Campeão <span style="color:var(--gold)">+5pts</span></label>
+            <select class="form-select" id="sp-runner_up"><option value="">— Selecionar —</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🥉 3º Classificado <span style="color:var(--gold)">+3pts</span></label>
+            <select class="form-select" id="sp-third"><option value="">— Selecionar —</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">⚽ Melhor Marcador <span style="color:var(--gold)">+5pts</span></label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="form-input" id="sp-top_scorer" type="text" placeholder="Nome do jogador" style="flex:1">
+              <button class="btn btn-outline" style="font-size:.75rem;white-space:nowrap;flex-shrink:0" onclick="fetchTopScorerAdmin()">🔄 Buscar ranking</button>
+            </div>
+            <div id="scorer-ranking" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-success" style="flex:1" onclick="saveSpecials()">💾 Confirmar e Guardar</button>
+          </div>
+          <div id="specials-status" style="font-size:.74rem;margin-top:8px;display:none"></div>
+        </div>
+        <div class="card" style="margin-top:0">
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">ℹ Classificações de Grupo</div>
+          <div style="font-size:.72rem;color:var(--sub);line-height:1.6">Os 1.ºs e 2.ºs de cada grupo são <strong>calculados automaticamente</strong> a partir dos resultados que introduziste. Não precisas de preencher nada — basta teres os resultados da fase de grupos todos inseridos.</div>
+        </div>
+      </div>
+
       <div id="apanel-config" style="display:none">
         <div class="card">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:12px">Configurações</div>
@@ -990,6 +1033,7 @@ const S = {
   leagues:[], curLeague:null,
   lbDetailed:false,
   prebetPending:false,
+  specials:{},
 };
 
 // ════════════════════════════════════════════════
@@ -1032,7 +1076,7 @@ async function login() {
       localStorage.setItem('up26_user',JSON.stringify(S.user));
       await loadMyLeagues();
       loadData();
-      showLeaguePicker();
+      showApp();
     } else {
       const ar=await api('adminLogin',{password:rawCode});
       if(ar.success){
@@ -1083,7 +1127,16 @@ function showLeaguePicker() {
 }
 
 function showView(v) {
-  if(S.curView==='bets' && v!=='bets') flushAutoSave();
+  if(S.curView==='bets' && v!=='bets' && S.pending){
+    if(!confirm('⚠ Tens apostas por guardar!\nSe saíres agora perdes as alterações. Queres continuar?'))return;
+    S.pending=false;
+    updateUnsavedBadge();
+  }
+  if(S.curView==='prebets' && v!=='prebets' && S.prebetPending){
+    if(!confirm('⚠ Tens pré-apostas por guardar!\nSe saíres agora perdes as alterações. Queres continuar?'))return;
+    S.prebetPending=false;
+    updateUnsavedPrebetBadge();
+  }
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
@@ -1106,6 +1159,7 @@ async function loadData() {
     if(r.results)S.results=r.results;
     if(r.lb)S.lb=r.lb;
     if(r.deadlineH)S.deadlineH=r.deadlineH;
+    if(r.specials)S.specials=r.specials;
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -1118,7 +1172,7 @@ async function loadData() {
 function renderLB() {
   renderLigaSelector();
   const el = document.getElementById('lb-content');
-  let raw = S.lb.length ? S.lb : (S.user ? calcDemoLB() : []);
+  let raw = S.lb.length ? S.lb : (S.demoMode && S.user ? calcDemoLB() : []);
   if(!raw.length){el.innerHTML='<div class="alert alert-info">Ainda sem dados de classificação.</div>';return;}
   if(S.curLeague&&S.curLeague.members) raw=raw.filter(p=>S.curLeague.members.includes(p.code));
 
@@ -1165,23 +1219,30 @@ function renderLB() {
     html+=`</tbody></table></div>`;
   } else {
     // ── MODO DETALHADO ──
-    html+=`<div class="standings-wrap"><table class="standings-table" style="min-width:600px">
+    html+=`<div class="standings-wrap"><table class="standings-table" style="min-width:580px;table-layout:fixed">
+      <colgroup>
+        <col style="width:36px">
+        <col>
+        <col style="width:34px"><col style="width:34px"><col style="width:40px">
+        <col style="width:34px"><col style="width:34px"><col style="width:40px">
+        <col style="width:34px"><col style="width:44px">
+      </colgroup>
       <thead>
         <tr>
-          <th rowspan="2" style="width:30px">#</th>
+          <th rowspan="2">#</th>
           <th rowspan="2" class="th-name">Jogador</th>
           <th colspan="3" style="color:var(--green);font-size:.6rem;padding-bottom:3px;border-bottom:none">─ GRUPOS ─</th>
-          <th colspan="3" style="color:#7986cb;font-size:.6rem;padding-bottom:3px;border-bottom:none">─ ELIMINATÓRIA ─</th>
+          <th colspan="3" style="color:#7986cb;font-size:.6rem;padding-bottom:3px;border-bottom:none">─ KO ─</th>
           <th rowspan="2" title="Pré-apostas" style="color:var(--sub);font-size:.62rem">Pré</th>
           <th rowspan="2" title="Total" style="color:var(--gold)">Total</th>
         </tr>
         <tr>
           <th title="Resultados exatos (grupos)" style="color:var(--green)">V</th>
           <th title="Vencedor certo (grupos)" style="color:#f39c12">E</th>
-          <th title="Pontos fase de grupos" style="color:var(--green)">Pts</th>
-          <th title="Resultados exatos (eliminatória)" style="color:#7986cb">V</th>
-          <th title="Vencedor certo (eliminatória)" style="color:#9fa8da">E</th>
-          <th title="Pontos fase eliminatória" style="color:#7986cb">Pts</th>
+          <th title="Pontos grupos" style="color:var(--green)">Pts</th>
+          <th title="Resultados exatos (KO)" style="color:#7986cb">V</th>
+          <th title="Vencedor certo (KO)" style="color:#9fa8da">E</th>
+          <th title="Pontos KO" style="color:#7986cb">Pts</th>
         </tr>
       </thead><tbody>`;
     data.forEach((p,i)=>{
@@ -1390,42 +1451,35 @@ function toggleJoker(id){
   scheduleAutoSave(); renderBets();
 }
 
-let _saveTimer=null;
 function scheduleAutoSave(){
   S.pending=true;
-  clearTimeout(_saveTimer);
-  showAutosaveStatus('saving');
-  _saveTimer=setTimeout(saveBets,1500);
+  updateUnsavedBadge();
 }
-function flushAutoSave(){
-  if(!S.pending)return;
-  clearTimeout(_saveTimer);
-  saveBets();
+function updateUnsavedBadge(){
+  const badge=document.getElementById('unsaved-badge');
+  if(badge) badge.style.display=S.pending?'':'none';
 }
-function showAutosaveStatus(state){
-  const el=document.getElementById('autosave-status');
-  if(!el)return;
-  if(state==='saving'){
-    el.innerHTML=`<span class="autosave-pill autosave-saving">💾 A guardar...</span>`;
-  } else if(state==='ok'){
-    el.innerHTML=`<span class="autosave-pill autosave-ok">✓ Guardado</span>`;
-    setTimeout(()=>{if(el)el.innerHTML='';},2500);
-  } else {
-    el.innerHTML='';
-  }
+function showSaveSuccess(){
+  const badge=document.getElementById('unsaved-badge');
+  if(badge){badge.style.display='';badge.className='autosave-pill autosave-ok';badge.textContent='✓ Guardado';}
+  setTimeout(()=>{
+    if(badge){badge.style.display='none';badge.className='autosave-pill unsaved-pill';badge.textContent='⚠ Não guardado';}
+  },2500);
 }
 
 async function saveBets(){
+  const btn=document.getElementById('save-bets-btn');
+  if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
   try {
     await api('savePreds',{code:S.user.code,preds:S.preds});
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     S.pending=false;
-    showAutosaveStatus('ok');
+    showSaveSuccess();
   } catch(e){
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-    showAutosaveStatus('');
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro — guardado offline','error');
   }
+  if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
 }
 
 // ════════════════════════════════════════════════
@@ -1510,33 +1564,34 @@ function renderPrebets(){
 }
 
 function setPrebet(k,v){S.prebets[k]=v;schedulePrebetAutoSave();}
-let _prebetSaveTimer=null;
 function schedulePrebetAutoSave(){
   S.prebetPending=true;
-  clearTimeout(_prebetSaveTimer);
-  showPrebetAutosaveStatus('saving');
-  _prebetSaveTimer=setTimeout(savePrebetsAuto,1500);
+  updateUnsavedPrebetBadge();
 }
-function showPrebetAutosaveStatus(state){
-  const el=document.getElementById('prebet-autosave-status');
-  if(!el)return;
-  if(state==='saving') el.innerHTML=`<span class="autosave-pill autosave-saving">💾 A guardar...</span>`;
-  else if(state==='ok'){
-    el.innerHTML=`<span class="autosave-pill autosave-ok">✓ Guardado</span>`;
-    setTimeout(()=>{if(el)el.innerHTML='';},2500);
-  } else el.innerHTML='';
+function updateUnsavedPrebetBadge(){
+  const badge=document.getElementById('prebet-unsaved-badge');
+  if(badge) badge.style.display=S.prebetPending?'':'none';
+}
+function showPrebetSaveSuccess(){
+  const badge=document.getElementById('prebet-unsaved-badge');
+  if(badge){badge.style.display='';badge.className='autosave-pill autosave-ok';badge.textContent='✓ Guardado';}
+  setTimeout(()=>{
+    if(badge){badge.style.display='none';badge.className='autosave-pill unsaved-pill';badge.textContent='⚠ Não guardado';}
+  },2500);
 }
 async function savePrebetsAuto(){
+  const btn=document.getElementById('save-prebets-btn');
+  if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
   try {
     await api('savePrebets',{code:S.user.code,prebets:S.prebets});
     localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));
     S.prebetPending=false;
-    showPrebetAutosaveStatus('ok');
+    showPrebetSaveSuccess();
   } catch(e){
     localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));
-    showPrebetAutosaveStatus('');
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro — guardado offline','error');
   }
+  if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
 }
 // Legacy function kept for backwards compatibility
 async function savePrebets(){
@@ -1951,14 +2006,143 @@ function openPlayerModal(playerName) {
 
   html+=`</tbody></table>
   <div style="display:flex;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
-    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
+    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL JOGOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">VITÓRIAS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">${wins}</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">VENCEDOR ✓</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#f39c12">${draws}</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">ERROS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--red)">${finishedGames.length-wins-draws}</div></div>
   </div>`;
 
+  // ── Secção Pré-Apostas ──
+  html += buildPrebetModalSection(playerName, preds);
+
   document.getElementById('modal-body').innerHTML=html;
   openModal();
+}
+
+// ════════════════════════════════════════════════
+//  PRÉ-APOSTAS — secção no modal de jogador
+// ════════════════════════════════════════════════
+function buildPrebetModalSection(playerName, _preds) {
+  const isMe = S.user && playerName.toLowerCase()===S.user.name.toLowerCase();
+  // Obter as pré-apostas do jogador
+  let pb;
+  if (S.demoMode) {
+    const u = DEMO_USERS.find(u=>u.name===playerName);
+    pb = u ? {} : {}; // demo: sem pré-apostas predefinidas, mostrar vazio
+  } else {
+    pb = isMe ? S.prebets : {}; // só temos acesso completo às próprias pré-apostas
+  }
+
+  const sp = S.specials; // resultados oficiais (podem estar vazios antes do fim)
+  const hasSpecials = sp.champion || sp.runner_up || sp.third || sp.top_scorer;
+
+  // Classificações de grupo calculadas do lado do cliente
+  const gs = calcGroupStandingsLocal();
+
+  // ── Especiais ──
+  const specialDefs = [
+    {k:'champion',   label:'🏆 Campeão',      pts:8},
+    {k:'runner_up',  label:'🥈 Vice-Campeão', pts:5},
+    {k:'third',      label:'🥉 3º Lugar',     pts:3},
+    {k:'top_scorer', label:'⚽ Melhor Marcador', pts:5},
+  ];
+
+  let pbTotal = 0;
+  let rows = '';
+
+  specialDefs.forEach(def => {
+    const pred = pb[def.k] || '—';
+    const official = sp[def.k];
+    if (!official && pred === '—') return; // sem dados ainda e sem aposta → esconde
+    if (!official) {
+      rows += `<tr><td style="text-align:left;font-size:.76rem">${def.label}</td><td style="font-size:.78rem">${pred}</td><td style="font-size:.72rem;color:var(--sub)">⏳ Pendente</td><td>—</td></tr>`;
+      return;
+    }
+    const correct = pred === official;
+    const pts = correct ? def.pts : 0;
+    pbTotal += pts;
+    const cls = correct ? 'pred-correct' : (pred==='—' ? '' : 'pred-wrong');
+    rows += `<tr>
+      <td style="text-align:left;font-size:.76rem">${def.label}</td>
+      <td class="pred-cell ${cls}" style="font-size:.78rem">${pred}</td>
+      <td style="font-size:.78rem;color:var(--sub)">${official}</td>
+      <td>${pts>0?`<span class="pts-badge pts-${pts}">+${pts}</span>`:'<span class="pts-badge pts-0">✗</span>'}</td>
+    </tr>`;
+  });
+
+  // ── Grupos (só mostra se houver resultados de grupo e pré-aposta) ──
+  let groupRows = '';
+  ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(g => {
+    const s = gs[g];
+    const p1 = pb['g'+g+'_1'];
+    const p2 = pb['g'+g+'_2'];
+    if (!p1 && !p2) return; // jogador não apostou neste grupo
+    const ok1 = s && s.first  && p1 === s.first;
+    const ok2 = s && s.second && p2 === s.second;
+    const pts1 = ok1 ? 2 : 0;
+    const pts2 = ok2 ? 2 : 0;
+    pbTotal += pts1 + pts2;
+    const pend = !s || (!s.first && !s.second);
+    groupRows += `<tr>
+      <td style="text-align:left;font-size:.76rem">Grupo ${g} — 1º</td>
+      <td class="pred-cell ${ok1?'pred-correct':s&&s.first?'pred-wrong':''}" style="font-size:.78rem">${p1||'—'}</td>
+      <td style="font-size:.78rem;color:var(--sub)">${s&&s.first?s.first:'⏳'}</td>
+      <td>${pend?'—':pts1>0?`<span class="pts-badge pts-2">+2</span>`:'<span class="pts-badge pts-0">✗</span>'}</td>
+    </tr><tr>
+      <td style="text-align:left;font-size:.76rem">Grupo ${g} — 2º</td>
+      <td class="pred-cell ${ok2?'pred-correct':s&&s.second?'pred-wrong':''}" style="font-size:.78rem">${p2||'—'}</td>
+      <td style="font-size:.78rem;color:var(--sub)">${s&&s.second?s.second:'⏳'}</td>
+      <td>${pend?'—':pts2>0?`<span class="pts-badge pts-2">+2</span>`:'<span class="pts-badge pts-0">✗</span>'}</td>
+    </tr>`;
+  });
+
+  const allRows = rows + groupRows;
+  if (!allRows) {
+    // Nenhuma pré-aposta visível ainda
+    return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🃏 Pré-Apostas</div>
+      <div class="alert alert-info" style="font-size:.75rem">Os resultados de pré-apostas ficam disponíveis quando o torneio terminar.</div>
+    </div>`;
+  }
+
+  return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🃏 Pré-Apostas <span style="font-size:.75rem;color:var(--sub);font-weight:400">(${pbTotal}pts ganhos)</span></div>
+    <div style="overflow-x:auto"><table class="modal-table">
+      <thead><tr>
+        <th class="th-left">Aposta</th>
+        <th>Previsão</th>
+        <th>Oficial</th>
+        <th>Pts</th>
+      </tr></thead>
+      <tbody>${allRows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+// Calcula standings de grupo no cliente (espelho da lógica do Apps Script)
+function calcGroupStandingsLocal() {
+  const st = {};
+  GAMES.filter(g => !g.ko).forEach(game => {
+    const grp = game.g;
+    if (!st[grp]) st[grp] = {};
+    if (!st[grp][game.t1]) st[grp][game.t1]={pts:0,gf:0,ga:0};
+    if (!st[grp][game.t2]) st[grp][game.t2]={pts:0,gf:0,ga:0};
+    const res = S.demoMode ? DEMO_RESULTS[game.id] : S.results[game.id];
+    if (!res) return;
+    st[grp][game.t1].gf+=res.t1; st[grp][game.t1].ga+=res.t2;
+    st[grp][game.t2].gf+=res.t2; st[grp][game.t2].ga+=res.t1;
+    if(res.t1>res.t2)      {st[grp][game.t1].pts+=3;}
+    else if(res.t1<res.t2) {st[grp][game.t2].pts+=3;}
+    else                   {st[grp][game.t1].pts+=1;st[grp][game.t2].pts+=1;}
+  });
+  const out = {};
+  Object.entries(st).forEach(([grp,teams])=>{
+    const sorted = Object.entries(teams)
+      .map(([name,s])=>({name,pts:s.pts,gd:s.gf-s.ga,gf:s.gf}))
+      .sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
+    out[grp]={first:sorted[0]?.name||null, second:sorted[1]?.name||null};
+  });
+  return out;
 }
 
 // ════════════════════════════════════════════════
@@ -2013,12 +2197,13 @@ function closeModal(){document.getElementById('modal-overlay').classList.remove(
 //  ADMIN
 // ════════════════════════════════════════════════
 function adminTab(t){
-  ['results','users','leagues','config'].forEach(x=>{
+  ['results','specials','users','leagues','config'].forEach(x=>{
     document.getElementById('apanel-'+x).style.display=x===t?'block':'none';
     document.getElementById('atab-'+x).classList.toggle('atab-active',x===t);
   });
   if(t==='users')loadUsers();
   if(t==='leagues')loadAdminLeagues();
+  if(t==='specials')initSpecialsSelects();
 }
 function adminMD(md){
   S.adminMD=md;
@@ -2123,6 +2308,68 @@ async function removeUser(code){
     showToast('Removido.','success');loadUsers();
   } catch(e){showToast('Erro.','error');}
 }
+// ════════════════════════════════════════════════
+//  ADMIN — PRÉ-APOSTAS FINAIS (ESPECIAIS)
+// ════════════════════════════════════════════════
+function initSpecialsSelects(){
+  // Preenche os dropdowns de equipa com ALL_TEAMS
+  ['champion','runner_up','third'].forEach(k=>{
+    const el=document.getElementById('sp-'+k);
+    if(!el)return;
+    el.innerHTML='<option value="">— Selecionar —</option>'+ALL_TEAMS.map(t=>`<option value="${t}">${t}</option>`).join('');
+    if(S.specials[k]) el.value=S.specials[k];
+  });
+  const sc=document.getElementById('sp-top_scorer');
+  if(sc && S.specials.top_scorer) sc.value=S.specials.top_scorer;
+}
+
+async function saveSpecials(){
+  const sp={};
+  ['champion','runner_up','third'].forEach(k=>{
+    const el=document.getElementById('sp-'+k);
+    if(el&&el.value) sp[k]=el.value;
+  });
+  const sc=document.getElementById('sp-top_scorer');
+  if(sc&&sc.value.trim()) sp.top_scorer=sc.value.trim();
+
+  const statusEl=document.getElementById('specials-status');
+  statusEl.style.display='block'; statusEl.style.color='var(--sub)'; statusEl.textContent='A guardar...';
+  try{
+    const r=await api('saveSpecials',{password:document.getElementById('admin-pw').value,specials:sp});
+    if(r.success){
+      S.specials=sp;
+      statusEl.style.color='var(--green)';
+      statusEl.textContent='✓ Guardado! Os pontos de pré-apostas foram recalculados.';
+      setTimeout(()=>{statusEl.style.display='none';},4000);
+      showToast('Especiais guardados. Leaderboard atualizado.','success');
+      await loadData();
+    } else {
+      statusEl.style.color='var(--red)'; statusEl.textContent='⚠ Erro: '+(r.error||'');
+    }
+  }catch(e){statusEl.style.color='var(--red)'; statusEl.textContent='⚠ Erro de ligação.';}
+}
+
+async function fetchTopScorerAdmin(){
+  const rankEl=document.getElementById('scorer-ranking');
+  rankEl.style.display='block'; rankEl.innerHTML='<div style="padding:10px;font-size:.75rem;color:var(--sub)">A buscar dados...</div>';
+  try{
+    const r=await api('fetchTopScorer',{password:document.getElementById('admin-pw').value});
+    if(r.success && r.scorers && r.scorers.length){
+      rankEl.innerHTML=r.scorers.map((s,i)=>`
+        <div onclick="document.getElementById('sp-top_scorer').value='${s.name.replace(/'/g,"\\'")}'" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(245,197,24,.08)'" onmouseout="this.style.background=''">
+          <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--gold);width:22px">${i+1}</span>
+          <div style="flex:1">
+            <div style="font-size:.82rem;font-weight:600">${s.name}</div>
+            <div style="font-size:.7rem;color:var(--sub)">${s.team}</div>
+          </div>
+          <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;color:var(--green)">${s.goals} ⚽</span>
+        </div>`).join('');
+    } else {
+      rankEl.innerHTML=`<div style="padding:10px;font-size:.75rem;color:var(--red)">⚠ ${r.error||'Sem dados disponíveis.'}</div>`;
+    }
+  }catch(e){rankEl.innerHTML=`<div style="padding:10px;font-size:.75rem;color:var(--red)">⚠ Erro de ligação.</div>`;}
+}
+
 async function saveConfig(){
   const dh=parseInt(document.getElementById('cfg-deadline').value);
   const np=document.getElementById('cfg-newpw').value;
@@ -2322,7 +2569,7 @@ function renderLigaSelector() {
   S.leagues.forEach(l => {
     html += `<button class="liga-btn ${S.curLeague&&S.curLeague.id===l.id?'active':''}" onclick="selectLeague('${l.id}')">${l.name}</button>`;
   });
-  html += `<button class="liga-btn" onclick="showJoinLeagueModal()" style="border-style:dashed">+ Liga</button>`;
+  // join button moved to bottom of leaderboard
   html += `</div>`;
   el.innerHTML = html;
 }
