@@ -454,8 +454,8 @@
     <div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:8px">📊 Classificação por Grupo</div>
     <div class="grp-tabs" id="mundial-grp-tabs"></div>
     <div id="mundial-content"></div>
-    <div id="mundial-scorers" style="margin-top:8px"></div>
     <div id="mundial-bracket"></div>
+    <div id="mundial-scorers" style="margin-top:8px"></div>
   </div>
 
   <!-- ═══════════════ REGRAS ═══════════════ -->
@@ -491,9 +491,9 @@
     <div class="card">
       <div class="rules-subtitle">🔥 Fase a Eliminar</div>
       <div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.9">
-        <div>⏱ <strong style="color:var(--text)">90 min:</strong> conta o resultado ao fim do tempo regulamentar</div>
-        <div>⏱⏱ <strong style="color:var(--text)">Prolongamento:</strong> conta ao fim dos 120 min</div>
-        <div>🥅 <strong style="color:var(--text)">Penáltis:</strong> a aposta conta como <strong style="color:var(--gold)">empate</strong> (score ao fim dos 120 min)</div>
+        <div>⏱ <strong style="color:var(--text)">Jogo com 90 min:</strong> conta o resultado ao fim do tempo regulamentar</div>
+        <div>⏱⏱ <strong style="color:var(--text)">Jogo com prolongamento:</strong> conta ao fim dos 120 min</div>
+        <div>🥅 <strong style="color:var(--text)">Jogo com penáltis:</strong> a aposta conta como <strong style="color:var(--gold)">empate</strong> (score ao fim dos 120 min)</div>
       </div>
       <div class="scoring-grid">
         <div class="scoring-cell sc-win">
@@ -526,12 +526,10 @@
       </div>
       <div style="font-size:.82rem;line-height:1.6;color:var(--text)">
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">⚽ <strong>Grupos:</strong> 1 JOKER por jornada</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔥 <strong>Eliminatória:</strong> 1 JOKER por ronda (R32 → R16 → QF → SF → Final)</div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔥 <strong>Eliminatória</strong> (R32 → R16 → QF → SF)<strong>:</strong> 1 JOKER por ronda</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">🥉 <strong>3º/4º lugar:</strong> sem JOKER</div>
-        <div style="padding:5px 0">❌ <strong>Se errares com JOKER:</strong> 0 pontos</div>
-      </div>
-      <div class="alert alert-info" style="font-size:.78rem;margin:10px 0 0">
-        ⚠️ <strong>Não te esqueças do JOKER na Final!</strong> Última oportunidade — usa-o com confiança.
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏆 <strong>Final:</strong> 1 JOKER <span style="color:var(--sub);font-size:.9em">(Não te esqueças! Última oportunidade — usa-o com confiança.)</span></div>
+        <div style="padding:5px 0">❌ <strong>JOKER não protege contra erros:</strong> se não acertares nem no resultado nem no vencedor, a pontuação é sempre 0 — independentemente da fase</div>
       </div>
     </div>
 
@@ -1445,9 +1443,10 @@ function setPred(id,field,val){
 }
 function toggleJoker(id){
   const md=GAMES.find(g=>g.id===id).md;
+  const wasOn=!!(S.preds[id]&&S.preds[id].joker); // guarda antes de resetar
   GAMES.filter(g=>g.md===md).forEach(g=>{if(S.preds[g.id])S.preds[g.id].joker=false;});
   if(!S.preds[id])S.preds[id]={};
-  S.preds[id].joker=!S.preds[id].joker;
+  S.preds[id].joker=!wasOn; // toggle real: se estava ligado, desliga
   scheduleAutoSave(); renderBets();
 }
 
@@ -1505,7 +1504,7 @@ function renderPrebets(){
         <div style="font-size:.85rem;font-weight:700;color:var(--gold)">Grupo ${gr}</div>
         ${closed
           ?`<div style="font-size:.68rem;color:var(--sub)">👆 Ver apostas de todos</div>`
-          :`<div style="font-size:.67rem;color:var(--border)">🔒 Disponível após arranque</div>`}
+          :`<div style="font-size:.67rem;color:var(--border)">👁 Ver apostas dos outros: após arranque</div>`}
       </div>
       <div class="group-grid">
         <div>
@@ -1628,8 +1627,8 @@ function renderMundial() {
     `<button class="grp-tab ${g===S.mundialGrp?'active':''}" onclick="switchMundialGroup('${g}')">Grupo ${g}</button>`
   ).join('');
   renderMundialGroup();
-  renderTopScorers();
   renderBracket();
+  renderTopScorers();
 }
 
 function renderBracket() {
@@ -2119,16 +2118,22 @@ function buildPrebetModalSection(playerName, _preds) {
   </div>`;
 }
 
-// Calcula standings de grupo no cliente (espelho da lógica do Apps Script)
+// Calcula standings de grupo no cliente — só devolve 1º/2º quando grupo está completo (6 jogos)
 function calcGroupStandingsLocal() {
   const st = {};
+  const completed = {};
+  const total = {};
   GAMES.filter(g => !g.ko).forEach(game => {
     const grp = game.g;
     if (!st[grp]) st[grp] = {};
+    if (!completed[grp]) completed[grp] = 0;
+    if (!total[grp]) total[grp] = 0;
+    total[grp]++;
     if (!st[grp][game.t1]) st[grp][game.t1]={pts:0,gf:0,ga:0};
     if (!st[grp][game.t2]) st[grp][game.t2]={pts:0,gf:0,ga:0};
     const res = S.demoMode ? DEMO_RESULTS[game.id] : S.results[game.id];
     if (!res) return;
+    completed[grp]++;
     st[grp][game.t1].gf+=res.t1; st[grp][game.t1].ga+=res.t2;
     st[grp][game.t2].gf+=res.t2; st[grp][game.t2].ga+=res.t1;
     if(res.t1>res.t2)      {st[grp][game.t1].pts+=3;}
@@ -2137,6 +2142,10 @@ function calcGroupStandingsLocal() {
   });
   const out = {};
   Object.entries(st).forEach(([grp,teams])=>{
+    if ((completed[grp]||0) < (total[grp]||6)) {
+      out[grp]={first:null, second:null};
+      return;
+    }
     const sorted = Object.entries(teams)
       .map(([name,s])=>({name,pts:s.pts,gd:s.gf-s.ga,gf:s.gf}))
       .sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
