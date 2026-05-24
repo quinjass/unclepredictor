@@ -832,21 +832,25 @@ const GAMES = [
 const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort((a,b)=>a.localeCompare(b,'pt'));
 const KO_MDS = ['R32','R16','QF','SF','F3','FIN'];
 
-const FLAGS = {
-  'México':'🇲🇽','África do Sul':'🇿🇦','Coreia do Sul':'🇰🇷','Chéquia':'🇨🇿',
-  'Canadá':'🇨🇦','Bósnia e Herzegovina':'🇧🇦','Qatar':'🇶🇦','Suíça':'🇨🇭',
-  'Brasil':'🇧🇷','Marrocos':'🇲🇦','Haiti':'🇭🇹','Escócia':'🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-  'EUA':'🇺🇸','Paraguai':'🇵🇾','Austrália':'🇦🇺','Turquia':'🇹🇷',
-  'Alemanha':'🇩🇪','Curaçao':'🇨🇼','Costa do Marfim':'🇨🇮','Equador':'🇪🇨',
-  'Holanda':'🇳🇱','Japão':'🇯🇵','Suécia':'🇸🇪','Tunísia':'🇹🇳',
-  'Bélgica':'🇧🇪','Egipto':'🇪🇬','Irão':'🇮🇷','Nova Zelândia':'🇳🇿',
-  'Espanha':'🇪🇸','Cabo Verde':'🇨🇻','Arábia Saudita':'🇸🇦','Uruguai':'🇺🇾',
-  'França':'🇫🇷','Senegal':'🇸🇳','Iraque':'🇮🇶','Noruega':'🇳🇴',
-  'Argentina':'🇦🇷','Argélia':'🇩🇿','Áustria':'🇦🇹','Jordânia':'🇯🇴',
-  'Portugal':'🇵🇹','R.D. Congo':'🇨🇩','Uzbequistão':'🇺🇿','Colômbia':'🇨🇴',
-  'Inglaterra':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Croácia':'🇭🇷','Gana':'🇬🇭','Panamá':'🇵🇦',
+const FLAG_CODES = {
+  'México':'mx','África do Sul':'za','Coreia do Sul':'kr','Chéquia':'cz',
+  'Canadá':'ca','Bósnia e Herzegovina':'ba','Qatar':'qa','Suíça':'ch',
+  'Brasil':'br','Marrocos':'ma','Haiti':'ht','Escócia':'gb-sct',
+  'EUA':'us','Paraguai':'py','Austrália':'au','Turquia':'tr',
+  'Alemanha':'de','Curaçao':'cw','Costa do Marfim':'ci','Equador':'ec',
+  'Holanda':'nl','Japão':'jp','Suécia':'se','Tunísia':'tn',
+  'Bélgica':'be','Egipto':'eg','Irão':'ir','Nova Zelândia':'nz',
+  'Espanha':'es','Cabo Verde':'cv','Arábia Saudita':'sa','Uruguai':'uy',
+  'França':'fr','Senegal':'sn','Iraque':'iq','Noruega':'no',
+  'Argentina':'ar','Argélia':'dz','Áustria':'at','Jordânia':'jo',
+  'Portugal':'pt','R.D. Congo':'cd','Uzbequistão':'uz','Colômbia':'co',
+  'Inglaterra':'gb-eng','Croácia':'hr','Gana':'gh','Panamá':'pa',
 };
-function flag(t){return(FLAGS[t]||'')+' ';}
+function flag(t){
+  const c=FLAG_CODES[t];
+  if(!c)return'';
+  return`<img src="https://flagcdn.com/w20/${c}.png" style="width:18px;height:12px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:4px" alt="${t}">`;
+}
 
 function getKOTeamName(gameId, side) {
   const res = S.results[gameId];
@@ -1353,7 +1357,7 @@ function renderBets() {
                <input class="score-input" type="number" min="0" max="20" value="${t2v}" placeholder="–"
                  ${locked?'disabled':''} oninput="setPred('${g.id}','t2',this.value)">
              </div>`}
-          <div class="team-name right">${g.t2}${flag(g.t2)}</div>
+          <div class="team-name right">${flag(g.t2)}${g.t2}</div>
         </div>
         ${isFinished
           ?`<div class="bet-inline">
@@ -1608,7 +1612,7 @@ function renderBracket() {
         <span class="bracket-match-n">J${idx+1}</span>
         <span class="bracket-team${t1ph?' placeholder':''}${t1wins?' bracket-winner':''}">${f1}${t1}</span>
         <span class="bracket-score-badge">${hasScore?`${res.t1}–${res.t2}`:'·'}</span>
-        <span class="bracket-team${t2ph?' placeholder':''}${t2wins?' bracket-winner':''}" style="text-align:right">${t2}${f2}</span>
+        <span class="bracket-team${t2ph?' placeholder':''}${t2wins?' bracket-winner':''}" style="text-align:right">${f2}${t2}</span>
       </div>`;
     });
   });
@@ -1720,7 +1724,7 @@ function renderMundialGroup() {
       <span style="font-size:.67rem;background:rgba(245,197,24,.1);color:var(--gold);border-radius:3px;padding:1px 5px;font-weight:700;margin-right:2px">${mdLabel}</span>
       <span style="flex:1;font-size:.81rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t1)}${g.t1}</span>
       <span class="game-result-score">${res?`${res.t1} – ${res.t2}`:'– –'}</span>
-      <span style="flex:1;font-size:.81rem;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.t2}${flag(g.t2)}</span>
+      <span style="flex:1;font-size:.81rem;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t2)}${g.t2}</span>
     </div>`;
   });
 
