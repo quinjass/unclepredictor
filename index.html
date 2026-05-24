@@ -353,9 +353,9 @@
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
       <div class="card" style="text-align:left">
         <div class="form-group"><label class="form-label">O teu nome</label>
-          <input class="form-input" id="login-name" type="text" placeholder="ex: Hugo" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
+          <input class="form-input" id="login-name" type="text" name="username" placeholder="ex: Hugo" autocomplete="username" onkeydown="if(event.key==='Enter')login()"></div>
         <div class="form-group" style="margin-bottom:18px"><label class="form-label">Código de acesso</label>
-          <input class="form-input" id="login-code" type="text" placeholder="Fornecido pelo administrador" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
+          <input class="form-input" id="login-code" type="password" name="password" placeholder="Fornecido pelo administrador" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
         <div id="login-error" style="display:none" class="alert alert-error"></div>
         <button class="btn btn-primary btn-full" onclick="login()" id="login-btn">Entrar no jogo</button>
       </div>
@@ -390,6 +390,10 @@
     </div>
     <div id="liga-selector"></div>
     <div id="lb-content"><div class="loading-center"><div class="spinner"></div></div></div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-outline" style="flex:1;font-size:.78rem;min-width:140px" onclick="showLeagueSwitcher()">🏆 Entrar / Mudar de Liga</button>
+      <button class="btn btn-outline" style="flex:1;font-size:.78rem;min-width:140px" onclick="showLeaguePicker()">↩ Ver todas as ligas</button>
+    </div>
   </div>
 
   <!-- ═══════════════ APOSTAS ═══════════════ -->
@@ -480,7 +484,11 @@
     <!-- Pontuação fase a eliminar -->
     <div class="card">
       <div class="rules-subtitle">🔥 Fase a Eliminar</div>
-      <p style="font-size:.75rem;color:var(--sub);margin-bottom:10px">Conta o resultado ao fim dos 90 min ou prolongamento. Penáltis não contam para a aposta.</p>
+      <div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.9">
+        <div>⏱ <strong style="color:var(--text)">90 min:</strong> conta o resultado ao fim do tempo regulamentar</div>
+        <div>⏱⏱ <strong style="color:var(--text)">Prolongamento:</strong> conta ao fim dos 120 min</div>
+        <div>🥅 <strong style="color:var(--text)">Penáltis:</strong> a aposta conta como <strong style="color:var(--gold)">empate</strong> (score ao fim dos 120 min)</div>
+      </div>
       <div class="scoring-grid">
         <div class="scoring-cell sc-win">
           <div class="scoring-pts">4</div>
@@ -2297,7 +2305,6 @@ async function enterLeague(leagueId) {
 function updateLeaguePill() {
   const pill = document.getElementById('league-pill');
   if (!pill) return;
-  if (!S.leagues.length) { pill.style.display='none'; return; }
   pill.style.display='';
   pill.textContent = S.curLeague ? `🏆 ${S.curLeague.name} ▾` : '🌍 Global ▾';
 }
