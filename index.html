@@ -127,6 +127,7 @@
     .joker-btn{margin-top:8px;width:100%;padding:5px 8px;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--sub);font-size:.73rem;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
     .joker-btn.active{background:rgba(245,197,24,.12);border-color:var(--gold);border-style:solid;color:var(--gold);font-weight:600}
     .joker-btn:disabled{cursor:not-allowed;opacity:.4}
+    .joker-badge{background:var(--gold);color:var(--bg);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.7rem;padding:1px 6px;border-radius:3px;letter-spacing:.3px;display:inline-block;vertical-align:middle;margin-right:3px}
     .date-sep{font-size:.72rem;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;padding-left:2px}
     .grp-badge{font-size:.7rem;font-weight:700;color:var(--gold);background:rgba(245,197,24,.1);padding:2px 7px;border-radius:4px;margin-right:5px}
     .dl-warn{color:var(--orange)}.dl-pass{color:var(--red)}
@@ -212,7 +213,7 @@
     .login-logo{font-family:'Rajdhani',sans-serif;font-size:2.6rem;font-weight:700;color:var(--gold);line-height:1.1}
     .login-sub{color:var(--sub);font-size:.82rem;margin:8px 0 28px}
     .logo-img{width:200px;height:200px;object-fit:contain;margin-bottom:4px;filter:drop-shadow(0 4px 24px rgba(245,197,24,.35))}
-    .logo-img-sm{height:34px;width:34px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(245,197,24,.25))}
+    .logo-img-sm{height:46px;width:46px;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(245,197,24,.3))}
     .logo-img-md{width:90px;height:90px;object-fit:contain;filter:drop-shadow(0 3px 12px rgba(245,197,24,.3))}
 
     /* ── MISC ── */
@@ -227,8 +228,8 @@
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     .toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}
     /* ── MUNDIAL ── */
-    .grp-tabs{display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap}
-    .grp-tab{padding:5px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:.78rem;font-weight:700;color:var(--sub);cursor:pointer;transition:all .2s;font-family:'Rajdhani',sans-serif}
+    .grp-tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:nowrap;justify-content:center}
+    .grp-tab{flex:1;padding:7px 2px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;font-size:.9rem;font-weight:700;color:var(--sub);cursor:pointer;transition:all .2s;font-family:'Rajdhani',sans-serif;text-align:center;min-width:0}
     .grp-tab.active{background:rgba(245,197,24,.12);border-color:var(--gold);color:var(--gold)}
     .mundial-standings{overflow-x:auto;border-radius:10px;border:1px solid var(--border);background:var(--card);margin-bottom:12px}
     .mundial-table{width:100%;border-collapse:collapse;min-width:300px}
@@ -277,9 +278,9 @@
     /* ── FASE A ELIMINAR — tabs apostas ── */
     .ko-divider{display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:.72rem;color:#7986cb;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
     .ko-divider::before,.ko-divider::after{content:'';flex:1;height:1px;background:rgba(99,102,241,.2)}
-    .md-tab-ko{padding:7px 8px;background:rgba(63,81,181,.04);border:1px solid rgba(99,102,241,.2);border-radius:8px;font-size:.73rem;font-weight:600;color:#7986cb;cursor:pointer;text-align:center;transition:all .2s;line-height:1.3;white-space:nowrap}
-    .md-tab-ko.active{background:rgba(63,81,181,.2);border-color:#7986cb;color:#c5cae9}
-    .md-tab-ko:hover{border-color:#7986cb}
+    .md-tab-ko{flex:1;padding:7px 4px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:.73rem;font-weight:600;color:var(--sub);cursor:pointer;text-align:center;transition:all .2s;line-height:1.3;white-space:nowrap}
+    .md-tab-ko.active{background:rgba(245,197,24,.12);border-color:var(--gold);color:var(--gold)}
+    .md-tab-ko:hover{border-color:var(--gold)}
     .game-card-ko{background:rgba(63,81,181,.04);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:12px;margin-bottom:8px;transition:border-color .2s}
     .game-card-ko.finished{cursor:pointer}.game-card-ko.finished:hover{border-color:#7986cb}
     .game-card-ko.locked{opacity:.7}
@@ -311,9 +312,23 @@
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="liga-pill" id="league-pill" style="display:none" onclick="showLeagueSwitcher()">🏆 —</div>
-    <div class="user-pill" onclick="logout()" id="user-pill">— ↩</div>
+    <div class="user-pill" onclick="showAccountMenu()" id="user-pill" title="Minha conta">👤 —</div>
   </div>
 </header>
+<!-- Account menu sheet -->
+<div class="switcher-overlay" id="account-menu-overlay" onclick="closeAccountMenu()">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+      <div style="width:48px;height:48px;border-radius:50%;background:rgba(245,197,24,.1);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">👤</div>
+      <div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.2rem" id="account-name">—</div>
+        <div style="font-size:.75rem;color:var(--sub);margin-top:2px" id="account-info">—</div>
+      </div>
+    </div>
+    <button class="btn btn-danger btn-full" onclick="logout()">↩ Terminar sessão</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeAccountMenu()">Fechar</button>
+  </div>
+</div>
 <!-- League switcher sheet -->
 <div class="switcher-overlay" id="league-switcher-overlay" onclick="closeLeagueSwitcher()">
   <div class="switcher-box" onclick="event.stopPropagation()">
@@ -418,7 +433,7 @@
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
       <div id="joker-info" class="alert alert-info" style="font-size:.78rem;margin:0;flex:1">
-        🃏 Tens <strong id="joker-left">1</strong> JOKER disponível nesta jornada — <strong>dobra os pontos</strong> obtidos no jogo onde o usas!
+        <span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong id="joker-left">1</strong> JOKER disponível nesta jornada — <strong>dobra os pontos</strong> obtidos no jogo onde o usas!
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <span id="unsaved-badge" style="display:none" class="autosave-pill unsaved-pill">⚠ Não guardado</span>
@@ -1022,6 +1037,7 @@ function computeMatchdayTrophies(mdPts) {
 // ════════════════════════════════════════════════
 //  STATE
 // ════════════════════════════════════════════════
+let loginReady = false;
 const S = {
   user:null, isAdmin:false, curView:'login',
   curMD:1, adminMD:1, mundialGrp:'A',
@@ -1041,6 +1057,7 @@ async function init() {
   if (S.demoMode) document.getElementById('demo-notice').style.display='block';
   const saved = localStorage.getItem('up26_user');
   if (saved) {
+    loginReady = true; // sessão restaurada automaticamente — flag não é necessária
     S.user = JSON.parse(saved);
     const sp = localStorage.getItem('up26_preds_'+S.user.code);
     if (sp) S.preds = JSON.parse(sp);
@@ -1054,6 +1071,9 @@ async function init() {
       if (saved_lg) S.curLeague = saved_lg;
     }
     showApp(); loadData();
+  } else {
+    // Sem sessão guardada — atrasar activação do login para evitar submit automático do browser
+    setTimeout(() => { loginReady = true; }, 600);
   }
 }
 
@@ -1061,6 +1081,7 @@ async function init() {
 //  AUTH
 // ════════════════════════════════════════════════
 async function login() {
+  if (!loginReady) return;
   const name=document.getElementById('login-name').value.trim();
   const rawCode=document.getElementById('login-code').value.trim();
   const code=rawCode.toUpperCase();
@@ -1093,7 +1114,14 @@ async function login() {
   btn.textContent='Entrar no jogo'; btn.disabled=false;
 }
 function showLoginErr(m){const el=document.getElementById('login-error');el.textContent=m;el.style.display='block';}
-function logout(){if(!confirm('Sair?'))return;localStorage.removeItem('up26_user');location.reload();}
+function showAccountMenu(){
+  const name=S.user?S.user.name:'—';
+  document.getElementById('account-name').textContent=name;
+  document.getElementById('account-info').textContent='Liga: '+(S.curLeague?S.curLeague.name:'Global');
+  document.getElementById('account-menu-overlay').classList.add('open');
+}
+function closeAccountMenu(){document.getElementById('account-menu-overlay').classList.remove('open');}
+function logout(){closeAccountMenu();if(!confirm('Sair?'))return;localStorage.removeItem('up26_user');location.reload();}
 
 async function adminLogin() {
   const pw=document.getElementById('admin-pw').value;
@@ -1111,7 +1139,7 @@ function showApp() {
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('header').style.display='';
   document.getElementById('bottom-nav').style.display='';
-  document.getElementById('user-pill').textContent=S.user.name+' ↩';
+  document.getElementById('user-pill').textContent='👤 '+S.user.name;
   updateLeaguePill();
   showView('leaderboard');
 }
@@ -1342,7 +1370,7 @@ function renderBetsKO() {
         ? `<div class="bet-inline">
             <span class="bet-inline-label">Minha aposta:</span>
             ${pred.t1!==undefined&&pred.t2!==undefined
-              ? `<span class="bet-inline-score">${pred.t1}–${pred.t2}${jokerOn?' 🃏':''}</span>`
+              ? `<span class="bet-inline-score">${pred.t1}–${pred.t2}${jokerOn?' <span class="joker-badge">JOKER</span>':''}</span>`
               : `<span style="font-size:.72rem;color:var(--sub)">—</span>`}
             <span class="bet-inline-hint">👆 ver todos</span>
           </div>`
@@ -1350,10 +1378,10 @@ function renderBetsKO() {
           ? `<div class="ko-pending">⏳ Equipas a apurar após fase de grupos</div>`
           : !locked && !g.noJoker
             ? `<button class="joker-btn ${jokerOn?'active':''}" onclick="toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
-                🃏 ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
+                <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
               </button>`
             : jokerOn
-              ? `<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px">🃏 JOKER usado neste jogo</div>`
+              ? `<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`
               : ''
       }
     </div>`;
@@ -1422,13 +1450,13 @@ function renderBets() {
           ?`<div class="bet-inline">
               <span class="bet-inline-label">Minha aposta:</span>
               ${pred.t1!==undefined&&pred.t2!==undefined
-                ?`<span class="bet-inline-score">${pred.t1}–${pred.t2}${jokerOn?' 🃏':''}</span>`
+                ?`<span class="bet-inline-score">${pred.t1}–${pred.t2}${jokerOn?' <span class="joker-badge">JOKER</span>':''}</span>`
                 :`<span style="font-size:.72rem;color:var(--sub)">—</span>`}
               <span class="bet-inline-hint">👆 ver todos</span>
             </div>`
           :(!locked?`<button class="joker-btn ${jokerOn?'active':''}" onclick="toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
-              🃏 ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
-            </button>`:jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px">🃏 JOKER usado neste jogo</div>`:'')
+              <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
+            </button>`:jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:'')
         }
       </div>`;
     });
@@ -1624,7 +1652,7 @@ const DEMO_SCORERS = [
 function renderMundial() {
   const tabsEl = document.getElementById('mundial-grp-tabs');
   tabsEl.innerHTML = Object.keys(GROUPS).map(g =>
-    `<button class="grp-tab ${g===S.mundialGrp?'active':''}" onclick="switchMundialGroup('${g}')">Grupo ${g}</button>`
+    `<button class="grp-tab ${g===S.mundialGrp?'active':''}" data-grp="${g}" onclick="switchMundialGroup('${g}')">${g}</button>`
   ).join('');
   renderMundialGroup();
   renderBracket();
@@ -1718,7 +1746,7 @@ function renderTopScorers() {
 
 function switchMundialGroup(grp) {
   S.mundialGrp = grp;
-  document.querySelectorAll('.grp-tab').forEach(b => b.classList.toggle('active', b.textContent==='Grupo '+grp));
+  document.querySelectorAll('.grp-tab').forEach(b => b.classList.toggle('active', b.dataset.grp===grp));
   renderMundialGroup();
 }
 
@@ -2565,8 +2593,12 @@ async function enterLeague(leagueId) {
 function updateLeaguePill() {
   const pill = document.getElementById('league-pill');
   if (!pill) return;
-  pill.style.display='';
-  pill.textContent = S.curLeague ? `🏆 ${S.curLeague.name} ▾` : '🌍 Global ▾';
+  if (S.curLeague) {
+    pill.style.display='';
+    pill.textContent = `🏆 ${S.curLeague.name} ▾`;
+  } else {
+    pill.style.display='none';
+  }
 }
 
 function renderLigaSelector() {
