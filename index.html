@@ -1445,59 +1445,62 @@ function renderLB() {
     html+=`</tbody></table></div>`;
   } else {
     // ── MODO DETALHADO ──
-    html+=`<div class="standings-wrap"><table class="standings-table" style="min-width:670px;table-layout:fixed">
+    // padding compacto para caber sem scroll horizontal
+    const thS='padding:6px 4px';
+    const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 4px';
+    html+=`<div class="standings-wrap"><table class="standings-table" style="table-layout:fixed;width:100%">
       <colgroup>
-        <col style="width:36px">
-        <col>
         <col style="width:28px">
-        <col style="width:30px"><col style="width:30px"><col style="width:36px">
-        <col style="width:30px"><col style="width:30px"><col style="width:36px">
-        <col style="width:30px"><col style="width:38px"><col style="width:44px">
+        <col>
+        <col style="width:20px">
+        <col style="width:22px"><col style="width:24px"><col style="width:28px">
+        <col style="width:22px"><col style="width:24px"><col style="width:28px">
+        <col style="width:22px"><col style="width:24px"><col style="width:34px">
       </colgroup>
       <thead>
         <tr>
-          <th rowspan="2">#</th>
-          <th rowspan="2" class="th-name">Jogador</th>
-          <th rowspan="2" title="Jogos com resultado" style="color:var(--sub)">J</th>
-          <th colspan="3" style="color:var(--green);font-size:.6rem;padding-bottom:3px;border-bottom:none">─ GRUPOS ─</th>
-          <th colspan="3" style="color:#7986cb;font-size:.6rem;padding-bottom:3px;border-bottom:none">─ KO ─</th>
-          <th rowspan="2" title="Pré-apostas" style="color:var(--sub);font-size:.62rem">Pré</th>
-          <th rowspan="2" title="Pontos obtidos com o Joker"><span class="joker-badge" style="font-size:.62rem;padding:1px 5px">J</span></th>
-          <th rowspan="2" title="Total" style="color:var(--gold)">Total</th>
+          <th rowspan="2" style="${thS};vertical-align:bottom">#</th>
+          <th rowspan="2" class="th-name" style="${thS};vertical-align:bottom;padding-left:8px">Jogador</th>
+          <th rowspan="2" title="Jogos com resultado" style="${thS};color:var(--sub);vertical-align:bottom">J</th>
+          <th colspan="3" style="${thS};color:var(--green);font-size:.58rem;padding-bottom:2px;border-bottom:none">GRUPOS</th>
+          <th colspan="3" style="${thS};color:#7986cb;font-size:.58rem;padding-bottom:2px;border-bottom:none">KO</th>
+          <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
+          <th rowspan="2" title="Pontos obtidos com o Joker" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem">J</th>
+          <th rowspan="2" title="Total" style="${thS};color:var(--gold);vertical-align:bottom">Total</th>
         </tr>
         <tr>
-          <th title="R: Acerto no resultado (grupos)" style="color:var(--green);cursor:help">R</th>
-          <th title="V/E: Acerto no vencedor / empate (grupos)" style="color:#f39c12;cursor:help">V/E</th>
-          <th title="Pontos grupos" style="color:var(--green)">Pts</th>
-          <th title="R: Acerto no resultado (KO)" style="color:#7986cb;cursor:help">R</th>
-          <th title="V/E: Acerto no vencedor / empate (KO)" style="color:#9fa8da;cursor:help">V/E</th>
-          <th title="Pontos KO" style="color:#7986cb">Pts</th>
+          <th title="R: Acerto no resultado (grupos)" style="${thS};color:var(--green);cursor:help">R</th>
+          <th title="V/E: Acerto no vencedor / empate (grupos)" style="${thS};color:#f39c12;cursor:help">V/E</th>
+          <th title="Pontos grupos" style="${thS};color:var(--green)">Pts</th>
+          <th title="R: Acerto no resultado (KO)" style="${thS};color:#7986cb;cursor:help">R</th>
+          <th title="V/E: Acerto no vencedor / empate (KO)" style="${thS};color:#9fa8da;cursor:help">V/E</th>
+          <th title="Pontos KO" style="${thS};color:#7986cb">Pts</th>
         </tr>
       </thead><tbody>`;
     data.forEach((p,i)=>{
       const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
       html+=`<tr class="${rankClass}${me?' row-me':''}" onclick="openPlayerModal('${p.name}')">
-        <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}</td>
-        <td class="td-name">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
-        <td style="color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:700">${finishedGames}</td>
-        <td style="color:var(--green);font-family:'Rajdhani',sans-serif;font-weight:700">${p.wins||0}</td>
-        <td style="color:#f39c12;font-family:'Rajdhani',sans-serif;font-weight:700">${p.draws||0}</td>
-        <td style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--green)">${p.group_pts||0}</td>
-        <td style="color:#7986cb;font-family:'Rajdhani',sans-serif;font-weight:700">${p.ko_wins||0}</td>
-        <td style="color:#9fa8da;font-family:'Rajdhani',sans-serif;font-weight:700">${p.ko_draws||0}</td>
-        <td style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#7986cb">${p.ko_pts||0}</td>
-        <td style="color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:700">${p.prebets_pts||0}</td>
-        <td style="color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700">${p.joker_pts||0}</td>
-        <td class="td-pts">${p.total}</td>
+        <td class="td-pos" style="padding-left:8px;padding-right:0;width:28px">${rank<=3?posSyms[rank-1]:rank}</td>
+        <td class="td-name" style="padding:9px 4px 9px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
+        <td style="${tdN};color:var(--sub)">${finishedGames}</td>
+        <td style="${tdN};color:var(--green)">${p.wins||0}</td>
+        <td style="${tdN};color:#f39c12">${p.draws||0}</td>
+        <td style="${tdN};color:var(--green)">${p.group_pts||0}</td>
+        <td style="${tdN};color:#7986cb">${p.ko_wins||0}</td>
+        <td style="${tdN};color:#9fa8da">${p.ko_draws||0}</td>
+        <td style="${tdN};color:#7986cb">${p.ko_pts||0}</td>
+        <td style="${tdN};color:var(--sub)">${p.prebets_pts||0}</td>
+        <td style="${tdN};color:#00bcd4">${p.joker_pts||0}</td>
+        <td class="td-pts" style="padding:9px 4px">${p.total}</td>
       </tr>`;
     });
     html+=`</tbody></table></div>
-    <div class="lb-legend" style="margin-top:8px">
-      <span class="leg-v">R = Acerto no resultado</span>
-      <span class="leg-e">V/E = Acerto no vencedor / empate</span>
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--sub);flex-shrink:0"></span>Pré = Pré-apostas</span>
-      <span style="display:flex;align-items:center;gap:5px"><span class="joker-badge" style="font-size:.6rem;padding:1px 4px">J</span>= Pts com Joker</span>
+    <div class="lb-legend" style="margin-top:8px;flex-wrap:nowrap;font-size:.67rem;gap:10px;overflow-x:auto">
+      <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
+      <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
+      <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
+      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700">J = Pts Joker</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
