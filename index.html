@@ -255,8 +255,9 @@
     /* ── NOVA PONTUAÇÃO KO ── */
     .pts-2{background:rgba(0,188,212,.12);color:#4dd0e1}
     .pts-4{background:rgba(63,81,181,.2);color:#7986cb}
+    .pts-5{background:rgba(63,81,181,.28);color:#9fa8da;font-weight:700}
     .pts-6{background:rgba(0,188,212,.28);color:#00bcd4;font-weight:700}
-    .pts-8{background:rgba(245,197,24,.28);color:var(--gold);font-weight:700}
+    .pts-10{background:rgba(245,197,24,.32);color:var(--gold);font-weight:700}
     /* ── LIGAS ── */
     .liga-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
     .liga-btn{padding:5px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;font-size:.75rem;font-weight:600;color:var(--sub);cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;white-space:nowrap}
@@ -325,6 +326,7 @@
         <div style="font-size:.75rem;color:var(--sub);margin-top:2px" id="account-info">—</div>
       </div>
     </div>
+    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showChangePw()">🔑 Alterar password</button>
     <button class="btn btn-danger btn-full" onclick="logout()">↩ Terminar sessão</button>
     <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeAccountMenu()">Fechar</button>
   </div>
@@ -335,6 +337,72 @@
     <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:14px">🏆 Selecionar Liga</div>
     <div id="switcher-body"></div>
     <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:.78rem" onclick="closeLeagueSwitcher()">Fechar</button>
+  </div>
+</div>
+
+<!-- ── Registo ── -->
+<div class="switcher-overlay" id="register-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:16px">Criar conta</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Primeiro nome</label>
+        <input class="form-input" id="reg-first" type="text" placeholder="ex: Hugo" autocomplete="given-name"></div>
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Apelido</label>
+        <input class="form-input" id="reg-last" type="text" placeholder="ex: Ribeiro" autocomplete="family-name"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Email</label>
+      <input class="form-input" id="reg-email" type="email" placeholder="o-teu@email.com" autocomplete="email"></div>
+    <div class="form-group"><label class="form-label">Password <span style="color:var(--sub);font-weight:400">(mín. 6 caracteres)</span></label>
+      <input class="form-input" id="reg-pw" type="password" placeholder="Define a tua password" autocomplete="new-password"></div>
+    <div class="form-group"><label class="form-label">Confirmar password</label>
+      <input class="form-input" id="reg-pw2" type="password" placeholder="Repete a password" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitRegister()"></div>
+    <div id="reg-error" style="display:none" class="alert alert-error"></div>
+    <div id="reg-success" style="display:none" class="alert alert-success"></div>
+    <button class="btn btn-primary btn-full" onclick="submitRegister()" id="reg-btn">Criar conta</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeRegister()">Cancelar</button>
+  </div>
+</div>
+<!-- ── Esqueci a password ── -->
+<div class="switcher-overlay" id="forgot-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">Recuperar password</div>
+    <div style="font-size:.8rem;color:var(--sub);margin-bottom:16px;line-height:1.5">Indica o teu email e recebes um link para definir uma nova password.</div>
+    <div class="form-group"><label class="form-label">Email</label>
+      <input class="form-input" id="forgot-email" type="email" placeholder="o-teu@email.com" onkeydown="if(event.key==='Enter')submitForgotPw()"></div>
+    <div id="forgot-error" style="display:none" class="alert alert-error"></div>
+    <div id="forgot-success" style="display:none" class="alert alert-success"></div>
+    <button class="btn btn-primary btn-full" onclick="submitForgotPw()" id="forgot-btn">Enviar link</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeForgotPw()">Cancelar</button>
+  </div>
+</div>
+<!-- ── Alterar password (conta menu) ── -->
+<div class="switcher-overlay" id="changepw-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:16px">🔑 Alterar password</div>
+    <div class="form-group"><label class="form-label">Password atual</label>
+      <input class="form-input" id="cpw-current" type="password" placeholder="Password atual" autocomplete="current-password"></div>
+    <div class="form-group"><label class="form-label">Nova password <span style="color:var(--sub);font-weight:400">(mín. 6 caracteres)</span></label>
+      <input class="form-input" id="cpw-new" type="password" placeholder="Nova password" autocomplete="new-password"></div>
+    <div class="form-group"><label class="form-label">Confirmar nova password</label>
+      <input class="form-input" id="cpw-confirm" type="password" placeholder="Repete a nova password" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitChangePw()"></div>
+    <div id="cpw-error" style="display:none" class="alert alert-error"></div>
+    <div id="cpw-success" style="display:none" class="alert alert-success"></div>
+    <button class="btn btn-primary btn-full" onclick="submitChangePw()" id="cpw-btn">Alterar password</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeChangePw()">Cancelar</button>
+  </div>
+</div>
+<!-- ── Reset password (via link de email) ── -->
+<div class="switcher-overlay" id="resetpw-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">🔑 Definir nova password</div>
+    <div style="font-size:.8rem;color:var(--sub);margin-bottom:16px;line-height:1.5">Escolhe a tua nova password de acesso.</div>
+    <div class="form-group"><label class="form-label">Nova password <span style="color:var(--sub);font-weight:400">(mín. 6 caracteres)</span></label>
+      <input class="form-input" id="rpw-new" type="password" placeholder="Nova password" autocomplete="new-password"></div>
+    <div class="form-group"><label class="form-label">Confirmar nova password</label>
+      <input class="form-input" id="rpw-confirm" type="password" placeholder="Repete a nova password" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitResetPw()"></div>
+    <div id="rpw-error" style="display:none" class="alert alert-error"></div>
+    <div id="rpw-success" style="display:none" class="alert alert-success"></div>
+    <button class="btn btn-primary btn-full" onclick="submitResetPw()" id="rpw-btn">Guardar password</button>
   </div>
 </div>
 
@@ -368,14 +436,20 @@
       <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img">
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
       <div class="card" style="text-align:left">
-        <div class="form-group"><label class="form-label">O teu nome</label>
-          <input class="form-input" id="login-name" type="text" name="username" placeholder="ex: Hugo" autocomplete="username" onkeydown="if(event.key==='Enter')login()"></div>
-        <div class="form-group" style="margin-bottom:18px"><label class="form-label">Código de acesso</label>
-          <input class="form-input" id="login-code" type="password" name="password" placeholder="Fornecido pelo administrador" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+        <div class="form-group"><label class="form-label">Email</label>
+          <input class="form-input" id="login-email" type="email" name="username" placeholder="o-teu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')login()"></div>
+        <div class="form-group" style="margin-bottom:6px"><label class="form-label">Password</label>
+          <input class="form-input" id="login-pw" type="password" name="password" placeholder="A tua password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+        <div style="text-align:right;margin-bottom:16px">
+          <a href="#" onclick="showForgotPw();return false;" style="font-size:.74rem;color:var(--sub);text-decoration:none">Esqueceste a password?</a>
+        </div>
         <div id="login-error" style="display:none" class="alert alert-error"></div>
         <button class="btn btn-primary btn-full" onclick="login()" id="login-btn">Entrar no jogo</button>
       </div>
-      <div style="margin-top:12px;font-size:.72rem;color:var(--sub)">Não tens código? Pede ao administrador do grupo.</div>
+      <div style="margin-top:10px;text-align:center">
+        <span style="font-size:.78rem;color:var(--sub)">Não tens conta? </span>
+        <a href="#" onclick="showRegister();return false;" style="font-size:.78rem;color:var(--gold);text-decoration:none;font-weight:600">Criar conta</a>
+      </div>
     </div>
   </div>
 
@@ -424,7 +498,7 @@
     </div>
     <div class="ko-divider">🔥 Fase a Eliminar</div>
     <div class="md-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:14px">
-      <div class="md-tab-ko" onclick="switchMD('R32')" id="md-R32">R32<br><span style="font-size:.6rem;font-weight:400">29 Jun–3 Jul</span></div>
+      <div class="md-tab-ko" onclick="switchMD('R32')" id="md-R32">16-avos<br><span style="font-size:.6rem;font-weight:400">29 Jun–3 Jul</span></div>
       <div class="md-tab-ko" onclick="switchMD('R16')" id="md-R16">Oitavos<br><span style="font-size:.6rem;font-weight:400">5–8 Jul</span></div>
       <div class="md-tab-ko" onclick="switchMD('QF')" id="md-QF">QF<br><span style="font-size:.6rem;font-weight:400">11–12 Jul</span></div>
       <div class="md-tab-ko" onclick="switchMD('SF')" id="md-SF">SF<br><span style="font-size:.6rem;font-weight:400">14–15 Jul</span></div>
@@ -486,12 +560,12 @@
       <div class="scoring-grid">
         <div class="scoring-cell sc-win">
           <div class="scoring-pts">3</div>
-          <div class="scoring-label">✅ Vitória</div>
+          <div class="scoring-label">✅ Acerto no resultado</div>
           <div class="scoring-sub">Resultado exato<br>ex: apostaste 2-1, saiu 2-1</div>
         </div>
         <div class="scoring-cell sc-draw">
           <div class="scoring-pts">1</div>
-          <div class="scoring-label">☑️ Vencedor</div>
+          <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
           <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
         </div>
         <div class="scoring-cell sc-loss" style="grid-column:1/-1">
@@ -506,19 +580,19 @@
     <div class="card">
       <div class="rules-subtitle">🔥 Fase a Eliminar</div>
       <div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.9">
-        <div>⏱ <strong style="color:var(--text)">Jogo com 90 min:</strong> conta o resultado ao fim do tempo regulamentar</div>
-        <div>⏱⏱ <strong style="color:var(--text)">Jogo com prolongamento:</strong> conta ao fim dos 120 min</div>
-        <div>🥅 <strong style="color:var(--text)">Jogo com penáltis:</strong> a aposta conta como <strong style="color:var(--gold)">empate</strong> (score ao fim dos 120 min)</div>
+        <div>⏱ <strong style="color:var(--text)">Jogo com 90 min:</strong> conta o resultado ao fim do tempo regulamentar (+ descontos)</div>
+        <div>⏱⏱ <strong style="color:var(--text)">Jogo com prolongamento:</strong> conta o resultado ao fim dos 120 min (+ descontos)</div>
+        <div>🥅 <strong style="color:var(--text)">Jogo com penáltis:</strong> conta como <strong style="color:var(--gold)">empate</strong> (resultado ao fim dos 120 min (+ descontos))</div>
       </div>
       <div class="scoring-grid">
         <div class="scoring-cell sc-win">
-          <div class="scoring-pts">4</div>
-          <div class="scoring-label">✅ Vitória</div>
+          <div class="scoring-pts">5</div>
+          <div class="scoring-label">✅ Acerto no resultado</div>
           <div class="scoring-sub">Resultado exato ao fim do tempo regulamentar/prolongamento</div>
         </div>
         <div class="scoring-cell sc-draw">
           <div class="scoring-pts">2</div>
-          <div class="scoring-label">☑️ Vencedor</div>
+          <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
           <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
         </div>
         <div class="scoring-cell sc-loss" style="grid-column:1/-1">
@@ -536,14 +610,13 @@
         <div class="scoring-pts" style="font-size:2.2rem;color:#00bcd4">×2</div>
         <div style="text-align:left">
           <div style="font-weight:700;color:#00bcd4;font-size:.85rem;margin-bottom:3px">JOKER ATIVO</div>
-          <div style="font-size:.76rem;color:var(--sub)">Duplica os pontos desse jogo.<br>Grupos: 3→6, 1→2 &nbsp;·&nbsp; KO: 4→8, 2→4</div>
+          <div style="font-size:.76rem;color:var(--sub)">Duplica os pontos desse jogo.<br>Grupos: 3→6, 1→2 &nbsp;·&nbsp; KO: 5→10, 2→4</div>
         </div>
       </div>
       <div style="font-size:.82rem;line-height:1.6;color:var(--text)">
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">⚽ <strong>Grupos:</strong> 1 JOKER por jornada</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔥 <strong>Eliminatória</strong> (R32 → R16 → QF → SF)<strong>:</strong> 1 JOKER por ronda</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🥉 <strong>3º/4º lugar:</strong> sem JOKER</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏆 <strong>Final:</strong> 1 JOKER <span style="color:var(--sub);font-size:.9em">(Não te esqueças! Última oportunidade — usa-o com confiança.)</span></div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔥 <strong>Eliminatória</strong> (16-avos → R16 → QF → SF)<strong>:</strong> 1 JOKER por ronda</div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🥉🏆 <strong>3º/4º lugar + Final:</strong> 1 JOKER partilhado — usa-o num dos dois jogos</div>
         <div style="padding:5px 0">❌ <strong>JOKER não protege contra erros:</strong> se não acertares nem no resultado nem no vencedor, a pontuação é sempre 0 — independentemente da fase</div>
       </div>
     </div>
@@ -585,15 +658,15 @@
       <div class="rules-subtitle">⚖️ Critérios de Desempate</div>
       <div class="tiebreak-row">
         <div class="tb-badge">1</div>
-        <div>Número de <strong>Vencedores certos</strong> (acertaste no vencedor ou empate)</div>
+        <div>Número de <strong>Acertos no vencedor / empate</strong> (acertaste no vencedor ou no empate)</div>
       </div>
       <div class="tiebreak-row">
         <div class="tb-badge">2</div>
-        <div>Número de <strong>Vitórias</strong> (resultado exato)</div>
+        <div>Número de <strong>Acertos no resultado</strong> (resultado exato)</div>
       </div>
       <div class="tiebreak-row">
         <div class="tb-badge">3</div>
-        <div>Número de <strong>JOKERs</strong> com efeito positivo</div>
+        <div><strong>Pontos obtidos com o JOKER</strong> (soma dos pontos ganhos graças ao multiplicador)</div>
       </div>
     </div>
 
@@ -652,7 +725,7 @@
         </div>
         <div class="ko-divider" style="margin:4px 0 8px">🔥 Fase a Eliminar</div>
         <div class="md-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:12px">
-          <div class="md-tab-ko" onclick="adminMD('R32')" id="amd-R32">R32</div>
+          <div class="md-tab-ko" onclick="adminMD('R32')" id="amd-R32">16-avos</div>
           <div class="md-tab-ko" onclick="adminMD('R16')" id="amd-R16">Oitavos</div>
           <div class="md-tab-ko" onclick="adminMD('QF')" id="amd-QF">QF</div>
           <div class="md-tab-ko" onclick="adminMD('SF')" id="amd-SF">SF</div>
@@ -668,9 +741,11 @@
       </div>
       <div id="apanel-users" style="display:none">
         <div class="card">
-          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:12px">Adicionar Participante</div>
-          <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="nu-name" type="text" placeholder="Nome"></div>
-          <div class="form-group"><label class="form-label">Código de acesso</label><input class="form-input" id="nu-code" type="text" placeholder="ex: HUGO2026" style="text-transform:uppercase"></div>
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:6px">Adicionar Participante</div>
+          <div style="font-size:.74rem;color:var(--sub);margin-bottom:12px">O utilizador receberá um email e deverá usar "Esqueceste a password?" para definir o acesso.</div>
+          <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="nu-name" type="text" placeholder="Nome completo"></div>
+          <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="nu-email" type="email" placeholder="email@exemplo.com"></div>
+          <div class="form-group"><label class="form-label">Código interno <span style="color:var(--sub);font-weight:400">(ex: HUGO2026)</span></label><input class="form-input" id="nu-code" type="text" placeholder="ex: HUGO2026" style="text-transform:uppercase"></div>
           <button class="btn btn-primary btn-full" onclick="addUser()">Adicionar</button>
         </div>
         <div id="users-list"></div>
@@ -880,7 +955,7 @@ const GAMES = [
   {id:'SF_01',md:'SF',ko:true,t1:'V QF_01', t2:'V QF_02', date:'2026-07-14T23:00',venue:'TBD'},
   {id:'SF_02',md:'SF',ko:true,t1:'V QF_03', t2:'V QF_04', date:'2026-07-15T23:00',venue:'TBD'},
   // ── F3 — 3º/4º Lugar · 18 Jul ──
-  {id:'F3_01',md:'F3',ko:true,noJoker:true,t1:'D SF_01', t2:'D SF_02', date:'2026-07-18T23:00',venue:'Miami'},
+  {id:'F3_01',md:'F3',ko:true,t1:'D SF_01', t2:'D SF_02', date:'2026-07-18T23:00',venue:'Miami'},
   // ── FIN — Final · 19 Jul ──
   {id:'FIN_01',md:'FIN',ko:true,t1:'V SF_01', t2:'V SF_02', date:'2026-07-19T23:00',venue:'East Rutherford'},
 ];
@@ -977,7 +1052,7 @@ function calcDemoLB() {
   const mdPts = {};
   const players = DEMO_USERS.map(u => {
     const preds = genDemoPreds(u.code);
-    let wins=0, draws=0, ko_wins=0, ko_draws=0, jokers=0, group_pts=0, ko_pts=0;
+    let wins=0, draws=0, ko_wins=0, ko_draws=0, jokers=0, group_pts=0, ko_pts=0, joker_pts=0;
     const form = [];
     Object.entries(DEMO_RESULTS).forEach(([gid,res]) => {
       const pred = preds[gid];
@@ -985,6 +1060,11 @@ function calcDemoLB() {
       const game = GAMES.find(g=>g.id===gid);
       const isKO = game ? !!game.ko : false;
       const pts = calcPts(pred,res,isKO);
+      // joker_pts = pontos extra ganhos pelo multiplicador joker
+      if(pred.joker && pts > 0){
+        const ptsWithout = calcPts({...pred, joker:false}, res, isKO);
+        joker_pts += pts - ptsWithout;
+      }
       if(isKO) ko_pts+=pts; else group_pts+=pts;
       if(game&&game.md){
         if(!mdPts[game.md])mdPts[game.md]={};
@@ -1008,7 +1088,7 @@ function calcDemoLB() {
       total:group_pts+ko_pts,
       group_pts, ko_pts, wins, draws, ko_wins, ko_draws,
       losses:form.filter(f=>f==='d').length,
-      jokers, prebets_pts:0, form:form.slice(-5)
+      jokers, joker_pts, prebets_pts:0, form:form.slice(-5)
     };
   });
   const trophies = computeMatchdayTrophies(mdPts);
@@ -1055,6 +1135,13 @@ const S = {
 // ════════════════════════════════════════════════
 async function init() {
   if (S.demoMode) document.getElementById('demo-notice').style.display='block';
+
+  // Verificar URL params para reset de password
+  const urlParams = new URLSearchParams(window.location.search);
+  const _rtk = urlParams.get('resetToken');
+  const _rem = urlParams.get('email');
+  if (_rtk && _rem) { setTimeout(() => showResetPw(_rem, _rtk), 400); }
+
   const saved = localStorage.getItem('up26_user');
   if (saved) {
     loginReady = true; // sessão restaurada automaticamente — flag não é necessária
@@ -1082,42 +1169,155 @@ async function init() {
 // ════════════════════════════════════════════════
 async function login() {
   if (!loginReady) return;
-  const name=document.getElementById('login-name').value.trim();
-  const rawCode=document.getElementById('login-code').value.trim();
-  const code=rawCode.toUpperCase();
-  if (!name||!code){showLoginErr('Preenche o nome e o código.');return;}
-  const btn=document.getElementById('login-btn');
-  btn.textContent='A verificar...'; btn.disabled=true;
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  if (!email || !pw) { showLoginErr('Preenche o email e a password.'); return; }
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'A verificar...'; btn.disabled = true;
   try {
-    const r=await api('login',{name,code});
-    if(r.success){
-      S.user={name:r.name||name,code};
-      localStorage.setItem('up26_user',JSON.stringify(S.user));
+    const r = await api('login', {email, password: pw});
+    if (r.success) {
+      S.user = {name: r.name, code: r.code, email: r.email};
+      localStorage.setItem('up26_user', JSON.stringify(S.user));
       await loadMyLeagues();
       loadData();
       showApp();
     } else {
-      const ar=await api('adminLogin',{password:rawCode});
-      if(ar.success){
-        S.user={name,code:'_admin_'};
-        S.isAdmin=true;
-        document.getElementById('admin-pw').value=rawCode;
-        showApp();
-        showView('admin');
-        document.getElementById('admin-auth').style.display='none';
-        document.getElementById('admin-panel').style.display='block';
-        renderAdminResults();
-        loadUsers();
-      } else showLoginErr('Nome ou código inválido.');
+      showLoginErr('Email ou password incorretos.');
     }
-  } catch(e){showLoginErr('Erro de ligação.');}
-  btn.textContent='Entrar no jogo'; btn.disabled=false;
+  } catch(e) { showLoginErr('Erro de ligação.'); }
+  btn.textContent = 'Entrar no jogo'; btn.disabled = false;
 }
 function showLoginErr(m){const el=document.getElementById('login-error');el.textContent=m;el.style.display='block';}
+
+// ── Registo ──
+function showRegister() {
+  ['reg-first','reg-last','reg-email','reg-pw','reg-pw2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('reg-error').style.display='none';
+  document.getElementById('reg-success').style.display='none';
+  const btn=document.getElementById('reg-btn'); btn.disabled=false; btn.style.display=''; btn.textContent='Criar conta';
+  document.getElementById('register-overlay').classList.add('open');
+}
+function closeRegister(){ document.getElementById('register-overlay').classList.remove('open'); }
+
+async function submitRegister() {
+  const firstName = document.getElementById('reg-first').value.trim();
+  const lastName  = document.getElementById('reg-last').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const pw        = document.getElementById('reg-pw').value;
+  const pw2       = document.getElementById('reg-pw2').value;
+  const errEl=document.getElementById('reg-error'); const sucEl=document.getElementById('reg-success');
+  errEl.style.display='none'; sucEl.style.display='none';
+  if (!firstName||!lastName||!email||!pw) { errEl.textContent='Preenche todos os campos.'; errEl.style.display='block'; return; }
+  if (pw.length<6) { errEl.textContent='A password deve ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
+  if (pw!==pw2) { errEl.textContent='As passwords não coincidem.'; errEl.style.display='block'; return; }
+  const btn=document.getElementById('reg-btn'); btn.textContent='A criar...'; btn.disabled=true;
+  try {
+    const r=await api('register',{email,firstName,lastName,password:pw});
+    if (r.success) {
+      sucEl.textContent='Conta criada com sucesso! Recebeste um email de confirmação. Podes fazer login agora.';
+      sucEl.style.display='block'; btn.style.display='none';
+      setTimeout(()=>{ closeRegister(); document.getElementById('login-email').value=email; document.getElementById('login-pw').focus(); }, 2800);
+    } else {
+      errEl.textContent=r.error||'Erro ao criar conta.'; errEl.style.display='block';
+      btn.disabled=false; btn.textContent='Criar conta';
+    }
+  } catch(e) { errEl.textContent='Erro de ligação.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='Criar conta'; }
+}
+
+// ── Esqueci a password ──
+function showForgotPw() {
+  document.getElementById('forgot-email').value='';
+  document.getElementById('forgot-error').style.display='none';
+  document.getElementById('forgot-success').style.display='none';
+  const btn=document.getElementById('forgot-btn'); btn.disabled=false; btn.style.display=''; btn.textContent='Enviar link';
+  document.getElementById('forgot-overlay').classList.add('open');
+}
+function closeForgotPw(){ document.getElementById('forgot-overlay').classList.remove('open'); }
+
+async function submitForgotPw() {
+  const email=document.getElementById('forgot-email').value.trim();
+  const errEl=document.getElementById('forgot-error'); const sucEl=document.getElementById('forgot-success');
+  errEl.style.display='none'; sucEl.style.display='none';
+  if (!email){ errEl.textContent='Indica o teu email.'; errEl.style.display='block'; return; }
+  const btn=document.getElementById('forgot-btn'); btn.textContent='A enviar...'; btn.disabled=true;
+  try {
+    await api('forgotPassword',{email});
+    sucEl.textContent='Se o email estiver registado, receberás um link em breve. Verifica também a pasta de spam.';
+    sucEl.style.display='block'; btn.style.display='none';
+  } catch(e){ errEl.textContent='Erro de ligação.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='Enviar link'; }
+}
+
+// ── Alterar password ──
+function showChangePw() {
+  ['cpw-current','cpw-new','cpw-confirm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('cpw-error').style.display='none';
+  document.getElementById('cpw-success').style.display='none';
+  const btn=document.getElementById('cpw-btn'); btn.disabled=false; btn.style.display=''; btn.textContent='Alterar password';
+  document.getElementById('changepw-overlay').classList.add('open');
+}
+function closeChangePw(){ document.getElementById('changepw-overlay').classList.remove('open'); }
+
+async function submitChangePw() {
+  const current=document.getElementById('cpw-current').value;
+  const nw=document.getElementById('cpw-new').value;
+  const confirm=document.getElementById('cpw-confirm').value;
+  const errEl=document.getElementById('cpw-error'); const sucEl=document.getElementById('cpw-success');
+  errEl.style.display='none'; sucEl.style.display='none';
+  if (!current||!nw||!confirm){ errEl.textContent='Preenche todos os campos.'; errEl.style.display='block'; return; }
+  if (nw.length<6){ errEl.textContent='A nova password deve ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
+  if (nw!==confirm){ errEl.textContent='As passwords não coincidem.'; errEl.style.display='block'; return; }
+  const btn=document.getElementById('cpw-btn'); btn.textContent='A alterar...'; btn.disabled=true;
+  try {
+    const r=await api('changePassword',{code:S.user.code,currentPassword:current,newPassword:nw});
+    if (r.success){
+      sucEl.textContent='Password alterada com sucesso!'; sucEl.style.display='block'; btn.style.display='none';
+      setTimeout(closeChangePw, 2200);
+    } else {
+      errEl.textContent=r.error||'Erro ao alterar password.'; errEl.style.display='block';
+      btn.disabled=false; btn.textContent='Alterar password';
+    }
+  } catch(e){ errEl.textContent='Erro de ligação.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='Alterar password'; }
+}
+
+// ── Reset password (via link de email) ──
+let _resetEmail='', _resetToken='';
+function showResetPw(email, token) {
+  _resetEmail=email; _resetToken=token;
+  ['rpw-new','rpw-confirm'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('rpw-error').style.display='none';
+  document.getElementById('rpw-success').style.display='none';
+  const btn=document.getElementById('rpw-btn'); btn.disabled=false; btn.style.display=''; btn.textContent='Guardar password';
+  document.getElementById('resetpw-overlay').classList.add('open');
+}
+
+async function submitResetPw() {
+  const nw=document.getElementById('rpw-new').value;
+  const confirm=document.getElementById('rpw-confirm').value;
+  const errEl=document.getElementById('rpw-error'); const sucEl=document.getElementById('rpw-success');
+  errEl.style.display='none'; sucEl.style.display='none';
+  if (!nw||!confirm){ errEl.textContent='Preenche os dois campos.'; errEl.style.display='block'; return; }
+  if (nw.length<6){ errEl.textContent='A password deve ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
+  if (nw!==confirm){ errEl.textContent='As passwords não coincidem.'; errEl.style.display='block'; return; }
+  const btn=document.getElementById('rpw-btn'); btn.textContent='A guardar...'; btn.disabled=true;
+  try {
+    const r=await api('resetPassword',{email:_resetEmail,token:_resetToken,newPassword:nw});
+    if (r.success){
+      sucEl.textContent='Password definida com sucesso! Podes fazer login agora.'; sucEl.style.display='block'; btn.style.display='none';
+      history.replaceState({},'',window.location.pathname);
+      setTimeout(()=>{ document.getElementById('resetpw-overlay').classList.remove('open'); document.getElementById('login-email').value=_resetEmail; document.getElementById('login-pw').focus(); }, 2800);
+    } else {
+      errEl.textContent=r.error||'Link inválido ou expirado.'; errEl.style.display='block';
+      btn.disabled=false; btn.textContent='Guardar password';
+    }
+  } catch(e){ errEl.textContent='Erro de ligação.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='Guardar password'; }
+}
+
 function showAccountMenu(){
-  const name=S.user?S.user.name:'—';
-  document.getElementById('account-name').textContent=name;
-  document.getElementById('account-info').textContent='Liga: '+(S.curLeague?S.curLeague.name:'Global');
+  document.getElementById('account-name').textContent=S.user?S.user.name:'—';
+  const infoEl=document.getElementById('account-info');
+  const emailLine=S.user&&S.user.email?S.user.email+' · ':'';
+  infoEl.textContent=emailLine+'Liga: '+(S.curLeague?S.curLeague.name:'Global');
   document.getElementById('account-menu-overlay').classList.add('open');
 }
 function closeAccountMenu(){document.getElementById('account-menu-overlay').classList.remove('open');}
@@ -1206,7 +1406,7 @@ function renderLB() {
     if(b.total!==a.total)return b.total-a.total;
     if(b.draws!==a.draws)return b.draws-a.draws;
     if(b.wins!==a.wins)return b.wins-a.wins;
-    return b.jokers-a.jokers;
+    return (b.joker_pts||0)-(a.joker_pts||0);
   });
   const finishedGames=Object.keys(S.demoMode?DEMO_RESULTS:S.results).length;
   const trophySyms=['🥇','🥈','🥉'];
@@ -1245,13 +1445,13 @@ function renderLB() {
     html+=`</tbody></table></div>`;
   } else {
     // ── MODO DETALHADO ──
-    html+=`<div class="standings-wrap"><table class="standings-table" style="min-width:580px;table-layout:fixed">
+    html+=`<div class="standings-wrap"><table class="standings-table" style="min-width:640px;table-layout:fixed">
       <colgroup>
         <col style="width:36px">
         <col>
-        <col style="width:34px"><col style="width:34px"><col style="width:40px">
-        <col style="width:34px"><col style="width:34px"><col style="width:40px">
-        <col style="width:34px"><col style="width:44px">
+        <col style="width:32px"><col style="width:32px"><col style="width:38px">
+        <col style="width:32px"><col style="width:32px"><col style="width:38px">
+        <col style="width:32px"><col style="width:40px"><col style="width:44px">
       </colgroup>
       <thead>
         <tr>
@@ -1260,14 +1460,15 @@ function renderLB() {
           <th colspan="3" style="color:var(--green);font-size:.6rem;padding-bottom:3px;border-bottom:none">─ GRUPOS ─</th>
           <th colspan="3" style="color:#7986cb;font-size:.6rem;padding-bottom:3px;border-bottom:none">─ KO ─</th>
           <th rowspan="2" title="Pré-apostas" style="color:var(--sub);font-size:.62rem">Pré</th>
+          <th rowspan="2" title="Pontos obtidos com o Joker" style="color:#00bcd4;font-size:.62rem">🃏</th>
           <th rowspan="2" title="Total" style="color:var(--gold)">Total</th>
         </tr>
         <tr>
-          <th title="Resultados exatos (grupos)" style="color:var(--green)">V</th>
-          <th title="Vencedor certo (grupos)" style="color:#f39c12">E</th>
+          <th title="R: Acerto no resultado (grupos)" style="color:var(--green);cursor:help">R</th>
+          <th title="V/E: Acerto no vencedor / empate (grupos)" style="color:#f39c12;cursor:help">V/E</th>
           <th title="Pontos grupos" style="color:var(--green)">Pts</th>
-          <th title="Resultados exatos (KO)" style="color:#7986cb">V</th>
-          <th title="Vencedor certo (KO)" style="color:#9fa8da">E</th>
+          <th title="R: Acerto no resultado (KO)" style="color:#7986cb;cursor:help">R</th>
+          <th title="V/E: Acerto no vencedor / empate (KO)" style="color:#9fa8da;cursor:help">V/E</th>
           <th title="Pontos KO" style="color:#7986cb">Pts</th>
         </tr>
       </thead><tbody>`;
@@ -1277,20 +1478,21 @@ function renderLB() {
       html+=`<tr class="${rankClass}${me?' row-me':''}" onclick="openPlayerModal('${p.name}')">
         <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}</td>
         <td class="td-name">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
-        <td style="color:var(--green);font-weight:600">${p.wins||0}</td>
-        <td style="color:#f39c12;font-weight:600">${p.draws||0}</td>
+        <td style="color:var(--green);font-family:'Rajdhani',sans-serif;font-weight:700">${p.wins||0}</td>
+        <td style="color:#f39c12;font-family:'Rajdhani',sans-serif;font-weight:700">${p.draws||0}</td>
         <td style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--green)">${p.group_pts||0}</td>
-        <td style="color:#7986cb;font-weight:600">${p.ko_wins||0}</td>
-        <td style="color:#9fa8da;font-weight:600">${p.ko_draws||0}</td>
+        <td style="color:#7986cb;font-family:'Rajdhani',sans-serif;font-weight:700">${p.ko_wins||0}</td>
+        <td style="color:#9fa8da;font-family:'Rajdhani',sans-serif;font-weight:700">${p.ko_draws||0}</td>
         <td style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#7986cb">${p.ko_pts||0}</td>
-        <td style="color:var(--sub)">${p.prebets_pts||0}</td>
+        <td style="color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:700">${p.prebets_pts||0}</td>
+        <td style="color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700">${p.joker_pts||0}</td>
         <td class="td-pts">${p.total}</td>
       </tr>`;
     });
     html+=`</tbody></table></div>
     <div class="lb-legend" style="margin-top:8px">
-      <span class="leg-v">V = Resultado exato</span>
-      <span class="leg-e">E = Vencedor certo</span>
+      <span class="leg-v">R = Acerto no resultado</span>
+      <span class="leg-e">V/E = Acerto no vencedor / empate</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
@@ -1312,16 +1514,21 @@ function switchMD(md) {
 function renderBetsKO() {
   const games = GAMES.filter(g => g.md === S.curMD);
   const jokerEl = document.getElementById('joker-info');
-  const phaseNames = {R32:'Round of 32',R16:'Oitavos de Final',QF:'Quartos de Final',SF:'Meias-Finais',F3:'3º/4º Lugar',FIN:'Final'};
+  const phaseNames = {R32:'16-avos de Final',R16:'Oitavos de Final',QF:'Quartos de Final',SF:'Meias-Finais',F3:'3º/4º Lugar',FIN:'Final'};
   const ptitle = document.getElementById('bets-phase-title');
   if (ptitle) ptitle.textContent = phaseNames[S.curMD] || S.curMD;
 
-  if (S.curMD === 'F3') {
-    jokerEl.style.display = 'none';
+  // F3 e FIN partilham 1 joker — verificar em ambas as fases
+  const isF3FIN = (S.curMD === 'F3' || S.curMD === 'FIN');
+  const f3finGames = GAMES.filter(g => g.md === 'F3' || g.md === 'FIN');
+  if (isF3FIN) {
+    const jokerUsed = f3finGames.find(g => S.preds[g.id] && S.preds[g.id].joker);
+    jokerEl.style.display = '';
+    jokerEl.innerHTML = `<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong>${jokerUsed?'0':'1'}</strong> JOKER partilhado entre o 3º/4º Lugar e a Final — usa-o num dos dois jogos!`;
   } else {
     jokerEl.style.display = '';
     const jokerGame = games.find(g => S.preds[g.id] && S.preds[g.id].joker);
-    jokerEl.innerHTML = `🃏 Tens <strong id="joker-left">${jokerGame?'0':'1'}</strong> JOKER disponível nesta ronda — <strong>dobra os pontos</strong> obtidos no jogo onde o usas!`;
+    jokerEl.innerHTML = `<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong>${jokerGame?'0':'1'}</strong> JOKER disponível nesta ronda — <strong>dobra os pontos</strong> obtidos no jogo onde o usas!`;
   }
 
   let html = '';
@@ -1333,7 +1540,9 @@ function renderBetsKO() {
     const res = S.results[g.id] || null;
     const locked = !knownTeams || dlPassed(g.date);
     const isFinished = res && res.t1 !== undefined;
-    const jokerGameKO = games.find(gg => S.preds[gg.id] && S.preds[gg.id].joker);
+    // F3+FIN: joker partilhado — verificar em ambas as fases
+    const jokerPoolGames = isF3FIN ? f3finGames : games;
+    const jokerGameKO = jokerPoolGames.find(gg => S.preds[gg.id] && S.preds[gg.id].joker);
     const canJoker = !locked && !g.noJoker && (!jokerGameKO || jokerGameKO.id === g.id);
     const jokerOn = !!pred.joker;
     const pts = (isFinished && pred.t1 !== undefined) ? calcPts(pred, res, true) : null;
@@ -2010,8 +2219,8 @@ function openPlayerModal(playerName) {
     const pts=hasPred?calcPts(pred,res,isKO):null;
     if(pts!==null){
       total+=pts;
-      // Exact score: 3,6 (group) or 4,8 (KO)
-      const exactThreshold = isKO ? 4 : 3;
+      // Exact score: 3,6 (group) or 5,10 (KO)
+      const exactThreshold = isKO ? 5 : 3;
       const winnerThreshold = isKO ? 2 : 1;
       if(hasPred){
         const pw=pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
@@ -2034,8 +2243,8 @@ function openPlayerModal(playerName) {
   html+=`</tbody></table>
   <div style="display:flex;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL JOGOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
-    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">VITÓRIAS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">${wins}</div></div>
-    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">VENCEDOR ✓</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#f39c12">${draws}</div></div>
+    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">RESULTADOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">${wins}</div></div>
+    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">VENC/EMP ✓</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#f39c12">${draws}</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">ERROS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--red)">${finishedGames.length-wins-draws}</div></div>
   </div>`;
 
@@ -2319,7 +2528,7 @@ function renderUsers(users){
   if(!users.length)html+='<div class="alert alert-info" style="font-size:.8rem">Sem participantes ainda.</div>';
   users.forEach(u=>{
     html+=`<div class="admin-row">
-      <div style="flex:1;font-size:.82rem"><strong>${u.name}</strong> &nbsp;<span style="color:var(--gold);font-size:.76rem">${u.code}</span></div>
+      <div style="flex:1;font-size:.82rem"><strong>${u.name}</strong> &nbsp;<span style="color:var(--gold);font-size:.76rem">${u.code}</span>${u.email?`<br><span style="color:var(--sub);font-size:.72rem">${u.email}</span>`:''}</div>
       <button class="btn btn-danger" style="padding:4px 10px;font-size:.72rem" onclick="removeUser('${u.code}')">Remover</button>
     </div>`;
   });
@@ -2328,12 +2537,15 @@ function renderUsers(users){
 }
 async function addUser(){
   const name=document.getElementById('nu-name').value.trim();
+  const email=document.getElementById('nu-email').value.trim();
   const code=document.getElementById('nu-code').value.trim().toUpperCase();
-  if(!name||!code){showToast('Preenche nome e código.','error');return;}
+  if(!name||!email||!code){showToast('Preenche nome, email e código.','error');return;}
   try {
-    await api('addUser',{password:document.getElementById('admin-pw').value,name,code});
+    const r=await api('addUser',{password:document.getElementById('admin-pw').value,name,email,code});
+    if(!r.success){showToast(r.error||'Erro ao adicionar.','error');return;}
     showToast(name+' adicionado!','success');
     document.getElementById('nu-name').value='';
+    document.getElementById('nu-email').value='';
     document.getElementById('nu-code').value='';
     loadUsers();
   } catch(e){showToast('Erro ao adicionar.','error');}
@@ -2447,7 +2659,7 @@ function calcPts(pred, res, isKO=false) {
   if(res.t1===undefined||res.t2===undefined) return 0;
   const pw=pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
   const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
-  const exactBase = isKO ? 4 : 3;
+  const exactBase = isKO ? 5 : 3;
   const winnerBase = isKO ? 2 : 1;
   let pts = 0;
   if(pred.t1===res.t1&&pred.t2===res.t2) pts = exactBase;
@@ -2456,13 +2668,14 @@ function calcPts(pred, res, isKO=false) {
 }
 
 function ptsBadgeHtml(pts) {
-  if(pts===0) return `<span class="pts-badge pts-0">ERROU</span>`;
-  if(pts===1) return `<span class="pts-badge pts-1">VENCEDOR ✓ +1</span>`;
-  if(pts===2) return `<span class="pts-badge pts-2">VENCEDOR +2</span>`;
-  if(pts===3) return `<span class="pts-badge pts-3">VITÓRIA +3</span>`;
-  if(pts===4) return `<span class="pts-badge pts-4">VITÓRIA +4</span>`;
-  if(pts===6) return `<span class="pts-badge pts-6">VITÓRIA+🃏 +6</span>`;
-  if(pts===8) return `<span class="pts-badge pts-8">VITÓRIA+🃏 +8</span>`;
+  if(pts===0)  return `<span class="pts-badge pts-0">ERROU</span>`;
+  if(pts===1)  return `<span class="pts-badge pts-1">VENC/EMP ✓ +1</span>`;
+  if(pts===2)  return `<span class="pts-badge pts-2">VENC/EMP +2</span>`;
+  if(pts===3)  return `<span class="pts-badge pts-3">RESULTADO +3</span>`;
+  if(pts===4)  return `<span class="pts-badge pts-4">VENC/EMP +4</span>`;
+  if(pts===5)  return `<span class="pts-badge pts-5">RESULTADO +5</span>`;
+  if(pts===6)  return `<span class="pts-badge pts-6">RESULTADO+🃏 +6</span>`;
+  if(pts===10) return `<span class="pts-badge pts-10">RESULTADO+🃏 +10</span>`;
   return `<span class="pts-badge pts-3">+${pts}</span>`;
 }
 
@@ -2479,10 +2692,18 @@ async function api(action,data){
 
 function mockApi(action,data){
   if(action==='login'){
-    const u=DEMO_USERS.find(u=>u.code===data.code.toUpperCase());
-    if(u)return{success:true,name:u.name};
-    if(data.code.toUpperCase()==='ADMIN')return{success:true,name:data.name};
-    return{success:false};
+    // Em modo demo: aceita qualquer email com password >= 6 chars
+    if(!data.email||!data.password||data.password.length<6)return{success:false};
+    const username=(data.email.split('@')[0]||'demo').replace(/[^a-zA-Z]/g,'').toLowerCase();
+    const match=DEMO_USERS.find(u=>u.name.toLowerCase()===username||u.code.toLowerCase().startsWith(username));
+    const u=match||DEMO_USERS[0];
+    return{success:true,name:u.name,code:u.code,email:data.email};
+  }
+  if(action==='register'){
+    return{success:true,user:{name:data.firstName+' '+data.lastName,code:data.firstName.substring(0,4).toUpperCase()+'1234',email:data.email}};
+  }
+  if(action==='forgotPassword'||action==='resetPassword'||action==='changePassword'){
+    return{success:true};
   }
   if(action==='adminLogin')return{success:data.password==='admin2026'};
   if(action==='getData'){
