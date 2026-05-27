@@ -1445,22 +1445,24 @@ function renderLB() {
     html+=`</tbody></table></div>`;
   } else {
     // ── MODO DETALHADO ──
-    html+=`<div class="standings-wrap"><table class="standings-table" style="min-width:640px;table-layout:fixed">
+    html+=`<div class="standings-wrap"><table class="standings-table" style="min-width:670px;table-layout:fixed">
       <colgroup>
         <col style="width:36px">
         <col>
-        <col style="width:32px"><col style="width:32px"><col style="width:38px">
-        <col style="width:32px"><col style="width:32px"><col style="width:38px">
-        <col style="width:32px"><col style="width:40px"><col style="width:44px">
+        <col style="width:28px">
+        <col style="width:30px"><col style="width:30px"><col style="width:36px">
+        <col style="width:30px"><col style="width:30px"><col style="width:36px">
+        <col style="width:30px"><col style="width:38px"><col style="width:44px">
       </colgroup>
       <thead>
         <tr>
           <th rowspan="2">#</th>
           <th rowspan="2" class="th-name">Jogador</th>
+          <th rowspan="2" title="Jogos com resultado" style="color:var(--sub)">J</th>
           <th colspan="3" style="color:var(--green);font-size:.6rem;padding-bottom:3px;border-bottom:none">─ GRUPOS ─</th>
           <th colspan="3" style="color:#7986cb;font-size:.6rem;padding-bottom:3px;border-bottom:none">─ KO ─</th>
           <th rowspan="2" title="Pré-apostas" style="color:var(--sub);font-size:.62rem">Pré</th>
-          <th rowspan="2" title="Pontos obtidos com o Joker" style="color:#00bcd4;font-size:.62rem">🃏</th>
+          <th rowspan="2" title="Pontos obtidos com o Joker"><span class="joker-badge" style="font-size:.62rem;padding:1px 5px">J</span></th>
           <th rowspan="2" title="Total" style="color:var(--gold)">Total</th>
         </tr>
         <tr>
@@ -1478,6 +1480,7 @@ function renderLB() {
       html+=`<tr class="${rankClass}${me?' row-me':''}" onclick="openPlayerModal('${p.name}')">
         <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}</td>
         <td class="td-name">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
+        <td style="color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:700">${finishedGames}</td>
         <td style="color:var(--green);font-family:'Rajdhani',sans-serif;font-weight:700">${p.wins||0}</td>
         <td style="color:#f39c12;font-family:'Rajdhani',sans-serif;font-weight:700">${p.draws||0}</td>
         <td style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--green)">${p.group_pts||0}</td>
@@ -1493,6 +1496,8 @@ function renderLB() {
     <div class="lb-legend" style="margin-top:8px">
       <span class="leg-v">R = Acerto no resultado</span>
       <span class="leg-e">V/E = Acerto no vencedor / empate</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--sub);flex-shrink:0"></span>Pré = Pré-apostas</span>
+      <span style="display:flex;align-items:center;gap:5px"><span class="joker-badge" style="font-size:.6rem;padding:1px 4px">J</span>= Pts com Joker</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
@@ -1608,8 +1613,10 @@ function renderBets() {
 
   const games=GAMES.filter(g=>g.md===S.curMD);
   const jokerGame=games.find(g=>S.preds[g.id]&&S.preds[g.id].joker);
-  document.getElementById('joker-info').style.display='';
-  document.getElementById('joker-left').textContent=jokerGame?'0':'1';
+  // Restaurar joker-info para o formato de grupos (renderBetsKO pode ter substituído o innerHTML)
+  const jokerInfoEl=document.getElementById('joker-info');
+  jokerInfoEl.style.display='';
+  jokerInfoEl.innerHTML=`<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong id="joker-left">${jokerGame?'0':'1'}</strong> JOKER disponível nesta jornada — <strong>dobra os pontos</strong> obtidos no jogo onde o usas!`;
 
   const byDate={};
   games.forEach(g=>{
@@ -1681,7 +1688,9 @@ function setPred(id,field,val){
 function toggleJoker(id){
   const md=GAMES.find(g=>g.id===id).md;
   const wasOn=!!(S.preds[id]&&S.preds[id].joker); // guarda antes de resetar
-  GAMES.filter(g=>g.md===md).forEach(g=>{if(S.preds[g.id])S.preds[g.id].joker=false;});
+  // F3+FIN partilham 1 joker — limpar em ambas as fases
+  const clearMDs=(md==='F3'||md==='FIN')?['F3','FIN']:[md];
+  GAMES.filter(g=>clearMDs.includes(g.md)).forEach(g=>{if(S.preds[g.id])S.preds[g.id].joker=false;});
   if(!S.preds[id])S.preds[id]={};
   S.preds[id].joker=!wasOn; // toggle real: se estava ligado, desliga
   scheduleAutoSave(); renderBets();
