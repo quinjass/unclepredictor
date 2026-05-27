@@ -437,9 +437,9 @@
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
       <div class="card" style="text-align:left">
         <div class="form-group"><label class="form-label">Email</label>
-          <input class="form-input" id="login-email" type="email" name="username" placeholder="o-teu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')login()"></div>
+          <input class="form-input" id="login-email" type="email" name="username" placeholder="o-teu@email.com" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
         <div class="form-group" style="margin-bottom:6px"><label class="form-label">Password</label>
-          <input class="form-input" id="login-pw" type="password" name="password" placeholder="A tua password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+          <input class="form-input" id="login-pw" type="password" name="password" placeholder="A tua password" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
         <div style="text-align:right;margin-bottom:16px">
           <a href="#" onclick="showForgotPw();return false;" style="font-size:.74rem;color:var(--sub);text-decoration:none">Esqueceste a password?</a>
         </div>
@@ -1445,17 +1445,17 @@ function renderLB() {
     html+=`</tbody></table></div>`;
   } else {
     // ── MODO DETALHADO ──
-    // padding compacto para caber sem scroll horizontal
-    const thS='padding:6px 4px';
-    const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 4px';
+    // % explícitas a somar 100% — sem scroll horizontal, sem col auto
+    const thS='padding:5px 3px;font-size:.62rem';
+    const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 3px;text-align:center';
     html+=`<div class="standings-wrap"><table class="standings-table" style="table-layout:fixed;width:100%">
       <colgroup>
-        <col style="width:28px">
-        <col>
-        <col style="width:20px">
-        <col style="width:22px"><col style="width:24px"><col style="width:28px">
-        <col style="width:22px"><col style="width:24px"><col style="width:28px">
-        <col style="width:22px"><col style="width:24px"><col style="width:34px">
+        <col style="width:5%">
+        <col style="width:24%">
+        <col style="width:5%">
+        <col style="width:6%"><col style="width:7%"><col style="width:7%">
+        <col style="width:6%"><col style="width:7%"><col style="width:7%">
+        <col style="width:7%"><col style="width:6%"><col style="width:8%">
       </colgroup>
       <thead>
         <tr>
@@ -1481,8 +1481,8 @@ function renderLB() {
       const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
       html+=`<tr class="${rankClass}${me?' row-me':''}" onclick="openPlayerModal('${p.name}')">
-        <td class="td-pos" style="padding-left:8px;padding-right:0;width:28px">${rank<=3?posSyms[rank-1]:rank}</td>
-        <td class="td-name" style="padding:9px 4px 9px 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
+        <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}</td>
+        <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
         <td style="${tdN};color:var(--sub)">${finishedGames}</td>
         <td style="${tdN};color:var(--green)">${p.wins||0}</td>
         <td style="${tdN};color:#f39c12">${p.draws||0}</td>
@@ -1496,11 +1496,11 @@ function renderLB() {
       </tr>`;
     });
     html+=`</tbody></table></div>
-    <div class="lb-legend" style="margin-top:8px;flex-wrap:nowrap;font-size:.67rem;gap:10px;overflow-x:auto">
+    <div class="lb-legend" style="margin-top:8px;flex-wrap:nowrap;font-size:.67rem;gap:12px">
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
-      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700">J = Pts Joker</span>
+      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Pts Joker</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
