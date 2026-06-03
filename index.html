@@ -110,7 +110,10 @@
     .game-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;transition:border-color .2s,background .2s}
     .game-card.finished{cursor:pointer}.game-card.finished:hover{border-color:var(--gold)}
     .game-card.locked{opacity:.65}
-    .game-card.card-saved{background:rgba(39,174,96,.07);border-color:rgba(39,174,96,.35)}
+    .game-card.card-saved{background:rgba(180,180,180,.07);border-color:rgba(180,180,180,.3)}
+    .game-card.card-result{background:rgba(39,174,96,.07);border-color:rgba(39,174,96,.35)}
+    .game-card.card-winner{background:rgba(245,197,24,.07);border-color:rgba(245,197,24,.35)}
+    .game-card.card-miss{background:rgba(231,76,60,.07);border-color:rgba(231,76,60,.3)}
     .card-save-btn{width:100%;margin-top:8px;padding:6px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;letter-spacing:.3px}
     .card-save-btn:hover{opacity:.85}
     .card-clear-btn{width:100%;margin-top:8px;padding:5px;background:transparent;color:rgba(39,174,96,.8);border:1px solid rgba(39,174,96,.4);border-radius:6px;font-size:.72rem;cursor:pointer}
@@ -1690,7 +1693,20 @@ function renderBets() {
       if(pts!==null){ ptsHtml=` ${ptsBadgeHtml(pts)}`; }
       const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':'<span class="dl-pass">🔒 Fechado</span>');
 
-      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}${isSaved?' card-saved':''}" data-game-id="${g.id}" ${isFinished?`onclick="openGameModal('${g.id}')"`:''}>
+      // Classe de cor do cartão
+      let colorClass='';
+      if(isFinished&&pts!==null){
+        const isKOg=!!g.ko;
+        const exactPts=isKOg?5:3;
+        const winPts=isKOg?2:1;
+        if(pts>=exactPts) colorClass='card-result';       // acerto no resultado → verde
+        else if(pts>=winPts) colorClass='card-winner';    // acerto no vencedor/empate → amarelo
+        else colorClass='card-miss';                       // erro → vermelho
+      } else if(isSaved){
+        colorClass='card-saved';                           // guardado sem resultado → cinza
+      }
+
+      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${isFinished?`onclick="openGameModal('${g.id}')"`:''}>
         <div class="game-meta">
           <span><span class="grp-badge">Gr.${g.g}</span>${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})} · ${g.venue}</span>
           <span>${dlWarn}${ptsHtml}</span>
