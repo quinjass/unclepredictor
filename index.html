@@ -106,9 +106,15 @@
     .md-tab.active{background:rgba(245,197,24,.12);border-color:var(--gold);color:var(--gold)}
 
     /* ── GAME CARDS ── */
-    .game-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;transition:border-color .2s}
+    .bets-day-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-bottom:4px}
+    .game-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;transition:border-color .2s,background .2s}
     .game-card.finished{cursor:pointer}.game-card.finished:hover{border-color:var(--gold)}
     .game-card.locked{opacity:.65}
+    .game-card.card-saved{background:rgba(39,174,96,.07);border-color:rgba(39,174,96,.35)}
+    .card-save-btn{width:100%;margin-top:8px;padding:6px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;letter-spacing:.3px}
+    .card-save-btn:hover{opacity:.85}
+    .card-clear-btn{width:100%;margin-top:8px;padding:5px;background:transparent;color:rgba(39,174,96,.8);border:1px solid rgba(39,174,96,.4);border-radius:6px;font-size:.72rem;cursor:pointer}
+    .card-clear-btn:hover{border-color:rgba(39,174,96,.7);color:rgba(39,174,96,1)}
     .game-meta{font-size:.69rem;color:var(--sub);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
     .game-teams{display:flex;align-items:center;gap:8px}
     .team-name{flex:1;font-weight:600;font-size:.87rem;line-height:1.2}
@@ -434,6 +440,37 @@
   <div class="view active" id="view-login">
     <div class="login-box">
       <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img">
+      <div style="text-align:center;margin:0 0 18px">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:1.55rem;font-weight:700;color:var(--gold);letter-spacing:.5px;line-height:1.2">MUNDIAL 2026</div>
+        <div style="color:var(--sub);font-size:.82rem;margin:6px 0 10px">Faz as tuas previsões, ganha pontos, lidera a classificação.</div>
+        <div style="display:flex;justify-content:center;gap:18px;margin-bottom:12px">
+          <div style="text-align:center">
+            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold)">+3</div>
+            <div style="font-size:.68rem;color:var(--sub)">Resultado exato</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold)">+1</div>
+            <div style="font-size:.68rem;color:var(--sub)">Vencedor/empate</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold)">×2</div>
+            <div style="font-size:.68rem;color:var(--sub)">Joker</div>
+          </div>
+        </div>
+        <button class="btn btn-outline" style="font-size:.74rem;padding:5px 14px" onclick="document.getElementById('login-rules-panel').style.display=document.getElementById('login-rules-panel').style.display==='none'?'block':'none'">Ver Regras</button>
+        <div id="login-rules-panel" style="display:none;text-align:left;margin-top:10px;font-size:.75rem;color:var(--sub);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;line-height:1.7">
+          <div style="font-family:'Rajdhani',sans-serif;color:var(--gold);font-weight:700;margin-bottom:6px">COMO FUNCIONA</div>
+          Prevê o resultado de cada jogo do Mundial. Ganha pontos consoante a precisão da tua aposta. No final, quem tiver mais pontos ganha!<br><br>
+          <strong style="color:var(--text)">Fase de Grupos</strong><br>
+          +3 pts — Resultado exato (ex: 2-1) &nbsp;|&nbsp; +1 pt — Acerto no vencedor/empate<br><br>
+          <strong style="color:var(--text)">Fase de Eliminatórias</strong><br>
+          +5 pts — Resultado exato &nbsp;|&nbsp; +2 pts — Acerto no vencedor<br><br>
+          <strong style="color:var(--text)">Joker</strong><br>
+          Usa 1 Joker por jornada para duplicar os pontos desse jogo.<br><br>
+          <strong style="color:var(--text)">Ligas</strong><br>
+          Joga contra amigos em ligas privadas com código de convite.
+        </div>
+      </div>
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
       <div class="card" style="text-align:left">
         <div class="form-group"><label class="form-label">Email</label>
@@ -1122,7 +1159,7 @@ const S = {
   user:null, isAdmin:false, curView:'login',
   curMD:1, adminMD:1, mundialGrp:'A',
   preds:{}, prebets:{}, results:{}, lb:[],
-  participants:[], deadlineH:2, pending:false,
+  participants:[], deadlineH:2, pending:false, savedCards:{},
   demoMode: SCRIPT_URL==='COLE_AQUI_O_URL_DO_APPS_SCRIPT',
   leagues:[], curLeague:null,
   lbDetailed:false,
@@ -1148,6 +1185,8 @@ async function init() {
     S.user = JSON.parse(saved);
     const sp = localStorage.getItem('up26_preds_'+S.user.code);
     if (sp) S.preds = JSON.parse(sp);
+    const sc = localStorage.getItem('up26_saved_'+S.user.code);
+    if (sc) S.savedCards = JSON.parse(sc);
     const sb = localStorage.getItem('up26_prebets_'+S.user.code);
     if (sb) S.prebets = JSON.parse(sb);
     // Restore last-used league
@@ -1630,7 +1669,7 @@ function renderBets() {
 
   let html='';
   Object.entries(byDate).forEach(([ds,dg])=>{
-    html+=`<div class="date-sep">${ds}</div>`;
+    html+=`<div class="date-sep">${ds}</div><div class="bets-day-grid">`;
     dg.forEach(g=>{
       const pred=S.preds[g.id]||{};
       const res=S.results[g.id]||(S.demoMode?DEMO_RESULTS[g.id]:null);
@@ -1642,12 +1681,14 @@ function renderBets() {
       const jokerOn=!!pred.joker;
       const canJoker=!locked&&(!jokerGame||jokerGame.id===g.id);
       const isFinished=res&&res.t1!==undefined;
+      const isSaved=!!S.savedCards[g.id];
+      const hasPred=pred.t1!==undefined&&pred.t2!==undefined;
 
       let ptsHtml='';
       if(pts!==null){ ptsHtml=` ${ptsBadgeHtml(pts)}`; }
       const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':'<span class="dl-pass">🔒 Fechado</span>');
 
-      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}" ${isFinished?`onclick="openGameModal('${g.id}')"`:''}>
+      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}${isSaved?' card-saved':''}" data-game-id="${g.id}" ${isFinished?`onclick="openGameModal('${g.id}')"`:''}>
         <div class="game-meta">
           <span><span class="grp-badge">Gr.${g.g}</span>${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})} · ${g.venue}</span>
           <span>${dlWarn}${ptsHtml}</span>
@@ -1673,12 +1714,16 @@ function renderBets() {
                 :`<span style="font-size:.72rem;color:var(--sub)">—</span>`}
               <span class="bet-inline-hint">👆 ver todos</span>
             </div>`
-          :(!locked?`<button class="joker-btn ${jokerOn?'active':''}" onclick="toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
-              <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
-            </button>`:jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:'')
+          :(!locked?`<button class="joker-btn ${jokerOn?'active':''}" onclick="event.stopPropagation();toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
+              <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER'}
+            </button>
+            <button class="card-save-btn" style="${(hasPred&&!isSaved)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
+            <button class="card-clear-btn" style="${isSaved?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
+            `:jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:'')
         }
       </div>`;
     });
+    html+=`</div>`;
   });
   document.getElementById('bets-content').innerHTML=html;
 }
@@ -1686,7 +1731,20 @@ function renderBets() {
 function setPred(id,field,val){
   if(!S.preds[id])S.preds[id]={};
   S.preds[id][field]=val===''?undefined:parseInt(val);
+  // Se o user edita após guardar, o cartão volta a não-guardado
+  delete S.savedCards[id];
   scheduleAutoSave();
+  // Atualizar visual do cartão sem re-renderizar tudo
+  const card=document.querySelector(`[data-game-id="${id}"]`);
+  if(card){
+    card.classList.remove('card-saved');
+    const p=S.preds[id]||{};
+    const hasPred=p.t1!==undefined&&p.t2!==undefined;
+    const saveBtn=card.querySelector('.card-save-btn');
+    const clearBtn=card.querySelector('.card-clear-btn');
+    if(saveBtn)saveBtn.style.display=hasPred?'':'none';
+    if(clearBtn)clearBtn.style.display='none';
+  }
 }
 function toggleJoker(id){
   const md=GAMES.find(g=>g.id===id).md;
@@ -1699,6 +1757,37 @@ function toggleJoker(id){
   scheduleAutoSave(); renderBets();
 }
 
+async function saveCard(id){
+  const card=document.querySelector(`[data-game-id="${id}"]`);
+  const btn=card?card.querySelector('.card-save-btn'):null;
+  if(btn){btn.disabled=true;btn.textContent='A guardar...';}
+  try{
+    await api('savePreds',{code:S.user.code,preds:S.preds});
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    S.savedCards[id]=true;
+    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    S.pending=false;
+    if(card){
+      card.classList.add('card-saved');
+      if(btn){btn.style.display='none';}
+      const clearBtn=card.querySelector('.card-clear-btn');
+      if(clearBtn)clearBtn.style.display='';
+    }
+    showSaveSuccess();
+  }catch(e){
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro — guardado offline','error');
+    if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
+  }
+}
+function clearCard(id){
+  if(S.preds[id]){S.preds[id].t1=undefined;S.preds[id].t2=undefined;S.preds[id].joker=false;}
+  delete S.savedCards[id];
+  localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+  S.pending=true;
+  updateUnsavedBadge();
+  renderBets();
+}
 function scheduleAutoSave(){
   S.pending=true;
   updateUnsavedBadge();
