@@ -441,7 +441,6 @@
     <div class="login-box">
       <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img">
       <div style="text-align:center;margin:0 0 18px">
-        <div style="font-family:'Rajdhani',sans-serif;font-size:1.55rem;font-weight:700;color:var(--gold);letter-spacing:.5px;line-height:1.2">MUNDIAL 2026</div>
         <div style="color:var(--sub);font-size:.82rem;margin:6px 0 10px">Faz as tuas previsões, ganha pontos, lidera a classificação.</div>
         <div style="display:flex;justify-content:center;gap:18px;margin-bottom:12px">
           <div style="text-align:center">
@@ -548,7 +547,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <span id="unsaved-badge" style="display:none" class="autosave-pill unsaved-pill">⚠ Não guardado</span>
-        <button id="save-bets-btn" class="btn btn-primary" style="font-size:.78rem;padding:6px 14px" onclick="saveBets()">💾 Guardar</button>
+        <button id="save-bets-btn" class="btn btn-primary" style="font-size:.78rem;padding:6px 14px" onclick="saveAllCards()">💾 Guardar todos</button>
       </div>
     </div>
     <div id="bets-content"><div class="loading-center"><div class="spinner"></div></div></div>
@@ -1198,8 +1197,11 @@ async function init() {
     }
     showApp(); loadData();
   } else {
-    // Sem sessão guardada — atrasar activação do login para evitar submit automático do browser
-    setTimeout(() => { loginReady = true; }, 600);
+    // Sem sessão guardada — só permitir login após interação real do utilizador
+    // (evita submit automático do browser via autocomplete)
+    const enableLogin = () => { loginReady = true; };
+    document.addEventListener('pointerdown', enableLogin, { once: true });
+    document.addEventListener('keydown', enableLogin, { once: true });
   }
 }
 
@@ -1816,7 +1818,30 @@ async function saveBets(){
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro — guardado offline','error');
   }
-  if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
+  if(btn){btn.disabled=false;btn.textContent='💾 Guardar todos';}
+}
+async function saveAllCards(){
+  const btn=document.getElementById('save-bets-btn');
+  if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
+  try {
+    await api('savePreds',{code:S.user.code,preds:S.preds});
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    // Marcar todos os cartões com pred preenchida como guardados
+    const isKO=typeof S.curMD==='string';
+    const games=GAMES.filter(g=>isKO?typeof g.md==='string'&&g.md===S.curMD:g.md===S.curMD);
+    games.forEach(g=>{
+      const p=S.preds[g.id]||{};
+      if(p.t1!==undefined&&p.t2!==undefined) S.savedCards[g.id]=true;
+    });
+    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    S.pending=false;
+    showSaveSuccess();
+    renderBets();
+  } catch(e){
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro — guardado offline','error');
+  }
+  if(btn){btn.disabled=false;btn.textContent='💾 Guardar todos';}
 }
 
 // ════════════════════════════════════════════════
