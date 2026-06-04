@@ -1262,6 +1262,8 @@ async function login() {
     if (r.success) {
       S.user = {name: r.name, code: r.code, email: r.email};
       localStorage.setItem('up26_user', JSON.stringify(S.user));
+      const sc = localStorage.getItem('up26_saved_'+S.user.code);
+      if (sc) S.savedCards = JSON.parse(sc); else S.savedCards = {};
       await loadMyLeagues();
       loadData();
       showApp();
