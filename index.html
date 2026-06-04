@@ -297,8 +297,15 @@
     /* ── LEAGUE CARD ── */
     .league-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:8px;cursor:pointer;transition:border-color .2s;width:100%}
     .league-card:hover{border-color:var(--gold)}
+    .league-card.member{background:rgba(39,174,96,.07);border-color:rgba(39,174,96,.35)}
+    .league-card.member:hover{border-color:rgba(39,174,96,.6)}
+    .league-card.nonmember{cursor:default}
+    .league-card.nonmember:hover{border-color:rgba(99,102,241,.4)}
     .league-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
     .league-card-title{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold)}
+    .league-search{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-size:.85rem;outline:none;margin-bottom:12px}
+    .league-search:focus{border-color:var(--gold)}
+    .league-section-title{font-family:'Rajdhani',sans-serif;font-size:.8rem;font-weight:700;color:var(--sub);letter-spacing:.8px;text-transform:uppercase;margin:14px 0 8px}
     /* ── LIGAS MODAL ── */
     .switcher-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:450;align-items:flex-end;justify-content:center}
     .switcher-overlay.open{display:flex}
@@ -512,20 +519,26 @@
 
   <!-- ═══════════════ LIGA PICKER (pós-login) ═══════════════ -->
   <div class="view" id="view-league-picker">
-    <div style="max-width:360px;margin:20px auto;text-align:center">
-      <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img-md" style="margin-bottom:6px">
-      <div style="font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;color:var(--gold)">AS TUAS LIGAS</div>
-      <div style="color:var(--sub);font-size:.82rem;margin:8px 0 22px">Escolhe a liga ou vê a classificação geral</div>
-      <div id="league-picker-list" style="width:100%;margin-bottom:12px"></div>
-      <div class="card" style="text-align:left;margin-bottom:10px;padding:14px">
-        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.92rem;margin-bottom:10px">Entrar com código de convite</div>
-        <div class="form-group" style="margin-bottom:8px">
-          <input class="form-input" id="join-invite-main" type="text" placeholder="ex: FAM26" autocomplete="off" style="text-transform:uppercase" onkeydown="if(event.key==='Enter')joinLeagueFromPicker()">
-        </div>
-        <div id="join-invite-err" style="display:none" class="alert alert-error" style="font-size:.78rem"></div>
-        <button class="btn btn-outline btn-full" onclick="joinLeagueFromPicker()">Entrar numa Liga</button>
+    <div style="max-width:420px;margin:0 auto;padding:16px">
+      <!-- Cabeçalho com botão voltar -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <button class="btn btn-outline" style="padding:6px 12px;font-size:.78rem" onclick="showView('leaderboard')">← Classificação</button>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">LIGAS</div>
       </div>
-      <button class="btn btn-primary btn-full" onclick="enterLeague(null)">🌍 Continuar sem liga — ver todos</button>
+
+      <!-- Entrar com código de convite -->
+      <div class="card" style="padding:14px;margin-bottom:16px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:8px">🔑 Entrar com código de convite</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="join-invite-main" type="text" placeholder="ex: FAM26" autocomplete="off" style="text-transform:uppercase;flex:1" onkeydown="if(event.key==='Enter')joinLeagueFromPicker()">
+          <button class="btn btn-primary" style="font-size:.78rem;padding:6px 12px;white-space:nowrap" onclick="joinLeagueFromPicker()">Entrar</button>
+        </div>
+        <div id="join-invite-err" style="display:none;margin-top:6px" class="alert alert-error"></div>
+      </div>
+
+      <!-- Pesquisa + lista de ligas -->
+      <input class="league-search" id="league-search-input" type="text" placeholder="🔍 Pesquisar liga pelo nome..." oninput="filterLeaguePicker(this.value)">
+      <div id="league-picker-list"></div>
     </div>
   </div>
 
@@ -808,6 +821,13 @@
         <div id="users-list"></div>
       </div>
       <div id="apanel-leagues" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem">Pedidos de Acesso</div>
+            <button class="btn btn-outline" style="font-size:.72rem;padding:4px 10px" onclick="loadJoinRequests()">↻ Atualizar</button>
+          </div>
+          <div id="admin-join-requests"><div style="font-size:.8rem;color:var(--sub)">Clica em "Atualizar" para ver pedidos pendentes.</div></div>
+        </div>
         <div class="card">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:12px">Criar Nova Liga</div>
           <div class="form-group"><label class="form-label">Nome da liga</label><input class="form-input" id="nl-name" type="text" placeholder="ex: Amigos do Hugo"></div>
@@ -1180,6 +1200,7 @@ const S = {
   curMD:1, adminMD:1, mundialGrp:'A',
   preds:{}, prebets:{}, results:{}, lb:[],
   participants:[], deadlineH:2, pending:false, savedCards:{},
+  allLeagues:[],
   demoMode: SCRIPT_URL==='COLE_AQUI_O_URL_DO_APPS_SCRIPT',
   leagues:[], curLeague:null,
   lbDetailed:false,
@@ -1411,6 +1432,9 @@ function showLeaguePicker() {
   document.getElementById('view-league-picker').classList.add('active');
   document.getElementById('header').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
+  S.allLeagues = []; // forçar reload
+  const searchEl = document.getElementById('league-search-input');
+  if (searchEl) searchEl.value = '';
   renderLeaguePicker();
 }
 
@@ -1425,6 +1449,9 @@ function showView(v) {
     S.prebetPending=false;
     updateUnsavedPrebetBadge();
   }
+  // Restaurar header/nav se estávamos na league-picker
+  document.getElementById('header').style.display='';
+  document.getElementById('bottom-nav').style.display='';
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
@@ -2608,7 +2635,7 @@ function adminTab(t){
     document.getElementById('atab-'+x).classList.toggle('atab-active',x===t);
   });
   if(t==='users')loadUsers();
-  if(t==='leagues')loadAdminLeagues();
+  if(t==='leagues'){loadAdminLeagues();loadJoinRequests();}
   if(t==='specials')initSpecialsSelects();
 }
 function adminMD(md){
@@ -2940,23 +2967,64 @@ async function loadMyLeagues() {
   } catch(e) { S.leagues = []; }
 }
 
-function renderLeaguePicker() {
+async function renderLeaguePicker(filter) {
   const el = document.getElementById('league-picker-list');
   if (!el) return;
-  if (!S.leagues.length) {
-    el.innerHTML = '<div class="alert alert-info" style="font-size:.8rem;margin-bottom:8px">Ainda não fazes parte de nenhuma liga.<br>Entra com um código de convite ou continua sem liga.</div>';
-    return;
+
+  // Carregar todas as ligas se ainda não estiver carregado
+  if (!S.allLeagues.length) {
+    el.innerHTML = '<div class="loading-center"><div class="spinner"></div></div>';
+    try {
+      const r = await api('getAllLeagues', {code: S.user.code});
+      S.allLeagues = r.leagues || [];
+    } catch(e) { S.allLeagues = []; }
   }
+
+  const q = (filter || '').toLowerCase().trim();
+  const all = q ? S.allLeagues.filter(l => l.name.toLowerCase().includes(q)) : S.allLeagues;
+  const myLeagues = all.filter(l => l.isMember);
+  const otherLeagues = all.filter(l => !l.isMember);
+
   let html = '';
-  S.leagues.forEach(l => {
-    html += `<button class="league-card" onclick="enterLeague('${l.id}')">
-      <div class="league-card-header">
-        <div class="league-card-title">🏆 ${l.name}</div>
-        <div style="font-size:.72rem;color:var(--sub)">${l.members.length} jogadores ▶</div>
-      </div>
-      <div style="font-size:.72rem;color:var(--sub)">Código convite: <strong>${l.invite}</strong></div>
-    </button>`;
-  });
+
+  if (myLeagues.length) {
+    html += `<div class="league-section-title">As minhas ligas</div>`;
+    myLeagues.forEach(l => {
+      html += `<button class="league-card member" onclick="enterLeague('${l.id}')">
+        <div class="league-card-header">
+          <div class="league-card-title">🏆 ${l.name}</div>
+          <div style="font-size:.72rem;color:rgba(39,174,96,.8)">${l.memberCount} jogadores · ✓ Membro ▶</div>
+        </div>
+      </button>`;
+    });
+  }
+
+  if (otherLeagues.length) {
+    html += `<div class="league-section-title">Outras ligas</div>`;
+    otherLeagues.forEach(l => {
+      const isPending = l.requestStatus === 'pending';
+      const isRejected = l.requestStatus === 'rejected';
+      html += `<div class="league-card nonmember" id="lcard-${l.id}">
+        <div class="league-card-header">
+          <div class="league-card-title" style="color:rgba(99,102,241,.9)">🔒 ${l.name}</div>
+          <div style="font-size:.72rem;color:var(--sub)">${l.memberCount} jogadores</div>
+        </div>
+        <div style="margin-top:8px">
+          ${isPending
+            ? `<div style="font-size:.74rem;color:var(--gold);padding:5px 0">⏳ Pedido enviado — aguarda aprovação</div>`
+            : isRejected
+              ? `<div style="font-size:.74rem;color:var(--red);padding:5px 0">✕ Pedido rejeitado</div>`
+              : `<button class="btn btn-outline btn-full" style="font-size:.76rem;border-color:rgba(99,102,241,.5);color:rgba(99,102,241,.9)" onclick="requestJoinLeague('${l.id}',this)">Pedir para entrar</button>`
+          }
+        </div>
+      </div>`;
+    });
+  }
+
+  if (!all.length) {
+    html = '<div class="alert alert-info" style="font-size:.8rem">Nenhuma liga encontrada.</div>';
+  }
+
   el.innerHTML = html;
 }
 
@@ -3031,6 +3099,34 @@ function showJoinLeagueModal() {
   showLeagueSwitcher();
 }
 
+function filterLeaguePicker(val) {
+  renderLeaguePicker(val);
+}
+
+async function requestJoinLeague(leagueId, btn) {
+  if (btn) { btn.disabled=true; btn.textContent='A enviar...'; }
+  try {
+    const r = await api('requestJoin', {code: S.user.code, league_id: leagueId});
+    if (r.success) {
+      // Atualizar estado local
+      const l = S.allLeagues.find(x => x.id === leagueId);
+      if (l) l.requestStatus = 'pending';
+      const card = document.getElementById('lcard-'+leagueId);
+      if (card) {
+        const btnArea = card.querySelector('div:last-child');
+        if (btnArea) btnArea.innerHTML = '<div style="font-size:.74rem;color:var(--gold);padding:5px 0">⏳ Pedido enviado — aguarda aprovação</div>';
+      }
+      showToast('Pedido enviado!','success');
+    } else {
+      if (btn) { btn.disabled=false; btn.textContent='Pedir para entrar'; }
+      showToast(r.error||'Erro ao enviar pedido','error');
+    }
+  } catch(e) {
+    if (btn) { btn.disabled=false; btn.textContent='Pedir para entrar'; }
+    showToast('Erro de ligação','error');
+  }
+}
+
 async function joinLeagueFromPicker() {
   const inv = document.getElementById('join-invite-main').value.trim().toUpperCase();
   const errEl = document.getElementById('join-invite-err');
@@ -3041,6 +3137,7 @@ async function joinLeagueFromPicker() {
     if (r.success) {
       await loadMyLeagues();
       document.getElementById('join-invite-main').value='';
+      S.allLeagues = []; // forçar reload da lista completa
       renderLeaguePicker();
       showToast('Entraste na liga '+r.league.name+'!','success');
     } else {
@@ -3088,6 +3185,57 @@ async function loadAdminLeagues() {
     const r = await api('getLeagues', {password: document.getElementById('admin-pw').value});
     renderAdminLeagues(r.leagues||[]);
   } catch(e){ }
+}
+
+async function loadJoinRequests() {
+  const el = document.getElementById('admin-join-requests');
+  el.innerHTML = '<div class="loading-center" style="padding:10px"><div class="spinner"></div></div>';
+  try {
+    const r = await api('getJoinRequests', {password: document.getElementById('admin-pw').value});
+    renderJoinRequests(r.requests||[]);
+  } catch(e){ el.innerHTML='<div class="alert alert-error" style="font-size:.78rem">Erro ao carregar pedidos.</div>'; }
+}
+
+function renderJoinRequests(requests) {
+  const el = document.getElementById('admin-join-requests');
+  if (!requests.length) {
+    el.innerHTML = '<div style="font-size:.8rem;color:var(--sub)">Sem pedidos pendentes.</div>';
+    return;
+  }
+  let html = '';
+  requests.forEach(r => {
+    html += `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div>
+          <div style="font-weight:600;font-size:.85rem">${r.user_name} <span style="color:var(--sub);font-size:.72rem">(${r.user_code})</span></div>
+          <div style="font-size:.75rem;color:var(--sub)">Liga: <strong style="color:var(--text)">${r.league_name}</strong></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="font-size:.74rem;padding:5px 12px;flex:1" onclick="adminApproveRequest('${r.league_id}','${r.user_code}',this)">✓ Aprovar</button>
+        <button class="btn btn-danger" style="font-size:.74rem;padding:5px 12px;flex:1" onclick="adminRejectRequest('${r.league_id}','${r.user_code}',this)">✕ Rejeitar</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+async function adminApproveRequest(leagueId, userCode, btn) {
+  btn.disabled=true; btn.textContent='...';
+  try {
+    await api('approveRequest', {password: document.getElementById('admin-pw').value, league_id: leagueId, user_code: userCode});
+    showToast(`${userCode} aprovado!`,'success');
+    loadJoinRequests(); loadAdminLeagues();
+  } catch(e){ showToast('Erro.','error'); btn.disabled=false; btn.textContent='✓ Aprovar'; }
+}
+
+async function adminRejectRequest(leagueId, userCode, btn) {
+  btn.disabled=true; btn.textContent='...';
+  try {
+    await api('rejectRequest', {password: document.getElementById('admin-pw').value, league_id: leagueId, user_code: userCode});
+    showToast(`Pedido de ${userCode} rejeitado.`,'success');
+    loadJoinRequests();
+  } catch(e){ showToast('Erro.','error'); btn.disabled=false; btn.textContent='✕ Rejeitar'; }
 }
 
 function renderAdminLeagues(leagues) {
