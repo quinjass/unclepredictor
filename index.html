@@ -52,7 +52,7 @@
 
     /* ── STANDINGS TABLE (UEFA style) ── */
     .standings-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);background:var(--card)}
-    .standings-table{width:100%;border-collapse:collapse;min-width:420px}
+    .standings-table{width:100%;border-collapse:collapse;min-width:0}
     .standings-table thead tr{background:var(--bg2)}
     .standings-table th{padding:10px 8px;font-size:.68rem;color:var(--sub);font-weight:600;text-align:center;border-bottom:2px solid var(--border);white-space:nowrap;letter-spacing:.3px;text-transform:uppercase}
     .standings-table th.th-name{text-align:left;padding-left:14px;min-width:110px}
@@ -167,6 +167,11 @@
 
     /* ── REGRAS ── */
     .rules-subtitle{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:12px}
+    /* ── LOGIN RULES COMPACT ── */
+    #login-rules-panel .card{margin-bottom:8px;padding:10px}
+    #login-rules-panel .scoring-pts{font-size:1.4rem}
+    #login-rules-panel .scoring-cell{padding:7px 10px}
+    #login-rules-panel .rules-subtitle{margin-bottom:8px;font-size:.9rem}
     .score-rule{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:6px}
     .score-rule-pts{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;min-width:40px;text-align:center}
     .score-rule-label{font-size:.83rem}
@@ -485,17 +490,141 @@
           </div>
         </div>
         <button class="btn btn-outline" style="font-size:.74rem;padding:5px 14px" onclick="document.getElementById('login-rules-panel').style.display=document.getElementById('login-rules-panel').style.display==='none'?'block':'none'">Ver Regras</button>
-        <div id="login-rules-panel" style="display:none;text-align:left;margin-top:10px;font-size:.75rem;color:var(--sub);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;line-height:1.7">
-          <div style="font-family:'Rajdhani',sans-serif;color:var(--gold);font-weight:700;margin-bottom:6px">COMO FUNCIONA</div>
-          Prevê o resultado de cada jogo do Mundial. Ganha pontos consoante a precisão da tua aposta. No final, quem tiver mais pontos ganha!<br><br>
-          <strong style="color:var(--text)">Fase de Grupos</strong><br>
-          +3 pts — Resultado exato (ex: 2-1) &nbsp;|&nbsp; +1 pt — Acerto no vencedor/empate<br><br>
-          <strong style="color:var(--text)">Fase de Eliminatórias</strong><br>
-          +5 pts — Resultado exato &nbsp;|&nbsp; +2 pts — Acerto no vencedor<br><br>
-          <strong style="color:var(--text)">Joker</strong><br>
-          Usa 1 Joker por jornada para duplicar os pontos desse jogo.<br><br>
-          <strong style="color:var(--text)">Ligas</strong><br>
-          Joga contra amigos em ligas privadas com código de convite.
+        <div id="login-rules-panel" style="display:none;text-align:left;margin-top:10px">
+
+          <div class="card">
+            <div class="rules-subtitle">⚽ Fase de Grupos</div>
+            <div class="scoring-grid">
+              <div class="scoring-cell sc-win">
+                <div class="scoring-pts">3</div>
+                <div class="scoring-label">✅ Acerto no resultado</div>
+                <div class="scoring-sub">Resultado exato<br>ex: apostaste 2-1, saiu 2-1</div>
+              </div>
+              <div class="scoring-cell sc-draw">
+                <div class="scoring-pts">1</div>
+                <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
+                <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
+              </div>
+              <div class="scoring-cell sc-loss" style="grid-column:1/-1">
+                <div class="scoring-pts">0</div>
+                <div class="scoring-label">❌ Erro</div>
+                <div class="scoring-sub">Não acertaste no vencedor nem no empate</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="rules-subtitle">🔥 Fase a Eliminar</div>
+            <div style="font-size:.75rem;color:var(--sub);margin-bottom:8px;line-height:1.7">
+              <div>⏱ <strong style="color:var(--text)">90 min:</strong> conta o resultado ao fim do tempo regulamentar</div>
+              <div>⏱⏱ <strong style="color:var(--text)">Prolongamento:</strong> conta ao fim dos 120 min</div>
+              <div>🥅 <strong style="color:var(--text)">Penáltis:</strong> conta como <strong style="color:var(--gold)">empate</strong> (resultado ao fim dos 120 min)</div>
+            </div>
+            <div class="scoring-grid">
+              <div class="scoring-cell sc-win">
+                <div class="scoring-pts">5</div>
+                <div class="scoring-label">✅ Acerto no resultado</div>
+                <div class="scoring-sub">Resultado exato</div>
+              </div>
+              <div class="scoring-cell sc-draw">
+                <div class="scoring-pts">2</div>
+                <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
+                <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
+              </div>
+              <div class="scoring-cell sc-loss" style="grid-column:1/-1">
+                <div class="scoring-pts">0</div>
+                <div class="scoring-label">❌ Erro</div>
+                <div class="scoring-sub">Não acertaste no resultado nem no vencedor</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="rules-subtitle">🃏 O JOKER</div>
+            <div class="scoring-cell sc-joker" style="border-radius:10px;margin-bottom:8px;flex-direction:row;gap:12px;padding:10px 14px">
+              <div class="scoring-pts" style="font-size:1.8rem;color:#00bcd4">×2</div>
+              <div style="text-align:left">
+                <div style="font-weight:700;color:#00bcd4;font-size:.82rem;margin-bottom:2px">JOKER ATIVO</div>
+                <div style="font-size:.73rem;color:var(--sub)">Duplica os pontos desse jogo.<br>Grupos: 3→6, 1→2 &nbsp;·&nbsp; KO: 5→10, 2→4</div>
+              </div>
+            </div>
+            <div style="font-size:.78rem;line-height:1.6;color:var(--text)">
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">⚽ <strong>Grupos:</strong> 1 JOKER por jornada</div>
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">🔥 <strong>Eliminatória</strong> (R32 → R16 → QF → SF)<strong>:</strong> 1 JOKER por ronda</div>
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">🥉🏆 <strong>3º/4º + Final:</strong> 1 JOKER partilhado entre os dois jogos</div>
+              <div style="padding:4px 0">❌ <strong>JOKER não protege erros:</strong> se não acertares, a pontuação é sempre 0</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="rules-subtitle">🏆 Pré-Apostas <span style="font-size:.75rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
+            <div class="prebet-grid">
+              <div class="prebet-item">🥇🥈 1º e 2º de cada grupo (×24)</div><div class="prebet-pts-v">+2 pts cada</div>
+              <div class="prebet-item">🏆 Campeão do Mundo</div><div class="prebet-pts-v">+8 pts</div>
+              <div class="prebet-item">🥈 Vice-campeão</div><div class="prebet-pts-v">+5 pts</div>
+              <div class="prebet-item">🥉 3º Classificado</div><div class="prebet-pts-v">+3 pts</div>
+              <div class="prebet-item">⚽ Melhor Marcador</div><div class="prebet-pts-v">+5 pts</div>
+            </div>
+            <div style="margin-top:8px;padding:7px 10px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.75rem;color:var(--sub);text-align:center">
+              Pontuação máxima em pré-apostas: <strong style="color:var(--gold)">69 pts</strong>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="rules-subtitle">⏰ Deadlines</div>
+            <div class="timeline-item">
+              <div class="timeline-dot">📋</div>
+              <div><strong>Antes de 11 Jun</strong><br><span style="font-size:.73rem;color:var(--sub)">Preenche as Pré-Apostas. Após o início do torneio ficam bloqueadas.</span></div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot">⏱</div>
+              <div><strong>2h antes de cada jogo</strong><br><span style="font-size:.73rem;color:var(--sub)">As apostas fecham antes do apito inicial (configurável pelo admin).</span></div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-dot">🔒</div>
+              <div><strong>Apostas fora do prazo = 0 pontos</strong><br><span style="font-size:.73rem;color:var(--sub)">Jogos não apostados até ao deadline não pontuam. Sem exceções.</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="rules-subtitle">⚖️ Critérios de Desempate</div>
+            <div class="tiebreak-row">
+              <div class="tb-badge">1</div>
+              <div>Número de <strong>Acertos no vencedor / empate</strong></div>
+            </div>
+            <div class="tiebreak-row">
+              <div class="tb-badge">2</div>
+              <div>Número de <strong>Acertos no resultado</strong> (resultado exato)</div>
+            </div>
+            <div class="tiebreak-row">
+              <div class="tb-badge">3</div>
+              <div><strong>Pontos obtidos com o JOKER</strong></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="rules-subtitle">🌎 Formato Mundial 2026</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+              <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center">
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">48</div>
+                <div style="font-size:.7rem;color:var(--sub)">Equipas</div>
+              </div>
+              <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center">
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">12</div>
+                <div style="font-size:.7rem;color:var(--sub)">Grupos de 4</div>
+              </div>
+              <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center">
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#64b5f6">32</div>
+                <div style="font-size:.7rem;color:var(--sub)">Fase R32 (inédita)</div>
+              </div>
+              <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center">
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">104</div>
+                <div style="font-size:.7rem;color:var(--sub)">Jogos totais</div>
+              </div>
+            </div>
+            <p style="font-size:.75rem;color:var(--sub);margin:0">Os 2 primeiros de cada grupo + os 8 melhores terceiros avançam para o R32 e daí até à final.</p>
+          </div>
+
         </div>
       </div>
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
@@ -519,11 +648,23 @@
 
   <!-- ═══════════════ LIGA PICKER (pós-login) ═══════════════ -->
   <div class="view" id="view-league-picker">
-    <div style="max-width:420px;margin:0 auto;padding:16px">
+
+    <!-- ── Painel principal ── -->
+    <div id="league-picker-main" style="max-width:420px;margin:0 auto;padding:16px">
       <!-- Cabeçalho com botão voltar -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
         <button class="btn btn-outline" style="padding:6px 12px;font-size:.78rem" onclick="showView('leaderboard')">← Classificação</button>
         <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">LIGAS</div>
+      </div>
+
+      <!-- Criar nova liga -->
+      <div class="card" style="padding:14px;margin-bottom:12px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:8px">➕ Criar nova liga privada</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="new-league-name" type="text" placeholder="Nome da liga" autocomplete="off" style="flex:1" onkeydown="if(event.key==='Enter')createLeagueFromPicker()">
+          <button class="btn btn-primary" id="create-league-btn" style="font-size:.78rem;padding:6px 12px;white-space:nowrap" onclick="createLeagueFromPicker()">Criar</button>
+        </div>
+        <div id="create-league-msg" style="display:none;margin-top:6px;font-size:.75rem;padding:6px 10px;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3);border-radius:6px;color:var(--green)"></div>
       </div>
 
       <!-- Entrar com código de convite -->
@@ -540,6 +681,43 @@
       <input class="league-search" id="league-search-input" type="text" placeholder="🔍 Pesquisar liga pelo nome..." oninput="filterLeaguePicker(this.value)">
       <div id="league-picker-list"></div>
     </div>
+
+    <!-- ── Painel de gestão (aparece ao clicar Gerir) ── -->
+    <div id="league-manage-panel" style="display:none;max-width:420px;margin:0 auto;padding:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <button class="btn btn-outline" style="padding:6px 12px;font-size:.78rem" onclick="closeLeagueManagement()">← Ligas</button>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold)" id="manage-league-title">Gerir Liga</div>
+      </div>
+
+      <!-- Código de convite -->
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <div style="font-size:.72rem;color:var(--sub);margin-bottom:4px">CÓDIGO DE CONVITE</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div id="manage-invite-code" style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:var(--gold);letter-spacing:2px"></div>
+          <button class="btn btn-outline" style="font-size:.73rem;padding:4px 10px" onclick="copyInviteCode()">📋 Copiar</button>
+        </div>
+        <div style="font-size:.72rem;color:var(--sub);margin-top:4px">Partilha este código para convidar jogadores</div>
+      </div>
+
+      <!-- Pedidos pendentes -->
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:10px">⏳ Pedidos de Acesso</div>
+        <div id="manage-requests"><div class="loading-center" style="padding:10px"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- Membros -->
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:10px">👥 Membros</div>
+        <div id="manage-members"><div class="loading-center" style="padding:10px"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- Apagar liga -->
+      <div class="card" style="padding:12px;border-color:rgba(231,76,60,.3)">
+        <div style="font-size:.78rem;color:var(--sub);margin-bottom:8px">Apagar a liga remove-a permanentemente para todos os membros.</div>
+        <button class="btn btn-full" style="background:rgba(231,76,60,.15);border:1px solid rgba(231,76,60,.4);color:var(--red);font-size:.8rem" onclick="deleteMyLeague()">🗑 Apagar esta liga</button>
+      </div>
+    </div>
+
   </div>
 
   <!-- ═══════════════ CLASSIFICAÇÃO ═══════════════ -->
@@ -1198,7 +1376,7 @@ let loginReady = false;
 const S = {
   user:null, isAdmin:false, curView:'login',
   curMD:1, adminMD:1, mundialGrp:'A',
-  preds:{}, prebets:{}, results:{}, lb:[],
+  preds:{}, prebets:{}, results:{}, lb:[], lbReady:false,
   participants:[], deadlineH:2, pending:false, savedCards:{},
   allLeagues:[],
   demoMode: SCRIPT_URL==='COLE_AQUI_O_URL_DO_APPS_SCRIPT',
@@ -1434,9 +1612,15 @@ function showLeaguePicker() {
   document.getElementById('view-league-picker').classList.add('active');
   document.getElementById('header').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
+  // Garantir que o painel principal está visível e o de gestão escondido
+  document.getElementById('league-picker-main').style.display='block';
+  document.getElementById('league-manage-panel').style.display='none';
+  S_managingLeague=null;
   S.allLeagues = []; // forçar reload
   const searchEl = document.getElementById('league-search-input');
   if (searchEl) searchEl.value = '';
+  const msgEl = document.getElementById('create-league-msg');
+  if (msgEl) msgEl.style.display='none';
   renderLeaguePicker();
 }
 
@@ -1471,6 +1655,7 @@ function showView(v) {
 async function loadData() {
   try {
     const r=await api('getData',{code:S.user.code});
+    S.lbReady=true;
     if(r.preds){S.preds=r.preds;localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));}
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
@@ -1490,7 +1675,7 @@ function renderLB() {
   renderLigaSelector();
   const el = document.getElementById('lb-content');
   let raw = S.lb.length ? S.lb : (S.demoMode && S.user ? calcDemoLB() : []);
-  if(!raw.length){el.innerHTML='<div class="alert alert-info">Ainda sem dados de classificação.</div>';return;}
+  if(!raw.length){el.innerHTML=S.lbReady?'<div class="alert alert-info">Ainda sem dados de classificação.</div>':'<div class="loading-center"><div class="spinner"></div></div>';return;}
   if(S.curLeague&&S.curLeague.members) raw=raw.filter(p=>S.curLeague.members.includes(p.code));
 
   const data=[...raw].sort((a,b)=>{
@@ -1516,9 +1701,10 @@ function renderLB() {
 
   if(!S.lbDetailed){
     // ── MODO SIMPLES ──
-    html+=`<div class="standings-wrap"><table class="standings-table">
+    html+=`<div class="standings-wrap"><table class="standings-table" style="table-layout:fixed">
+      <colgroup><col style="width:12%"><col><col style="width:10%"><col style="width:14%"></colgroup>
       <thead><tr>
-        <th style="width:36px">#</th>
+        <th>#</th>
         <th class="th-name">Jogador</th>
         <th title="Jogos com resultado">J</th>
         <th title="Total de pontos" style="color:var(--gold)">Pts</th>
@@ -2980,12 +3166,16 @@ async function renderLeaguePicker(filter) {
   if (myLeagues.length) {
     html += `<div class="league-section-title">As minhas ligas</div>`;
     myLeagues.forEach(l => {
-      html += `<button class="league-card member" onclick="enterLeague('${l.id}')">
-        <div class="league-card-header">
-          <div class="league-card-title">🏆 ${l.name}</div>
-          <div style="font-size:.72rem;color:rgba(39,174,96,.8)">${l.memberCount} jogadores · ✓ Membro ▶</div>
-        </div>
-      </button>`;
+      const isLigaAdmin = S.user && l.admin && l.admin.toUpperCase() === S.user.code.toUpperCase();
+      html += `<div class="league-card member" style="display:flex;align-items:center;gap:8px">
+        <button style="flex:1;background:none;border:none;text-align:left;cursor:pointer;padding:0" onclick="enterLeague('${l.id}')">
+          <div class="league-card-header">
+            <div class="league-card-title">🏆 ${l.name}</div>
+            <div style="font-size:.72rem;color:rgba(39,174,96,.8)">${l.memberCount} jogadores · ✓ Membro${isLigaAdmin?' · 👑 Admin':''} ▶</div>
+          </div>
+        </button>
+        ${isLigaAdmin ? `<button class="btn btn-outline" style="font-size:.72rem;padding:5px 9px;white-space:nowrap;border-color:var(--gold);color:var(--gold);flex-shrink:0" onclick="showLeagueManagement('${l.id}')">⚙️ Gerir</button>` : ''}
+      </div>`;
     });
   }
 
@@ -3151,6 +3341,164 @@ async function joinLeagueFromSwitcher() {
       showToast(r.error||'Código inválido','error');
     }
   } catch(e){ showToast('Erro de ligação','error'); }
+}
+
+// ════════════════════════════════════════════════
+//  LIGAS — CRIAR (qualquer user)
+// ════════════════════════════════════════════════
+async function createLeagueFromPicker() {
+  const name = document.getElementById('new-league-name').value.trim();
+  const msgEl = document.getElementById('create-league-msg');
+  const btn = document.getElementById('create-league-btn');
+  msgEl.style.display='none';
+  if (!name) { showToast('Indica o nome da liga.','error'); return; }
+  btn.disabled=true; btn.textContent='A criar...';
+  try {
+    const r = await api('createLeague', {name, code: S.user.code});
+    if (r.success) {
+      document.getElementById('new-league-name').value='';
+      msgEl.textContent=`✓ Liga "${r.league.name}" criada! Código de convite: ${r.league.invite}`;
+      msgEl.style.display='block';
+      S.allLeagues=[]; // forçar reload
+      await loadMyLeagues();
+      renderLeaguePicker();
+    } else {
+      showToast(r.error||'Erro ao criar liga.','error');
+    }
+  } catch(e){ showToast('Erro de ligação.','error'); }
+  btn.disabled=false; btn.textContent='Criar';
+}
+
+// ════════════════════════════════════════════════
+//  LIGAS — GESTÃO (admin da liga)
+// ════════════════════════════════════════════════
+let S_managingLeague = null; // liga actualmente em gestão
+
+async function showLeagueManagement(leagueId) {
+  // Encontrar a liga nos dados disponíveis
+  const lg = S.allLeagues.find(l => l.id === leagueId) || S.leagues.find(l => l.id === leagueId);
+  if (!lg) return;
+  S_managingLeague = lg;
+
+  document.getElementById('league-picker-main').style.display='none';
+  document.getElementById('league-manage-panel').style.display='block';
+  document.getElementById('manage-league-title').textContent=lg.name;
+
+  // Mostrar código de convite (vem de S.leagues que tem campo invite)
+  const fullLg = S.leagues.find(l => l.id === leagueId);
+  document.getElementById('manage-invite-code').textContent = fullLg ? fullLg.invite : '...';
+
+  // Carregar pedidos + membros em paralelo
+  loadManageRequests(leagueId);
+  loadManageMembers(leagueId, fullLg);
+}
+
+function closeLeagueManagement() {
+  document.getElementById('league-manage-panel').style.display='none';
+  document.getElementById('league-picker-main').style.display='block';
+  S_managingLeague=null;
+}
+
+function copyInviteCode() {
+  const code = document.getElementById('manage-invite-code').textContent;
+  if (!code || code==='...') return;
+  navigator.clipboard.writeText(code).then(()=>showToast('Código copiado!','success')).catch(()=>{});
+}
+
+async function loadManageRequests(leagueId) {
+  const el = document.getElementById('manage-requests');
+  el.innerHTML='<div class="loading-center" style="padding:8px"><div class="spinner"></div></div>';
+  try {
+    const r = await api('getJoinRequests', {code: S.user.code});
+    const reqs = (r.requests||[]).filter(req => req.league_id===leagueId);
+    if (!reqs.length) {
+      el.innerHTML='<div style="font-size:.78rem;color:var(--sub)">Sem pedidos pendentes.</div>';
+      return;
+    }
+    let html='';
+    reqs.forEach(req=>{
+      html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:.82rem">${req.user_name}</div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-outline" style="font-size:.72rem;padding:3px 9px;border-color:var(--green);color:var(--green)" onclick="approveLeagueReq('${leagueId}','${req.user_code}',this)">✓ Aceitar</button>
+          <button class="btn btn-outline" style="font-size:.72rem;padding:3px 9px;border-color:var(--red);color:var(--red)" onclick="rejectLeagueReq('${leagueId}','${req.user_code}',this)">✕ Rejeitar</button>
+        </div>
+      </div>`;
+    });
+    el.innerHTML=html;
+  } catch(e){ el.innerHTML='<div style="font-size:.78rem;color:var(--red)">Erro ao carregar pedidos.</div>'; }
+}
+
+function loadManageMembers(leagueId, fullLg) {
+  const el = document.getElementById('manage-members');
+  const members = fullLg ? (fullLg.members||[]) : [];
+  if (!members.length) { el.innerHTML='<div style="font-size:.78rem;color:var(--sub)">Sem membros.</div>'; return; }
+  let html='';
+  members.forEach(code=>{
+    const lbEntry = S.lb.find(p=>p.code===code);
+    const name = lbEntry ? lbEntry.name : code;
+    const isMe = code.toUpperCase()===S.user.code.toUpperCase();
+    html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <div style="font-size:.82rem">${name}${isMe?' <span style="font-size:.68rem;color:var(--sub)">(tu)</span>':''}</div>
+      ${!isMe ? `<button class="btn btn-outline" style="font-size:.72rem;padding:3px 9px;border-color:var(--red);color:var(--red)" onclick="removeMemberAsAdmin('${leagueId}','${code}',this)">Remover</button>` : ''}
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+async function approveLeagueReq(leagueId, userCode, btn) {
+  btn.disabled=true; btn.textContent='...';
+  try {
+    const r = await api('approveRequest', {code: S.user.code, league_id: leagueId, user_code: userCode});
+    if (r.success) {
+      showToast('Pedido aprovado!','success');
+      await loadMyLeagues();
+      loadManageRequests(leagueId);
+      const fullLg = S.leagues.find(l=>l.id===leagueId);
+      loadManageMembers(leagueId, fullLg);
+    } else { showToast('Erro.','error'); btn.disabled=false; btn.textContent='✓ Aceitar'; }
+  } catch(e){ showToast('Erro de ligação.','error'); btn.disabled=false; btn.textContent='✓ Aceitar'; }
+}
+
+async function rejectLeagueReq(leagueId, userCode, btn) {
+  btn.disabled=true; btn.textContent='...';
+  try {
+    const r = await api('rejectRequest', {code: S.user.code, league_id: leagueId, user_code: userCode});
+    if (r.success) {
+      showToast('Pedido rejeitado.','info');
+      loadManageRequests(leagueId);
+    } else { showToast('Erro.','error'); btn.disabled=false; btn.textContent='✕ Rejeitar'; }
+  } catch(e){ showToast('Erro de ligação.','error'); btn.disabled=false; btn.textContent='✕ Rejeitar'; }
+}
+
+async function removeMemberAsAdmin(leagueId, memberCode, btn) {
+  if (!confirm('Remover este membro da liga?')) return;
+  btn.disabled=true; btn.textContent='...';
+  try {
+    const r = await api('removeLeagueMember', {code: S.user.code, league_id: leagueId, member_code: memberCode});
+    if (r.success) {
+      showToast('Membro removido.','success');
+      await loadMyLeagues();
+      const fullLg = S.leagues.find(l=>l.id===leagueId);
+      loadManageMembers(leagueId, fullLg);
+    } else { showToast('Erro.','error'); btn.disabled=false; btn.textContent='Remover'; }
+  } catch(e){ showToast('Erro de ligação.','error'); btn.disabled=false; btn.textContent='Remover'; }
+}
+
+async function deleteMyLeague() {
+  if (!S_managingLeague) return;
+  if (!confirm(`Apagar a liga "${S_managingLeague.name}" permanentemente? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const r = await api('deleteLeague', {code: S.user.code, league_id: S_managingLeague.id});
+    if (r.success) {
+      showToast('Liga apagada.','success');
+      if (S.curLeague && S.curLeague.id===S_managingLeague.id) { S.curLeague=null; updateLeaguePill(); }
+      S.allLeagues=[];
+      await loadMyLeagues();
+      closeLeagueManagement();
+      renderLeaguePicker();
+    } else { showToast('Erro ao apagar liga.','error'); }
+  } catch(e){ showToast('Erro de ligação.','error'); }
 }
 
 // ════════════════════════════════════════════════
