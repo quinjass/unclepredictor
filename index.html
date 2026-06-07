@@ -150,6 +150,7 @@
     .pts-0{background:rgba(231,76,60,.18);color:var(--red)}
     .pts-1{background:rgba(243,156,18,.18);color:#f39c12}
     .pts-3{background:rgba(39,174,96,.18);color:var(--green)}
+    .rarity-badge{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.7rem;text-align:center;margin-top:5px;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
     .pts-5{background:rgba(0,188,212,.18);color:#00bcd4}
     .joker-btn{margin-top:8px;width:100%;padding:5px 8px;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--sub);font-size:.73rem;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
     .joker-btn.active{background:rgba(245,197,24,.12);border-color:var(--gold);border-style:solid;color:var(--gold);font-weight:600}
@@ -557,6 +558,33 @@
           </div>
 
           <div class="card">
+            <div class="rules-subtitle">🌟 Bónus de Raridade</div>
+            <div style="font-size:.75rem;color:var(--sub);margin-bottom:8px;line-height:1.5">
+              Acertas no resultado exato? Se poucos apostaram igual, ganhas pontos extra!
+            </div>
+            <div class="scoring-grid">
+              <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
+                <div class="scoring-pts" style="color:#f39c12">+1</div>
+                <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
+                <div class="scoring-sub">20–40% apostou igual</div>
+              </div>
+              <div class="scoring-cell" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25)">
+                <div class="scoring-pts" style="color:#9b59b6">+2</div>
+                <div class="scoring-label" style="color:#9b59b6">🌟 MUITO RARO</div>
+                <div class="scoring-sub">5–20% apostou igual</div>
+              </div>
+              <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
+                <div class="scoring-pts" style="color:#00bcd4">+3</div>
+                <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
+                <div class="scoring-sub">&lt;5% apostou igual</div>
+              </div>
+            </div>
+            <div style="margin-top:6px;font-size:.72rem;color:var(--sub);line-height:1.6">
+              <div>✅ Só em acertos no resultado exato · 🃏 Joker duplica o bónus também</div>
+            </div>
+          </div>
+
+          <div class="card">
             <div class="rules-subtitle">🏆 Pré-Apostas <span style="font-size:.75rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
             <div class="prebet-grid">
               <div class="prebet-item">🥇🥈 1º e 2º de cada grupo (×24)</div><div class="prebet-pts-v">+2 pts cada</div>
@@ -866,6 +894,36 @@
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔥 <strong>Eliminatória</strong> (16-avos → R16 → QF → SF)<strong>:</strong> 1 JOKER por ronda</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">🥉🏆 <strong>3º/4º lugar + Final:</strong> 1 JOKER partilhado — usa-o num dos dois jogos</div>
         <div style="padding:5px 0">❌ <strong>JOKER não protege contra erros:</strong> se não acertares nem no resultado nem no vencedor, a pontuação é sempre 0 — independentemente da fase</div>
+      </div>
+    </div>
+
+    <!-- Raridade -->
+    <div class="card">
+      <div class="rules-subtitle">🌟 Bónus de Raridade</div>
+      <div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.6">
+        Quando acertas no resultado exato, podes ganhar pontos extra consoante a raridade da tua aposta — quanto menos jogadores apostaram o mesmo resultado, mais pontos ganhas.
+      </div>
+      <div class="scoring-grid">
+        <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
+          <div class="scoring-pts" style="color:#f39c12">+1</div>
+          <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
+          <div class="scoring-sub">20–40% apostou igual</div>
+        </div>
+        <div class="scoring-cell" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25)">
+          <div class="scoring-pts" style="color:#9b59b6">+2</div>
+          <div class="scoring-label" style="color:#9b59b6">🌟 MUITO RARO</div>
+          <div class="scoring-sub">5–20% apostou igual</div>
+        </div>
+        <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
+          <div class="scoring-pts" style="color:#00bcd4">+3</div>
+          <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
+          <div class="scoring-sub">Menos de 5% apostou igual · Resultado único no grupo</div>
+        </div>
+      </div>
+      <div style="padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:2px">
+        <div>✅ Bónus aplica-se apenas a <strong style="color:var(--text)">acertos no resultado exato</strong></div>
+        <div>🃏 O <strong style="color:var(--text)">JOKER</strong> duplica o bónus de raridade também</div>
+        <div>📊 Mais de 40% a apostar igual → sem bónus <span style="opacity:.7">(Comum)</span></div>
       </div>
     </div>
 
@@ -1377,6 +1435,7 @@ const S = {
   user:null, isAdmin:false, curView:'login',
   curMD:1, adminMD:1, mundialGrp:'A',
   preds:{}, prebets:{}, results:{}, lb:[], lbReady:false,
+  rarityMap:{},
   participants:[], deadlineH:2, pending:false, savedCards:{},
   allLeagues:[],
   demoMode: SCRIPT_URL==='COLE_AQUI_O_URL_DO_APPS_SCRIPT',
@@ -1660,6 +1719,7 @@ async function loadData() {
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
     if(r.lb)S.lb=r.lb;
+    if(r.rarityMap)S.rarityMap=r.rarityMap;
     if(r.deadlineH)S.deadlineH=r.deadlineH;
     if(r.specials)S.specials=r.specials;
     if(S.curView==='leaderboard')renderLB();
@@ -1769,7 +1829,7 @@ function renderLB() {
         <td style="${tdN};color:#7986cb">${p.ko_pts||0}</td>
         <td style="${tdN};color:var(--sub)">${p.prebets_pts||0}</td>
         <td style="${tdN};color:#00bcd4">${p.joker_pts||0}</td>
-        <td class="td-pts" style="padding:9px 4px">${p.total}</td>
+        <td class="td-pts" style="padding:9px 4px;line-height:1.3">${p.total}${p.rarity_pts>0?`<br><span style="font-size:.58rem;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700">🌟+${p.rarity_pts}</span>`:''}</td>
       </tr>`;
     });
     html+=`</tbody></table></div>
@@ -1778,6 +1838,7 @@ function renderLB() {
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
       <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Pts Joker</span>
+      <span style="white-space:nowrap;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">🌟 = Raridade</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
@@ -1867,7 +1928,8 @@ function renderBetsKO() {
               ? `<span class="bet-inline-score">${pred.t1}–${pred.t2}${jokerOn?' <span class="joker-badge">JOKER</span>':''}</span>`
               : `<span style="font-size:.72rem;color:var(--sub)">—</span>`}
             <span class="bet-inline-hint">👆 ver todos</span>
-          </div>`
+          </div>
+          ${rarityBadgeHtml(g.id,pred,res,jokerOn)}`
         : !knownTeams
           ? `<div class="ko-pending">⏳ Equipas a apurar após fase de grupos</div>`
           : !locked && !g.noJoker
@@ -1964,7 +2026,8 @@ function renderBets() {
                 ?`<span class="bet-inline-score">${pred.t1}–${pred.t2}${jokerOn?' <span class="joker-badge">JOKER</span>':''}</span>`
                 :`<span style="font-size:.72rem;color:var(--sub)">—</span>`}
               <span class="bet-inline-hint">👆 ver todos</span>
-            </div>`
+            </div>
+            ${rarityBadgeHtml(g.id,pred,res,jokerOn)}`
           :(!locked?`<button class="joker-btn ${jokerOn?'active':''}" onclick="event.stopPropagation();toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
               <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER'}
             </button>
@@ -3040,6 +3103,19 @@ function ptsBadgeHtml(pts) {
   if(pts===6)  return `<span class="pts-badge pts-6">RESULTADO+🃏 +6</span>`;
   if(pts===10) return `<span class="pts-badge pts-10">RESULTADO+🃏 +10</span>`;
   return `<span class="pts-badge pts-3">+${pts}</span>`;
+}
+
+function rarityBadgeHtml(gameId, pred, res, jokerOn) {
+  if(!res||pred.t1===undefined||pred.t2===undefined) return '';
+  if(pred.t1!==res.t1||pred.t2!==res.t2) return '';
+  const r=S.rarityMap&&S.rarityMap[gameId];
+  if(!r) return '';
+  const emojis={1:'⭐',2:'🌟',3:'💎'};
+  const labels={1:'Raro',2:'Muito Raro',3:'Ultra Raro'};
+  const colors={1:'#f39c12',2:'#9b59b6',3:'#00bcd4'};
+  const bgs={1:'rgba(243,156,18,.12)',2:'rgba(155,89,182,.12)',3:'rgba(0,188,212,.12)'};
+  const bonus=jokerOn?r.bonus*2:r.bonus;
+  return `<div class="rarity-badge" style="color:${colors[r.bonus]};background:${bgs[r.bonus]}">${emojis[r.bonus]} ${labels[r.bonus]} <strong>+${bonus}pt${bonus>1?'s':''}</strong></div>`;
 }
 
 // ════════════════════════════════════════════════
