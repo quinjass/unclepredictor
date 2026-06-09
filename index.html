@@ -546,28 +546,39 @@
   <div class="view active" id="view-login">
     <div class="login-box">
       <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img">
-      <div style="text-align:center;margin:0 0 18px">
-        <div style="color:var(--sub);font-size:.82rem;margin:6px 0 10px">Faz as tuas previsões, ganha pontos, lidera a classificação.</div>
-        <button class="btn btn-outline" style="font-size:.74rem;padding:5px 14px;margin-bottom:12px" onclick="document.getElementById('login-rules-panel').style.display=document.getElementById('login-rules-panel').style.display==='none'?'block':'none'">📋 Ver Regras</button>
-        <div id="login-rules-panel" style="display:none;text-align:left;margin-top:10px">
+      <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
+      <div class="card" style="text-align:left">
+        <div class="form-group"><label class="form-label">Email</label>
+          <input class="form-input" id="login-email" type="email" name="username" placeholder="o-teu@email.com" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
+        <div class="form-group" style="margin-bottom:6px"><label class="form-label">Password</label>
+          <input class="form-input" id="login-pw" type="password" name="password" placeholder="A tua password" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
+        <div style="text-align:right;margin-bottom:16px">
+          <a href="#" onclick="showForgotPw();return false;" style="font-size:.74rem;color:var(--sub);text-decoration:none">Esqueceste a password?</a>
+        </div>
+        <div id="login-error" style="display:none" class="alert alert-error"></div>
+        <button class="btn btn-primary btn-full" onclick="login()" id="login-btn">Entrar no jogo</button>
+      </div>
+      <div style="margin-top:10px;text-align:center">
+        <span style="font-size:.78rem;color:var(--sub)">Não tens conta? </span>
+        <a href="#" onclick="showRegister();return false;" style="font-size:.78rem;color:var(--gold);text-decoration:none;font-weight:600">Criar conta</a>
+      </div>
+      <div style="text-align:center;margin-top:16px">
+        <button class="btn btn-outline" style="font-size:.74rem;padding:5px 14px" onclick="const p=document.getElementById('login-rules-panel-wrap');p.style.display=p.style.display==='none'?'block':'none'">📋 Ver Regras</button>
+      </div>
+      <div id="login-rules-panel-wrap" style="display:none;text-align:left;margin-top:10px">
 
           <div class="card">
             <div class="rules-subtitle">⚽ Fase de Grupos</div>
             <div class="scoring-grid">
-              <div class="scoring-cell sc-win">
-                <div class="scoring-pts">3</div>
-                <div class="scoring-label">✅ Acerto no resultado</div>
-                <div class="scoring-sub">Resultado exato<br>ex: apostaste 2-1, saiu 2-1</div>
-              </div>
               <div class="scoring-cell sc-draw">
                 <div class="scoring-pts">1</div>
                 <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
                 <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
               </div>
-              <div class="scoring-cell sc-loss" style="grid-column:1/-1">
-                <div class="scoring-pts">0</div>
-                <div class="scoring-label">❌ Erro</div>
-                <div class="scoring-sub">Não acertaste no vencedor nem no empate</div>
+              <div class="scoring-cell sc-win">
+                <div class="scoring-pts">3</div>
+                <div class="scoring-label">✅ Acerto no resultado</div>
+                <div class="scoring-sub">Resultado exato<br>ex: apostaste 2-1, saiu 2-1</div>
               </div>
             </div>
           </div>
@@ -580,20 +591,15 @@
               <div>🥅 <strong style="color:var(--text)">Penáltis:</strong> conta como <strong style="color:var(--gold)">empate</strong> (resultado ao fim dos 120 min)</div>
             </div>
             <div class="scoring-grid">
-              <div class="scoring-cell sc-win">
-                <div class="scoring-pts">5</div>
-                <div class="scoring-label">✅ Acerto no resultado</div>
-                <div class="scoring-sub">Resultado exato</div>
-              </div>
               <div class="scoring-cell sc-draw">
                 <div class="scoring-pts">2</div>
                 <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
                 <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
               </div>
-              <div class="scoring-cell sc-loss" style="grid-column:1/-1">
-                <div class="scoring-pts">0</div>
-                <div class="scoring-label">❌ Erro</div>
-                <div class="scoring-sub">Não acertaste no resultado nem no vencedor</div>
+              <div class="scoring-cell sc-win">
+                <div class="scoring-pts">5</div>
+                <div class="scoring-label">✅ Acerto no resultado</div>
+                <div class="scoring-sub">Resultado exato</div>
               </div>
             </div>
           </div>
@@ -621,20 +627,20 @@
               Acertas no resultado exato? Se poucos apostaram igual, ganhas pontos extra!
             </div>
             <div class="scoring-grid">
-              <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
-                <div class="scoring-pts" style="color:#00bcd4">+6</div>
-                <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
-                <div class="scoring-sub">&lt;5% apostou igual</div>
+              <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
+                <div class="scoring-pts" style="color:#f39c12">+2</div>
+                <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
+                <div class="scoring-sub">20–40% apostou igual</div>
               </div>
               <div class="scoring-cell" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25)">
                 <div class="scoring-pts" style="color:#9b59b6">+4</div>
                 <div class="scoring-label" style="color:#9b59b6">🌟 MUITO RARO</div>
                 <div class="scoring-sub">5–20% apostou igual</div>
               </div>
-              <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
-                <div class="scoring-pts" style="color:#f39c12">+2</div>
-                <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
-                <div class="scoring-sub">20–40% apostou igual</div>
+              <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
+                <div class="scoring-pts" style="color:#00bcd4">+6</div>
+                <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
+                <div class="scoring-sub">&lt;5% apostou igual</div>
               </div>
             </div>
             <div style="margin-top:6px;font-size:.72rem;color:var(--sub);line-height:1.6">
@@ -643,7 +649,7 @@
           </div>
 
           <div class="card">
-            <div class="rules-subtitle">🏆 Pré-Apostas <span id="prebet-deadline-login" style="font-size:.75rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
+            <div class="rules-subtitle">🏆 Pré-Apostas <span id="prebet-deadline-login" style="font-size:.75rem;color:var(--sub);font-weight:400">1h antes do 1º jogo</span></div>
             <div class="prebet-grid">
               <div class="prebet-item">🥇🥈 1º e 2º de cada grupo (×24)</div><div class="prebet-pts-v">+2 pts cada</div>
               <div class="prebet-item">🏆 Campeão do Mundo</div><div class="prebet-pts-v">+8 pts</div>
@@ -663,11 +669,11 @@
             <div class="rules-subtitle">⏰ Deadlines</div>
             <div class="timeline-item">
               <div class="timeline-dot">📋</div>
-              <div><strong>Antes de 11 Jun</strong><br><span style="font-size:.73rem;color:var(--sub)">Preenche as Pré-Apostas. Após o início do torneio ficam bloqueadas.</span></div>
+              <div><strong>Até 11 Jun (1h antes do início do primeiro jogo)</strong><br><span style="font-size:.73rem;color:var(--sub)">Preenche as Pré-Apostas. Após o início do torneio ficam bloqueadas.</span></div>
             </div>
             <div class="timeline-item">
               <div class="timeline-dot">⏱</div>
-              <div><strong>2h antes de cada jogo</strong><br><span style="font-size:.73rem;color:var(--sub)">As apostas fecham antes do apito inicial (configurável pelo admin).</span></div>
+              <div><strong>1h antes de cada jogo</strong><br><span style="font-size:.73rem;color:var(--sub)">As apostas fecham antes do apito inicial (configurável pelo admin).</span></div>
             </div>
             <div class="timeline-item">
               <div class="timeline-dot">🔒</div>
@@ -714,23 +720,6 @@
             <p style="font-size:.75rem;color:var(--sub);margin:0">Os 2 primeiros de cada grupo + os 8 melhores terceiros avançam para o R32 e daí até à final.</p>
           </div>
 
-        </div>
-      </div>
-      <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
-      <div class="card" style="text-align:left">
-        <div class="form-group"><label class="form-label">Email</label>
-          <input class="form-input" id="login-email" type="email" name="username" placeholder="o-teu@email.com" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
-        <div class="form-group" style="margin-bottom:6px"><label class="form-label">Password</label>
-          <input class="form-input" id="login-pw" type="password" name="password" placeholder="A tua password" autocomplete="off" onkeydown="if(event.key==='Enter')login()"></div>
-        <div style="text-align:right;margin-bottom:16px">
-          <a href="#" onclick="showForgotPw();return false;" style="font-size:.74rem;color:var(--sub);text-decoration:none">Esqueceste a password?</a>
-        </div>
-        <div id="login-error" style="display:none" class="alert alert-error"></div>
-        <button class="btn btn-primary btn-full" onclick="login()" id="login-btn">Entrar no jogo</button>
-      </div>
-      <div style="margin-top:10px;text-align:center">
-        <span style="font-size:.78rem;color:var(--sub)">Não tens conta? </span>
-        <a href="#" onclick="showRegister();return false;" style="font-size:.78rem;color:var(--gold);text-decoration:none;font-weight:600">Criar conta</a>
       </div>
     </div>
   </div>
@@ -895,20 +884,15 @@
     <div class="card">
       <div class="rules-subtitle">⚽ Fase de Grupos</div>
       <div class="scoring-grid">
-        <div class="scoring-cell sc-win">
-          <div class="scoring-pts">3</div>
-          <div class="scoring-label">✅ Acerto no resultado</div>
-          <div class="scoring-sub">Resultado exato<br>ex: apostaste 2-1, saiu 2-1</div>
-        </div>
         <div class="scoring-cell sc-draw">
           <div class="scoring-pts">1</div>
           <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
           <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
         </div>
-        <div class="scoring-cell sc-loss" style="grid-column:1/-1">
-          <div class="scoring-pts">0</div>
-          <div class="scoring-label">❌ Erro</div>
-          <div class="scoring-sub">Não acertaste no vencedor nem no empate</div>
+        <div class="scoring-cell sc-win">
+          <div class="scoring-pts">3</div>
+          <div class="scoring-label">✅ Acerto no resultado</div>
+          <div class="scoring-sub">Resultado exato<br>ex: apostaste 2-1, saiu 2-1</div>
         </div>
       </div>
     </div>
@@ -922,20 +906,15 @@
         <div>🥅 <strong style="color:var(--text)">Jogo com penáltis:</strong> conta como <strong style="color:var(--gold)">empate</strong> (resultado ao fim dos 120 min (+ descontos))</div>
       </div>
       <div class="scoring-grid">
-        <div class="scoring-cell sc-win">
-          <div class="scoring-pts">5</div>
-          <div class="scoring-label">✅ Acerto no resultado</div>
-          <div class="scoring-sub">Resultado exato ao fim do tempo regulamentar/prolongamento</div>
-        </div>
         <div class="scoring-cell sc-draw">
           <div class="scoring-pts">2</div>
           <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
           <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
         </div>
-        <div class="scoring-cell sc-loss" style="grid-column:1/-1">
-          <div class="scoring-pts">0</div>
-          <div class="scoring-label">❌ Erro</div>
-          <div class="scoring-sub">Não acertaste no resultado nem no vencedor</div>
+        <div class="scoring-cell sc-win">
+          <div class="scoring-pts">5</div>
+          <div class="scoring-label">✅ Acerto no resultado</div>
+          <div class="scoring-sub">Resultado exato ao fim do tempo regulamentar/prolongamento</div>
         </div>
       </div>
     </div>
@@ -965,20 +944,20 @@
         Quando acertas no resultado exato, podes ganhar pontos extra consoante a raridade da tua aposta — quanto menos jogadores apostaram o mesmo resultado, mais pontos ganhas.
       </div>
       <div class="scoring-grid">
-        <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
-          <div class="scoring-pts" style="color:#00bcd4">+6</div>
-          <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
-          <div class="scoring-sub">Menos de 5% apostou igual · Resultado único no grupo</div>
+        <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
+          <div class="scoring-pts" style="color:#f39c12">+2</div>
+          <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
+          <div class="scoring-sub">20–40% apostou igual</div>
         </div>
         <div class="scoring-cell" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25)">
           <div class="scoring-pts" style="color:#9b59b6">+4</div>
           <div class="scoring-label" style="color:#9b59b6">🌟 MUITO RARO</div>
           <div class="scoring-sub">5–20% apostou igual</div>
         </div>
-        <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
-          <div class="scoring-pts" style="color:#f39c12">+2</div>
-          <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
-          <div class="scoring-sub">20–40% apostou igual</div>
+        <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
+          <div class="scoring-pts" style="color:#00bcd4">+6</div>
+          <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
+          <div class="scoring-sub">Menos de 5% apostou igual · Resultado único no grupo</div>
         </div>
       </div>
       <div style="padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:2px">
@@ -990,7 +969,7 @@
 
     <!-- Pré-Apostas -->
     <div class="card">
-      <div class="rules-subtitle">🏆 Pré-Apostas <span id="prebet-deadline-rules" style="font-size:.78rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
+      <div class="rules-subtitle">🏆 Pré-Apostas <span id="prebet-deadline-rules" style="font-size:.78rem;color:var(--sub);font-weight:400">1h antes do 1º jogo</span></div>
       <div class="prebet-grid">
         <div class="prebet-item">🥇🥈 1º e 2º de cada grupo (×24)</div><div class="prebet-pts-v">+2 pts cada</div>
         <div class="prebet-item">🏆 Campeão do Mundo</div><div class="prebet-pts-v">+8 pts</div>
@@ -1011,11 +990,11 @@
       <div class="rules-subtitle">⏰ Deadlines</div>
       <div class="timeline-item">
         <div class="timeline-dot">📋</div>
-        <div><strong>Antes de 11 Jun</strong><br><span style="font-size:.75rem;color:var(--sub)">Preenche as Pré-Apostas. Após o início do torneio ficam bloqueadas.</span></div>
+        <div><strong>Até 11 Jun (1h antes do início do primeiro jogo)</strong><br><span style="font-size:.75rem;color:var(--sub)">Preenche as Pré-Apostas. Após o início do torneio ficam bloqueadas.</span></div>
       </div>
       <div class="timeline-item">
         <div class="timeline-dot">⏱</div>
-        <div><strong>2h antes de cada jogo</strong><br><span style="font-size:.75rem;color:var(--sub)">As apostas fecham antes do apito inicial (configurável pelo admin).</span></div>
+        <div><strong>1h antes de cada jogo</strong><br><span style="font-size:.75rem;color:var(--sub)">As apostas fecham antes do apito inicial (configurável pelo admin).</span></div>
       </div>
       <div class="timeline-item">
         <div class="timeline-dot">🔒</div>
@@ -1028,7 +1007,7 @@
       <div class="rules-subtitle">⚖️ Critérios de Desempate</div>
       <div class="tiebreak-row">
         <div class="tb-badge">1</div>
-        <div><strong>Pontos de Joker + Raridade</strong> (soma dos bónus de multiplicador e raridade)</div>
+        <div><strong>Pontos de Joker + Raridade</strong> (soma dos bónus de joker e raridade)</div>
       </div>
       <div class="tiebreak-row">
         <div class="tb-badge">2</div>
@@ -1514,7 +1493,7 @@ const S = {
   curMD:1, adminMD:1, mundialGrp:'A',
   preds:{}, prebets:{}, results:{}, lb:[], lbReady:false,
   rarityMap:{},
-  participants:[], deadlineH:2, pending:false, savedCards:{},
+  participants:[], deadlineH:1, pending:false, savedCards:{},
   allLeagues:[],
   demoMode: SCRIPT_URL==='COLE_AQUI_O_URL_DO_APPS_SCRIPT',
   leagues:[], curLeague:null,
@@ -1531,7 +1510,7 @@ function updatePrebetDeadlineText() {
   // 1º jogo: 2026-06-11T21:00 (hora local do jogo — Cidade do México, UTC-5 → UTC 02:00 Jun12)
   // Usamos a data/hora display coerente com o resto da app
   const firstGame = new Date('2026-06-11T21:00:00-05:00'); // Cidade do México UTC-5
-  const dh = S.deadlineH || 2;
+  const dh = S.deadlineH || 1;
   const deadline = new Date(firstGame.getTime() - dh * 60 * 60 * 1000);
   const opts = {day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'};
   const deadlineStr = deadline.toLocaleString('pt-PT', opts);
@@ -1929,10 +1908,10 @@ function renderLB() {
           <th rowspan="2" style="${thS};vertical-align:bottom">#</th>
           <th rowspan="2" class="th-name" style="${thS};vertical-align:bottom;padding-left:8px">Jogador</th>
           <th rowspan="2" title="Jogos com resultado" style="${thS};color:var(--sub);vertical-align:bottom">J</th>
-          <th colspan="3" style="${thS};color:var(--green);font-size:.58rem;padding-bottom:2px;border-bottom:none">GRUPOS</th>
-          <th colspan="3" style="${thS};color:#7986cb;font-size:.58rem;padding-bottom:2px;border-bottom:none">KO</th>
+          <th colspan="3" style="${thS};color:var(--green);font-size:.55rem;padding-bottom:2px;border-bottom:none">GRUPOS (sem joker ou raridade)</th>
+          <th colspan="3" style="${thS};color:#7986cb;font-size:.55rem;padding-bottom:2px;border-bottom:none">KO (sem joker ou raridade)</th>
           <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
-          <th rowspan="2" title="Bónus: Joker + Raridade combinados" style="${thS};vertical-align:bottom;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">🃏+🌟</th>
+          <th rowspan="2" title="Bónus: Joker + Raridade combinados" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem">J</th>
           <th rowspan="2" title="Total" style="${thS};color:var(--gold);vertical-align:bottom">Total</th>
         </tr>
         <tr>
@@ -1959,7 +1938,7 @@ function renderLB() {
         <td style="${tdN};color:#9fa8da">${p.ko_draws||0}</td>
         <td style="${tdN};color:#7986cb">${p.ko_pts||0}</td>
         <td style="${tdN};color:var(--sub)">${p.prebets_pts||0}</td>
-        <td style="${tdN};color:#9b59b6;font-size:.88rem">${(p.joker_pts||0)+(p.rarity_pts||0)}</td>
+        <td style="${tdN};color:#00bcd4;font-size:.88rem">${(p.joker_pts||0)+(p.rarity_pts||0)}</td>
         <td class="td-pts" style="padding:9px 4px">${p.total}</td>
       </tr>`;
     });
@@ -1968,7 +1947,7 @@ function renderLB() {
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
-      <span style="white-space:nowrap;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">🃏+🌟 = Joker + Raridade</span>
+      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Joker + Raridade</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
@@ -3291,7 +3270,7 @@ function mockApi(action,data){
     const code=data.code?data.code.toUpperCase():'';
     const isDemoUser=DEMO_USERS.find(u=>u.code===code);
     const preds=isDemoUser?genDemoPreds(code):(S.preds||{});
-    return{preds,prebets:S.prebets||{},results:Object.keys(S.results||{}).length>0?S.results:DEMO_RESULTS,lb:calcDemoLB(),deadlineH:2};
+    return{preds,prebets:S.prebets||{},results:Object.keys(S.results||{}).length>0?S.results:DEMO_RESULTS,lb:calcDemoLB(),deadlineH:1};
   }
   if(action==='getUsers')return{users:DEMO_USERS};
   if(action==='fetchResults')return{success:false,error:'Auto-fetch não disponível em modo demo. Configura o Apps Script e uma API key para usar em produção.'};
@@ -3460,7 +3439,8 @@ function renderLigaSelector() {
   let html = `<div class="liga-bar">
     <button class="liga-btn ${!S.curLeague?'active':''}" onclick="selectLeague(null)">🌍 Global</button>`;
   S.leagues.forEach(l => {
-    html += `<button class="liga-btn ${S.curLeague&&S.curLeague.id===l.id?'active':''}" onclick="selectLeague('${l.id}')">${l.name}</button>`;
+    const isActive = S.curLeague && String(S.curLeague.id).trim()===String(l.id).trim();
+    html += `<button class="liga-btn ${isActive?'active':''}" onclick="selectLeague('${String(l.id).trim()}')">${l.name}</button>`;
   });
   // join button moved to bottom of leaderboard
   html += `</div>`;
@@ -3468,8 +3448,9 @@ function renderLigaSelector() {
 }
 
 function selectLeague(id) {
-  S.curLeague = id ? (S.leagues.find(l=>l.id===id)||null) : null;
-  if (S.user) localStorage.setItem('up26_league_'+S.user.code, id||'');
+  const cleanId = id ? String(id).trim() : null;
+  S.curLeague = cleanId ? (S.leagues.find(l=>String(l.id).trim()===cleanId)||null) : null;
+  if (S.user) localStorage.setItem('up26_league_'+S.user.code, cleanId||'');
   updateLeaguePill();
   renderLB();
 }
@@ -3806,18 +3787,25 @@ function renderAdminLeagues(leagues) {
   let html = '';
   if (!leagues.length) { html='<div class="alert alert-info" style="font-size:.8rem">Sem ligas criadas.</div>'; }
   leagues.forEach(l => {
+    const members = l.members || [];
     html += `<div class="card" style="margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold)">${l.name}</div>
-        <div style="font-size:.72rem;color:var(--sub)">Convite: <strong style="color:var(--text)">${l.invite}</strong> · Admin: ${l.admin}</div></div>
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold)">${l.name}</div>
+          <div style="font-size:.72rem;color:var(--sub)">Convite: <strong style="color:var(--text)">${l.invite||'—'}</strong> · Admin: ${l.admin}</div>
+        </div>
         <button class="btn btn-danger" style="padding:4px 10px;font-size:.72rem" onclick="adminDeleteLeague('${l.id}','${l.name}')">Apagar</button>
       </div>
-      <div style="font-size:.76rem;color:var(--sub);margin-bottom:6px">Membros (${l.members.length}):</div>
+      <div style="font-size:.76rem;color:var(--sub);margin-bottom:6px">Membros (${members.length}):</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px">
-        ${l.members.map(m=>`<span style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:2px 10px;font-size:.73rem;display:flex;align-items:center;gap:5px">
-          ${DEMO_USERS.find(u=>u.code===m)?DEMO_USERS.find(u=>u.code===m).name:m}
-          <button onclick="adminRemoveLeagueMember('${l.id}','${m}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.8rem;padding:0;line-height:1">✕</button>
-        </span>`).join('')}
+        ${members.map(m=>{
+          const code = typeof m==='object'?m.code:m;
+          const name = typeof m==='object'?m.name:(S.participants.find(p=>p.code===code)||{}).name||code;
+          return `<span style="background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:2px 10px;font-size:.73rem;display:flex;align-items:center;gap:5px">
+            ${name}
+            <button onclick="adminRemoveLeagueMember('${l.id}','${code}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:.8rem;padding:0;line-height:1" title="Remover membro">✕</button>
+          </span>`;
+        }).join('')}
       </div>
     </div>`;
   });
