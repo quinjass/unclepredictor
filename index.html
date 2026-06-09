@@ -61,6 +61,8 @@
     .standings-table tbody tr{cursor:pointer;transition:background .15s;position:relative}
     .standings-table tbody tr:hover td{background:rgba(245,197,24,.05)}
     .standings-table tbody tr.row-me td{background:rgba(245,197,24,.08)}
+    .standings-table tbody tr.row-bot td{background:rgba(0,188,212,.05);font-style:italic;cursor:default}
+    .standings-table tbody tr.row-bot:hover td{background:rgba(0,188,212,.09)}
     /* position bar */
     .td-pos{padding-left:14px !important;text-align:left !important;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--sub);position:relative;width:40px}
     .td-pos::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:4px;border-radius:0 2px 2px 0}
@@ -339,6 +341,76 @@
     .bracket-score{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;min-width:34px;text-align:center;color:var(--sub)}
     .bracket-score.played{color:var(--text)}
     .bracket-final .bracket-team{color:var(--gold)}
+
+    /* ══ HERO LOGIN — estilo Kickoff ══ */
+    /* Ecrã de Login: hero a tela cheia com overlay mais leve */
+    #view-login {
+      position: relative;
+      min-height: 100vh;
+      margin: -16px;
+      padding: 0 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Remover o display:none quando não-activo mas deixar visibility invisível */
+    .view:not(.active) { display: none !important; }
+    #view-login.active { display: flex !important; }
+
+    /* Imagem de fundo do hero login */
+    #view-login::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url('https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1600&q=80');
+      background-size: cover;
+      background-position: center;
+      filter: brightness(0.38) saturate(0.85);
+      z-index: 0;
+    }
+    /* Gradiente overlay sobre a imagem */
+    #view-login::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(13,27,42,0.15) 0%,
+        rgba(13,27,42,0.55) 45%,
+        rgba(13,27,42,0.92) 100%
+      );
+      z-index: 1;
+    }
+    /* Conteúdo do login acima dos overlays */
+    #view-login > * {
+      position: relative;
+      z-index: 2;
+    }
+    /* Login box: vidro ligeiro */
+    #view-login .login-box {
+      max-width: 380px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 20px 24px;
+      background: rgba(13, 27, 42, 0.45);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(245,197,24,0.15);
+      border-radius: 20px;
+    }
+    /* Tagline mais visível no hero */
+    #view-login .login-box .logo-img {
+      filter: drop-shadow(0 6px 32px rgba(245,197,24,.5));
+    }
+    /* Cards das regras dentro do login: glass também */
+    #view-login .card {
+      background: rgba(22, 32, 50, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-color: rgba(37,58,80,0.5);
+    }
   </style>
 </head>
 <body>
@@ -476,21 +548,7 @@
       <img src="https://quinjass.github.io/unclepredictor/logo.png" alt="Uncle Predictor" class="logo-img">
       <div style="text-align:center;margin:0 0 18px">
         <div style="color:var(--sub);font-size:.82rem;margin:6px 0 10px">Faz as tuas previsões, ganha pontos, lidera a classificação.</div>
-        <div style="display:flex;justify-content:center;gap:18px;margin-bottom:12px">
-          <div style="text-align:center">
-            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold)">+3</div>
-            <div style="font-size:.68rem;color:var(--sub)">Resultado exato</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold)">+1</div>
-            <div style="font-size:.68rem;color:var(--sub)">Vencedor/empate</div>
-          </div>
-          <div style="text-align:center">
-            <div style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--gold)">×2</div>
-            <div style="font-size:.68rem;color:var(--sub)">Joker</div>
-          </div>
-        </div>
-        <button class="btn btn-outline" style="font-size:.74rem;padding:5px 14px" onclick="document.getElementById('login-rules-panel').style.display=document.getElementById('login-rules-panel').style.display==='none'?'block':'none'">Ver Regras</button>
+        <button class="btn btn-outline" style="font-size:.74rem;padding:5px 14px;margin-bottom:12px" onclick="document.getElementById('login-rules-panel').style.display=document.getElementById('login-rules-panel').style.display==='none'?'block':'none'">📋 Ver Regras</button>
         <div id="login-rules-panel" style="display:none;text-align:left;margin-top:10px">
 
           <div class="card">
@@ -563,20 +621,20 @@
               Acertas no resultado exato? Se poucos apostaram igual, ganhas pontos extra!
             </div>
             <div class="scoring-grid">
-              <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
-                <div class="scoring-pts" style="color:#f39c12">+1</div>
-                <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
-                <div class="scoring-sub">20–40% apostou igual</div>
+              <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
+                <div class="scoring-pts" style="color:#00bcd4">+6</div>
+                <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
+                <div class="scoring-sub">&lt;5% apostou igual</div>
               </div>
               <div class="scoring-cell" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25)">
-                <div class="scoring-pts" style="color:#9b59b6">+2</div>
+                <div class="scoring-pts" style="color:#9b59b6">+4</div>
                 <div class="scoring-label" style="color:#9b59b6">🌟 MUITO RARO</div>
                 <div class="scoring-sub">5–20% apostou igual</div>
               </div>
-              <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
-                <div class="scoring-pts" style="color:#00bcd4">+3</div>
-                <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
-                <div class="scoring-sub">&lt;5% apostou igual</div>
+              <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
+                <div class="scoring-pts" style="color:#f39c12">+2</div>
+                <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
+                <div class="scoring-sub">20–40% apostou igual</div>
               </div>
             </div>
             <div style="margin-top:6px;font-size:.72rem;color:var(--sub);line-height:1.6">
@@ -585,7 +643,7 @@
           </div>
 
           <div class="card">
-            <div class="rules-subtitle">🏆 Pré-Apostas <span style="font-size:.75rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
+            <div class="rules-subtitle">🏆 Pré-Apostas <span id="prebet-deadline-login" style="font-size:.75rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
             <div class="prebet-grid">
               <div class="prebet-item">🥇🥈 1º e 2º de cada grupo (×24)</div><div class="prebet-pts-v">+2 pts cada</div>
               <div class="prebet-item">🏆 Campeão do Mundo</div><div class="prebet-pts-v">+8 pts</div>
@@ -595,6 +653,9 @@
             </div>
             <div style="margin-top:8px;padding:7px 10px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.75rem;color:var(--sub);text-align:center">
               Pontuação máxima em pré-apostas: <strong style="color:var(--gold)">69 pts</strong>
+            </div>
+            <div style="margin-top:6px;padding:6px 10px;background:rgba(231,76,60,.07);border-radius:8px;font-size:.73rem;color:var(--sub);line-height:1.5">
+              ⏰ <span id="prebet-note-login">As pré-apostas encerram antes do 1º jogo.</span>
             </div>
           </div>
 
@@ -618,7 +679,7 @@
             <div class="rules-subtitle">⚖️ Critérios de Desempate</div>
             <div class="tiebreak-row">
               <div class="tb-badge">1</div>
-              <div>Número de <strong>Acertos no vencedor / empate</strong></div>
+              <div><strong>Pontos de Joker + Raridade</strong></div>
             </div>
             <div class="tiebreak-row">
               <div class="tb-badge">2</div>
@@ -626,7 +687,7 @@
             </div>
             <div class="tiebreak-row">
               <div class="tb-badge">3</div>
-              <div><strong>Pontos obtidos com o JOKER</strong></div>
+              <div>Número de <strong>Acertos no vencedor / empate</strong></div>
             </div>
           </div>
 
@@ -904,20 +965,20 @@
         Quando acertas no resultado exato, podes ganhar pontos extra consoante a raridade da tua aposta — quanto menos jogadores apostaram o mesmo resultado, mais pontos ganhas.
       </div>
       <div class="scoring-grid">
-        <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
-          <div class="scoring-pts" style="color:#f39c12">+1</div>
-          <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
-          <div class="scoring-sub">20–40% apostou igual</div>
+        <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
+          <div class="scoring-pts" style="color:#00bcd4">+6</div>
+          <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
+          <div class="scoring-sub">Menos de 5% apostou igual · Resultado único no grupo</div>
         </div>
         <div class="scoring-cell" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25)">
-          <div class="scoring-pts" style="color:#9b59b6">+2</div>
+          <div class="scoring-pts" style="color:#9b59b6">+4</div>
           <div class="scoring-label" style="color:#9b59b6">🌟 MUITO RARO</div>
           <div class="scoring-sub">5–20% apostou igual</div>
         </div>
-        <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
-          <div class="scoring-pts" style="color:#00bcd4">+3</div>
-          <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
-          <div class="scoring-sub">Menos de 5% apostou igual · Resultado único no grupo</div>
+        <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
+          <div class="scoring-pts" style="color:#f39c12">+2</div>
+          <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
+          <div class="scoring-sub">20–40% apostou igual</div>
         </div>
       </div>
       <div style="padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:2px">
@@ -929,7 +990,7 @@
 
     <!-- Pré-Apostas -->
     <div class="card">
-      <div class="rules-subtitle">🏆 Pré-Apostas <span style="font-size:.78rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
+      <div class="rules-subtitle">🏆 Pré-Apostas <span id="prebet-deadline-rules" style="font-size:.78rem;color:var(--sub);font-weight:400">antes de 11 Jun</span></div>
       <div class="prebet-grid">
         <div class="prebet-item">🥇🥈 1º e 2º de cada grupo (×24)</div><div class="prebet-pts-v">+2 pts cada</div>
         <div class="prebet-item">🏆 Campeão do Mundo</div><div class="prebet-pts-v">+8 pts</div>
@@ -939,6 +1000,9 @@
       </div>
       <div style="margin-top:10px;padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.78rem;color:var(--sub);text-align:center">
         Pontuação máxima em pré-apostas: <strong style="color:var(--gold)">69 pts</strong>
+      </div>
+      <div style="margin-top:6px;padding:6px 12px;background:rgba(231,76,60,.07);border-radius:8px;font-size:.75rem;color:var(--sub);line-height:1.5">
+        ⏰ <span id="prebet-note-rules">As pré-apostas encerram antes do 1º jogo.</span>
       </div>
     </div>
 
@@ -964,7 +1028,7 @@
       <div class="rules-subtitle">⚖️ Critérios de Desempate</div>
       <div class="tiebreak-row">
         <div class="tb-badge">1</div>
-        <div>Número de <strong>Acertos no vencedor / empate</strong> (acertaste no vencedor ou no empate)</div>
+        <div><strong>Pontos de Joker + Raridade</strong> (soma dos bónus de multiplicador e raridade)</div>
       </div>
       <div class="tiebreak-row">
         <div class="tb-badge">2</div>
@@ -972,7 +1036,7 @@
       </div>
       <div class="tiebreak-row">
         <div class="tb-badge">3</div>
-        <div><strong>Pontos obtidos com o JOKER</strong> (soma dos pontos ganhos graças ao multiplicador)</div>
+        <div>Número de <strong>Acertos no vencedor / empate</strong></div>
       </div>
     </div>
 
@@ -1117,7 +1181,21 @@
             <input class="form-input" id="cfg-apikey" type="text" placeholder="Ex: abc1234def5678...">
             <div style="font-size:.7rem;color:var(--sub);margin-top:4px">Regista-te gratuitamente em <a href="https://www.football-data.org" target="_blank" style="color:var(--gold)">football-data.org</a> para obter uma chave API gratuita.</div>
           </div>
+          <div class="form-group">
+            <label class="form-label">API Key — the-odds-api.com <span style="color:var(--sub);font-weight:400">(para apostas do Bot IA)</span></label>
+            <input class="form-input" id="cfg-oddskey" type="text" placeholder="Ex: abc1234def5678...">
+            <div style="font-size:.7rem;color:var(--sub);margin-top:4px">Regista-te em <a href="https://the-odds-api.com" target="_blank" style="color:var(--gold)">the-odds-api.com</a> (plano gratuito disponível).</div>
+          </div>
           <button class="btn btn-primary btn-full" onclick="saveConfig()">Guardar</button>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:10px">🤖 Bot IA</div>
+          <div style="font-size:.78rem;color:var(--sub);margin-bottom:12px;line-height:1.5">O Bot faz apostas automaticamente com base em odds em tempo real. Requer a API Key da the-odds-api.com configurada acima.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-outline" style="flex:1;font-size:.78rem" onclick="runBot('preds')">⚽ Gerar Apostas</button>
+            <button class="btn btn-outline" style="flex:1;font-size:.78rem" onclick="runBot('prebets')">🏆 Gerar Pré-Apostas</button>
+          </div>
+          <div id="bot-status" style="display:none;margin-top:10px;font-size:.78rem;padding:8px 12px;background:rgba(245,197,24,.08);border-radius:8px"></div>
         </div>
       </div>
     </div>
@@ -1446,6 +1524,30 @@ const S = {
 };
 
 // ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+//  PRÉ-APOSTAS DEADLINE TEXT
+// ════════════════════════════════════════════════
+function updatePrebetDeadlineText() {
+  // 1º jogo: 2026-06-11T21:00 (hora local do jogo — Cidade do México, UTC-5 → UTC 02:00 Jun12)
+  // Usamos a data/hora display coerente com o resto da app
+  const firstGame = new Date('2026-06-11T21:00:00-05:00'); // Cidade do México UTC-5
+  const dh = S.deadlineH || 2;
+  const deadline = new Date(firstGame.getTime() - dh * 60 * 60 * 1000);
+  const opts = {day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'};
+  const deadlineStr = deadline.toLocaleString('pt-PT', opts);
+  const note = `As pré-apostas encerram <strong style="color:var(--text)">${dh}h antes do 1º jogo</strong> — até <strong style="color:var(--gold)">${deadlineStr}</strong> (hora de Portugal).`;
+  const label = `encerram ${dh}h antes do 1º jogo`;
+  ['prebet-deadline-login','prebet-deadline-rules'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = label;
+  });
+  ['prebet-note-login','prebet-note-rules'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = note;
+  });
+}
+
+// ════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════
 async function init() {
@@ -1720,7 +1822,7 @@ async function loadData() {
     if(r.results)S.results=r.results;
     if(r.lb)S.lb=r.lb;
     if(r.rarityMap)S.rarityMap=r.rarityMap;
-    if(r.deadlineH)S.deadlineH=r.deadlineH;
+    if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
     if(r.specials)S.specials=r.specials;
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
@@ -1736,18 +1838,45 @@ function renderLB() {
   const el = document.getElementById('lb-content');
   let raw = S.lb.length ? S.lb : (S.demoMode && S.user ? calcDemoLB() : []);
   if(!raw.length){el.innerHTML=S.lbReady?'<div class="alert alert-info">Ainda sem dados de classificação.</div>':'<div class="loading-center"><div class="spinner"></div></div>';return;}
-  if(S.curLeague&&S.curLeague.members) raw=raw.filter(p=>S.curLeague.members.includes(p.code));
+  if(S.curLeague&&S.curLeague.members){const mc=S.curLeague.members.map(m=>(m||'').toUpperCase());raw=raw.filter(p=>mc.includes((p.code||'').toUpperCase()));}
 
   const data=[...raw].sort((a,b)=>{
     if(b.total!==a.total)return b.total-a.total;
-    if(b.draws!==a.draws)return b.draws-a.draws;
-    if(b.wins!==a.wins)return b.wins-a.wins;
-    return (b.joker_pts||0)-(a.joker_pts||0);
+    // 1º desempate: pontos de Joker + Raridade combinados
+    const jA=(a.joker_pts||0)+(a.rarity_pts||0), jB=(b.joker_pts||0)+(b.rarity_pts||0);
+    if(jB!==jA)return jB-jA;
+    // 2º desempate: acertos no resultado exato (grupos + KO)
+    const wA=(a.wins||0)+(a.ko_wins||0), wB=(b.wins||0)+(b.ko_wins||0);
+    if(wB!==wA)return wB-wA;
+    // 3º desempate: acertos no vencedor/empate
+    return ((b.draws||0)+(b.ko_draws||0))-((a.draws||0)+(a.ko_draws||0));
   });
   const finishedGames=Object.keys(S.demoMode?DEMO_RESULTS:S.results).length;
+
+  // ── Position change tracking (vs last finished game) ──
+  const posKey='up26_pos_'+(S.user?S.user.code:'x')+'_'+(S.curLeague?S.curLeague.id:'global');
+  let posSnap=null;
+  try{posSnap=JSON.parse(localStorage.getItem(posKey));}catch(e){}
+  const curPosMap={};
+  data.forEach((p,i)=>{curPosMap[p.code]=i+1;});
+  let prevPosMap=null;
+  if(!posSnap||posSnap.curAt<finishedGames){
+    const newSnap={prev:posSnap?posSnap.cur:curPosMap,prevAt:posSnap?posSnap.curAt:finishedGames,cur:curPosMap,curAt:finishedGames};
+    localStorage.setItem(posKey,JSON.stringify(newSnap));
+    prevPosMap=newSnap.prev;
+  }else{prevPosMap=posSnap.prev;}
+  const posArrow=(code,curRank)=>{
+    if(!prevPosMap||prevPosMap[code]===undefined)return '';
+    const delta=prevPosMap[code]-curRank;
+    if(delta===0)return '';
+    return `<span style="font-size:.6rem;color:${delta>0?'#2ecc71':'#e74c3c'};font-weight:700;font-family:'Rajdhani',sans-serif;margin-left:2px">${delta>0?'↑':'↓'}${Math.abs(delta)}</span>`;
+  };
+
   const trophySyms=['🥇','🥈','🥉'];
   const posSyms=['👑','🥈','🥉'];
   const trophyHtml=p=>(p.mdTrophies||[]).map(t=>`<span class="md-trophy" title="Venceu Jornada ${t.md}">${trophySyms[t.rank-1]}J${t.md}</span>`).join('');
+  const isBot=p=>p.code==='BOT_IA';
+  const playerLabel=p=>isBot(p)?'🤖 IA':p.name;
   const ligaHdr=S.curLeague?`<div style="font-size:.78rem;color:#00bcd4;margin-bottom:8px">🏆 Liga: <strong>${S.curLeague.name}</strong> · ${data.length} jogadores</div>`:'';
 
   let html = ligaHdr;
@@ -1772,9 +1901,10 @@ function renderLB() {
     data.forEach((p,i)=>{
       const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
-      html+=`<tr class="${rankClass}${me?' row-me':''}" onclick="openPlayerModal('${p.name}')">
-        <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}</td>
-        <td class="td-name">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
+      const bot=isBot(p);
+      html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'':` openPlayerModal('${p.name}')`}">
+        <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
+        <td class="td-name">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
         <td>${finishedGames}</td>
         <td class="td-pts">${p.total}</td>
       </tr>`;
@@ -1802,7 +1932,7 @@ function renderLB() {
           <th colspan="3" style="${thS};color:var(--green);font-size:.58rem;padding-bottom:2px;border-bottom:none">GRUPOS</th>
           <th colspan="3" style="${thS};color:#7986cb;font-size:.58rem;padding-bottom:2px;border-bottom:none">KO</th>
           <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
-          <th rowspan="2" title="Pontos obtidos com o Joker" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem">J</th>
+          <th rowspan="2" title="Bónus: Joker + Raridade combinados" style="${thS};vertical-align:bottom;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">🃏+🌟</th>
           <th rowspan="2" title="Total" style="${thS};color:var(--gold);vertical-align:bottom">Total</th>
         </tr>
         <tr>
@@ -1817,9 +1947,10 @@ function renderLB() {
     data.forEach((p,i)=>{
       const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
-      html+=`<tr class="${rankClass}${me?' row-me':''}" onclick="openPlayerModal('${p.name}')">
-        <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}</td>
-        <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${p.name}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
+      const bot=isBot(p);
+      html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'':` openPlayerModal('${p.name}')`}">
+        <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
+        <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
         <td style="${tdN};color:var(--sub)">${finishedGames}</td>
         <td style="${tdN};color:var(--green)">${p.wins||0}</td>
         <td style="${tdN};color:#f39c12">${p.draws||0}</td>
@@ -1828,8 +1959,8 @@ function renderLB() {
         <td style="${tdN};color:#9fa8da">${p.ko_draws||0}</td>
         <td style="${tdN};color:#7986cb">${p.ko_pts||0}</td>
         <td style="${tdN};color:var(--sub)">${p.prebets_pts||0}</td>
-        <td style="${tdN};color:#00bcd4">${p.joker_pts||0}</td>
-        <td class="td-pts" style="padding:9px 4px;line-height:1.3">${p.total}${p.rarity_pts>0?`<br><span style="font-size:.58rem;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700">🌟+${p.rarity_pts}</span>`:''}</td>
+        <td style="${tdN};color:#9b59b6;font-size:.88rem">${(p.joker_pts||0)+(p.rarity_pts||0)}</td>
+        <td class="td-pts" style="padding:9px 4px">${p.total}</td>
       </tr>`;
     });
     html+=`</tbody></table></div>
@@ -1837,8 +1968,7 @@ function renderLB() {
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
-      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Pts Joker</span>
-      <span style="white-space:nowrap;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">🌟 = Raridade</span>
+      <span style="white-space:nowrap;color:#9b59b6;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">🃏+🌟 = Joker + Raridade</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
@@ -3049,10 +3179,22 @@ async function saveConfig(){
   const dh=parseInt(document.getElementById('cfg-deadline').value);
   const np=document.getElementById('cfg-newpw').value;
   const ak=document.getElementById('cfg-apikey')?document.getElementById('cfg-apikey').value.trim():null;
+  const ok=document.getElementById('cfg-oddskey')?document.getElementById('cfg-oddskey').value.trim():null;
   try {
-    await api('saveConfig',{password:document.getElementById('admin-pw').value,deadlineH:dh,newPassword:np||null,apiKey:ak||null});
+    await api('saveConfig',{password:document.getElementById('admin-pw').value,deadlineH:dh,newPassword:np||null,apiKey:ak||null,oddsApiKey:ok||null});
     S.deadlineH=dh; showToast('Configurações guardadas!','success');
   } catch(e){showToast('Erro.','error');}
+}
+
+async function runBot(mode){
+  const statusEl=document.getElementById('bot-status');
+  statusEl.style.display='block'; statusEl.textContent='🤖 A gerar apostas...';
+  try {
+    const action = mode==='prebets' ? 'runBotPrebets' : 'runBot';
+    const r=await api(action,{password:document.getElementById('admin-pw').value});
+    if(r.success){statusEl.textContent='✅ '+r.message;}
+    else{statusEl.textContent='❌ Erro: '+(r.error||'desconhecido');}
+  } catch(e){statusEl.textContent='❌ Erro de ligação: '+e.message;}
 }
 
 async function autoFetchResults(){
@@ -3110,12 +3252,12 @@ function rarityBadgeHtml(gameId, pred, res, jokerOn) {
   if(pred.t1!==res.t1||pred.t2!==res.t2) return '';
   const r=S.rarityMap&&S.rarityMap[gameId];
   if(!r) return '';
-  const emojis={1:'⭐',2:'🌟',3:'💎'};
-  const labels={1:'Raro',2:'Muito Raro',3:'Ultra Raro'};
-  const colors={1:'#f39c12',2:'#9b59b6',3:'#00bcd4'};
-  const bgs={1:'rgba(243,156,18,.12)',2:'rgba(155,89,182,.12)',3:'rgba(0,188,212,.12)'};
+  const emojis={2:'⭐',4:'🌟',6:'💎'};
+  const labels={2:'Raro',4:'Muito Raro',6:'Ultra Raro'};
+  const colors={2:'#f39c12',4:'#9b59b6',6:'#00bcd4'};
+  const bgs={2:'rgba(243,156,18,.12)',4:'rgba(155,89,182,.12)',6:'rgba(0,188,212,.12)'};
   const bonus=jokerOn?r.bonus*2:r.bonus;
-  return `<div class="rarity-badge" style="color:${colors[r.bonus]};background:${bgs[r.bonus]}">${emojis[r.bonus]} ${labels[r.bonus]} <strong>+${bonus}pt${bonus>1?'s':''}</strong></div>`;
+  return `<div class="rarity-badge" style="color:${colors[r.bonus]};background:${bgs[r.bonus]}">${emojis[r.bonus]} ${labels[r.bonus]} <strong>+${bonus}pts</strong></div>`;
 }
 
 // ════════════════════════════════════════════════
@@ -3216,6 +3358,11 @@ async function loadMyLeagues() {
   try {
     const r = await api('getMyLeagues', {code: S.user.code});
     S.leagues = r.leagues || [];
+    // Sync curLeague reference to fresh data (prevents stale member lists)
+    if (S.curLeague) {
+      S.curLeague = S.leagues.find(l => l.id === S.curLeague.id) || null;
+      updateLeaguePill();
+    }
   } catch(e) { S.leagues = []; }
 }
 
@@ -3437,6 +3584,9 @@ async function createLeagueFromPicker() {
       msgEl.style.display='block';
       S.allLeagues=[]; // forçar reload
       await loadMyLeagues();
+      // Auto-entrar na liga recém criada
+      const newLg = S.leagues.find(l => l.id === r.league.id);
+      if (newLg) { S.curLeague = newLg; if(S.user)localStorage.setItem('up26_league_'+S.user.code, newLg.id); updateLeaguePill(); }
       renderLeaguePicker();
     } else {
       showToast(r.error||'Erro ao criar liga.','error');
@@ -3689,6 +3839,7 @@ async function adminRemoveLeagueMember(lid, memberCode) {
   } catch(e){ showToast('Erro.','error'); }
 }
 
+updatePrebetDeadlineText();
 init();
 </script>
 </body>
