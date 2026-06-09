@@ -1796,7 +1796,16 @@ async function loadData() {
   try {
     const r=await api('getData',{code:S.user.code});
     S.lbReady=true;
-    if(r.preds){S.preds=r.preds;localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));}
+    if(r.preds){
+      S.preds=r.preds;
+      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+      // Marcar como saved tudo o que veio do servidor (já está guardado)
+      Object.keys(r.preds).forEach(id=>{
+        const p=r.preds[id];
+        if(p&&p.t1!==undefined&&p.t2!==undefined) S.savedCards[id]=true;
+      });
+      localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    }
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
     if(r.lb)S.lb=r.lb;
@@ -1908,10 +1917,10 @@ function renderLB() {
           <th rowspan="2" style="${thS};vertical-align:bottom">#</th>
           <th rowspan="2" class="th-name" style="${thS};vertical-align:bottom;padding-left:8px">Jogador</th>
           <th rowspan="2" title="Jogos com resultado" style="${thS};color:var(--sub);vertical-align:bottom">J</th>
-          <th colspan="3" style="${thS};color:var(--green);font-size:.55rem;padding-bottom:2px;border-bottom:none">GRUPOS (sem joker ou raridade)</th>
-          <th colspan="3" style="${thS};color:#7986cb;font-size:.55rem;padding-bottom:2px;border-bottom:none">KO (sem joker ou raridade)</th>
+          <th colspan="3" style="${thS};color:var(--green);font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">GRUPOS<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
+          <th colspan="3" style="${thS};color:#7986cb;font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">KO<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
-          <th rowspan="2" title="Bónus: Joker + Raridade combinados" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem">J</th>
+          <th rowspan="2" title="Bónus: Joker + Raridade combinados" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem;line-height:1.1">J+⭐</th>
           <th rowspan="2" title="Total" style="${thS};color:var(--gold);vertical-align:bottom">Total</th>
         </tr>
         <tr>
@@ -1947,7 +1956,7 @@ function renderLB() {
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
-      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Joker + Raridade</span>
+      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J+⭐ = Joker + Raridade</span>
     </div>`;
   }
   html+=`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:10px">
