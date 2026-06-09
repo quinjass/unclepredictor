@@ -1218,7 +1218,7 @@ const GROUPS = {
 };
 
 const GAMES = [
-  {id:'A1',g:'A',md:1,t1:'México',t2:'África do Sul',date:'2026-06-11T21:00',venue:'Cidade do México'},
+  {id:'A1',g:'A',md:1,t1:'México',t2:'África do Sul',date:'2026-06-11T20:00',venue:'Cidade do México'},
   {id:'A2',g:'A',md:1,t1:'Coreia do Sul',t2:'Chéquia',date:'2026-06-12T03:00',venue:'Zapopan'},
   {id:'B1',g:'B',md:1,t1:'Canadá',t2:'Bósnia e Herzegovina',date:'2026-06-12T20:00',venue:'Toronto'},
   {id:'D1',g:'D',md:1,t1:'EUA',t2:'Paraguai',date:'2026-06-13T02:00',venue:'Inglewood'},
@@ -1322,13 +1322,33 @@ const GAMES = [
   {id:'QF_03',md:'QF',ko:true,t1:'V R16_05', t2:'V R16_06', date:'2026-07-12T20:00',venue:'TBD'},
   {id:'QF_04',md:'QF',ko:true,t1:'V R16_07', t2:'V R16_08', date:'2026-07-12T23:00',venue:'TBD'},
   // ── SF — Meias-Finais (2 jogos · 14–15 Jul) ──
-  {id:'SF_01',md:'SF',ko:true,t1:'V QF_01', t2:'V QF_02', date:'2026-07-14T23:00',venue:'TBD'},
-  {id:'SF_02',md:'SF',ko:true,t1:'V QF_03', t2:'V QF_04', date:'2026-07-15T23:00',venue:'TBD'},
+  {id:'SF_01',md:'SF',ko:true,t1:'V QF_01', t2:'V QF_02', date:'2026-07-14T20:00',venue:'TBD'},
+  {id:'SF_02',md:'SF',ko:true,t1:'V QF_03', t2:'V QF_04', date:'2026-07-15T20:00',venue:'TBD'},
   // ── F3 — 3º/4º Lugar · 18 Jul ──
-  {id:'F3_01',md:'F3',ko:true,t1:'D SF_01', t2:'D SF_02', date:'2026-07-18T23:00',venue:'Miami'},
+  {id:'F3_01',md:'F3',ko:true,t1:'D SF_01', t2:'D SF_02', date:'2026-07-18T22:00',venue:'Miami'},
   // ── FIN — Final · 19 Jul ──
-  {id:'FIN_01',md:'FIN',ko:true,t1:'V SF_01', t2:'V SF_02', date:'2026-07-19T23:00',venue:'East Rutherford'},
+  {id:'FIN_01',md:'FIN',ko:true,t1:'V SF_01', t2:'V SF_02', date:'2026-07-19T20:00',venue:'East Rutherford'},
 ];
+
+// ── Transmissões em Portugal por jogo ──
+// free: canais em sinal aberto · streaming: LiveModeTV (YouTube, gratuito)
+// SportTV transmite todos os 104 jogos (cabo/satélite)
+const TV_CHANNELS = {
+  'A1':    {free:['TVI'],  streaming:true},   // México vs África do Sul
+  'B1':    {free:['SIC'],  streaming:false},  // Canadá vs Bósnia
+  'I1':    {free:['RTP'],  streaming:true},   // França vs Senegal
+  'B3':    {free:['RTP'],  streaming:false},  // Suíça vs Bósnia (J2)
+  'E3':    {free:['TVI'],  streaming:false},  // Alemanha vs Costa do Marfim
+  'K1':    {free:['SIC'],  streaming:true},   // Portugal vs R.D. Congo
+  'K3':    {free:['TVI'],  streaming:true},   // Portugal vs Uzbequistão
+  'E5':    {free:['SIC'],  streaming:false},  // Equador vs Alemanha
+  'I5':    {free:['TVI'],  streaming:false},  // Noruega vs França
+  'K5':    {free:['RTP'],  streaming:true},   // Colômbia vs Portugal
+  'SF_01': {free:[],       streaming:true},
+  'SF_02': {free:[],       streaming:true},
+  'F3_01': {free:[],       streaming:false},
+  'FIN_01':{free:['RTP'],  streaming:true},   // Final
+};
 
 const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort((a,b)=>a.localeCompare(b,'pt'));
 const KO_MDS = ['R32','R16','QF','SF','F3','FIN'];
@@ -2454,12 +2474,22 @@ function renderBracket() {
       const t2wins = hasScore && res.t2 > res.t1;
       const f1 = !t1ph ? flag(t1) : '';
       const f2 = !t2ph ? flag(t2) : '';
+      const d = new Date(g.date);
+      const dateShort = d.toLocaleDateString('pt-PT',{day:'numeric',month:'short'});
+      const timeShort = d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+      const tv = TV_CHANNELS[g.id] || {};
+      const hasFree = (tv.free||[]).length > 0;
+      const tvBtnStyle = hasFree
+        ? 'background:rgba(231,76,60,.12);color:#e57373;border:1px solid rgba(231,76,60,.3)'
+        : 'background:rgba(255,255,255,.06);color:var(--sub);border:1px solid var(--border)';
 
       html += `<div class="bracket-match ${round.cls}">
         <span class="bracket-match-n">J${idx+1}</span>
         <span class="bracket-team${t1ph?' placeholder':''}${t1wins?' bracket-winner':''}">${f1}${t1}</span>
         <span class="bracket-score-badge">${hasScore?`${res.t1}–${res.t2}`:'·'}</span>
         <span class="bracket-team${t2ph?' placeholder':''}${t2wins?' bracket-winner':''}" style="text-align:right">${f2}${t2}</span>
+        <span style="font-size:.63rem;color:var(--sub);white-space:nowrap;margin-left:2px">${dateShort} ${timeShort}</span>
+        <button onclick="showTVInfo('${g.id}')" style="${tvBtnStyle};border-radius:5px;font-size:.58rem;font-weight:700;padding:2px 4px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4;margin-left:2px;flex-shrink:0">📺</button>
       </div>`;
     });
   });
@@ -2507,6 +2537,47 @@ function renderTopScorers() {
     html += `<div style="font-size:.68rem;color:var(--sub);text-align:center;margin:-10px 0 14px">📡 Dados arbitrários para teste · Em produção ligado à fonte oficial FIFA/UEFA</div>`;
   }
   el.innerHTML = html;
+}
+
+function showTVInfo(gameId) {
+  const game = GAMES.find(g => g.id === gameId);
+  if (!game) return;
+  const tv = TV_CHANNELS[gameId] || {};
+  const freeChannels = tv.free || [];
+  const hasStreaming = tv.streaming || false;
+  const t1 = game.ko ? getKOTeamName(game.id,'t1') : game.t1;
+  const t2 = game.ko ? getKOTeamName(game.id,'t2') : game.t2;
+  const dateStr = new Date(game.date).toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short'});
+  const timeStr = new Date(game.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('modal-title').textContent = `${t1} vs ${t2}`;
+  document.getElementById('modal-subtitle').textContent = `${dateStr} · ${timeStr}h Portugal`;
+  let html = `<div style="font-size:.82rem">`;
+  html += `<div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;color:var(--sub);margin-bottom:10px;letter-spacing:.5px;text-transform:uppercase">📺 Transmissão em Portugal</div>`;
+  html += `<div style="margin-bottom:14px">`;
+  if (freeChannels.length) {
+    freeChannels.forEach(ch => {
+      const color = ch==='RTP'?'#1abc9c':ch==='SIC'?'#e74c3c':'#e67e22';
+      html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;color:${color};min-width:55px">${ch}</span>
+        <div><div style="font-size:.8rem;font-weight:600;color:var(--text)">Sinal aberto</div><div style="font-size:.71rem;color:var(--sub)">Gratuito — antena / cabo / streaming</div></div>
+      </div>`;
+    });
+  } else {
+    html += `<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--sub);font-style:italic">— Sem transmissão em sinal aberto</div>`;
+  }
+  html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+    <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:#ab47bc;min-width:55px">SportTV</span>
+    <div><div style="font-size:.8rem;font-weight:600;color:var(--text)">Cabo / Satélite / IPTV</div><div style="font-size:.71rem;color:var(--sub)">Todos os 104 jogos do Mundial</div></div>
+  </div>`;
+  if (hasStreaming) {
+    html += `<div style="display:flex;align-items:center;gap:12px;padding:10px 0">
+      <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;color:#e53935;min-width:55px">YouTube</span>
+      <div><div style="font-size:.8rem;font-weight:600;color:var(--text)">LiveModeTV — Gratuito</div><div style="font-size:.71rem;color:var(--sub)">34 jogos grátis no YouTube (Portugal, semis, final)</div></div>
+    </div>`;
+  }
+  html += `</div></div>`;
+  document.getElementById('modal-body').innerHTML = html;
+  openModal();
 }
 
 function switchMundialGroup(grp) {
@@ -2564,14 +2635,23 @@ function renderMundialGroup() {
 
   grpGames.forEach(g => {
     const res = results[g.id];
-    const dateStr = new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'});
+    const d = new Date(g.date);
+    const dateStr = d.toLocaleDateString('pt-PT',{day:'numeric',month:'short'});
+    const timeStr = d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
     const mdLabel = `J${g.md}`;
+    const tv = TV_CHANNELS[g.id] || {};
+    const hasFree = (tv.free||[]).length > 0;
+    const tvBtnStyle = hasFree
+      ? 'background:rgba(231,76,60,.12);color:#e57373;border:1px solid rgba(231,76,60,.3)'
+      : 'background:rgba(255,255,255,.06);color:var(--sub);border:1px solid var(--border)';
     html += `<div class="game-result-row">
-      <span style="font-size:.68rem;color:var(--sub);min-width:46px">${dateStr}</span>
-      <span style="font-size:.67rem;background:rgba(245,197,24,.1);color:var(--gold);border-radius:3px;padding:1px 5px;font-weight:700;margin-right:2px">${mdLabel}</span>
-      <span style="flex:1;font-size:.81rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t1)}${g.t1}</span>
+      <span style="font-size:.67rem;color:var(--sub);min-width:38px;flex-shrink:0">${dateStr}</span>
+      <span style="font-size:.67rem;color:var(--gold);font-weight:700;min-width:32px;flex-shrink:0">${timeStr}</span>
+      <span style="font-size:.67rem;background:rgba(245,197,24,.1);color:var(--gold);border-radius:3px;padding:1px 4px;font-weight:700;margin-right:2px;flex-shrink:0">${mdLabel}</span>
+      <span style="flex:1;font-size:.79rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t1)}${g.t1}</span>
       <span class="game-result-score">${res?`${res.t1} – ${res.t2}`:'– –'}</span>
-      <span style="flex:1;font-size:.81rem;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t2)}${g.t2}</span>
+      <span style="flex:1;font-size:.79rem;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t2)}${g.t2}</span>
+      <button onclick="showTVInfo('${g.id}')" style="margin-left:5px;flex-shrink:0;${tvBtnStyle};border-radius:5px;font-size:.6rem;font-weight:700;padding:2px 5px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4">📺</button>
     </div>`;
   });
 
