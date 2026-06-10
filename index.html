@@ -2381,6 +2381,7 @@ async function sendLeagueInvite(){
       msg.style.background='rgba(39,174,96,.12)';msg.style.border='1px solid rgba(39,174,96,.3)';msg.style.color='var(--green)';
       msg.textContent='✓ '+(r.message||'Convite enviado!');
       inp.value='';
+      loadManageRequests(S_managingLeague.id); // mostrar o convite na lista
     }else{
       msg.style.background='rgba(231,76,60,.12)';msg.style.border='1px solid rgba(231,76,60,.3)';msg.style.color='var(--red)';
       msg.textContent='✕ '+(r.error||'Erro ao enviar convite.');
@@ -3920,6 +3921,7 @@ function mockApi(action,data){
     return{success:true};
   }
   if(action==='inviteToLeague')return{success:true,message:'(demo) Convite enviado a '+data.target+'.'};
+  if(action==='getLeagueInvites')return{invites:[{name:'SOFIA',status:'sent',at:'2026-06-10T12:00:00Z'},{name:'BRUNO',status:'joined',at:'2026-06-09T18:00:00Z'}]};
   if(action==='broadcast')return{success:true};
   return{success:true};
 }
@@ -4249,22 +4251,47 @@ async function loadManageRequests(leagueId) {
   const el = document.getElementById('manage-requests');
   el.innerHTML='<div class="loading-center" style="padding:8px"><div class="spinner"></div></div>';
   try {
-    const r = await api('getJoinRequests', {code: S.user.code});
+    // Pedidos recebidos + convites enviados, em paralelo
+    const [r, ri] = await Promise.all([
+      api('getJoinRequests', {code: S.user.code}),
+      api('getLeagueInvites', {code: S.user.code, league_id: leagueId}).catch(()=>({invites:[]}))
+    ]);
     const reqs = (r.requests||[]).filter(req => req.league_id===leagueId);
-    if (!reqs.length) {
-      el.innerHTML='<div style="font-size:.78rem;color:var(--sub)">Sem pedidos pendentes.</div>';
-      return;
-    }
+    const invites = ri.invites||[];
+
     let html='';
-    reqs.forEach(req=>{
-      html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
-        <div style="font-size:.82rem">${req.user_name}</div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-outline" style="font-size:.72rem;padding:3px 9px;border-color:var(--green);color:var(--green)" onclick="approveLeagueReq('${leagueId}','${req.user_code}',this)">✓ Aceitar</button>
-          <button class="btn btn-outline" style="font-size:.72rem;padding:3px 9px;border-color:var(--red);color:var(--red)" onclick="rejectLeagueReq('${leagueId}','${req.user_code}',this)">✕ Rejeitar</button>
-        </div>
-      </div>`;
-    });
+    // ── Pedidos recebidos (users → admin) ──
+    if (reqs.length) {
+      reqs.forEach(req=>{
+        html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:.82rem">${req.user_name}</div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-outline" style="font-size:.72rem;padding:3px 9px;border-color:var(--green);color:var(--green)" onclick="approveLeagueReq('${leagueId}','${req.user_code}',this)">✓ Aceitar</button>
+            <button class="btn btn-outline" style="font-size:.72rem;padding:3px 9px;border-color:var(--red);color:var(--red)" onclick="rejectLeagueReq('${leagueId}','${req.user_code}',this)">✕ Rejeitar</button>
+          </div>
+        </div>`;
+      });
+    } else {
+      html+='<div style="font-size:.78rem;color:var(--sub)">Sem pedidos pendentes.</div>';
+    }
+
+    // ── Convites enviados (admin → users) ──
+    if (invites.length) {
+      html+=`<div style="font-size:.7rem;color:var(--sub);font-weight:700;letter-spacing:.5px;margin:12px 0 4px">💌 CONVITES ENVIADOS</div>`;
+      invites.forEach(iv=>{
+        const joined=iv.status==='joined';
+        const dateStr=iv.at?new Date(iv.at).toLocaleDateString('pt-PT',{day:'numeric',month:'short'}):'';
+        html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(iv.name||'')}</div>
+          <div style="flex-shrink:0;display:flex;align-items:center;gap:8px">
+            <span style="font-size:.62rem;color:var(--sub)">${dateStr}</span>
+            <span style="font-size:.68rem;padding:2px 8px;border-radius:10px;${joined
+              ?'background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3);color:var(--green)'
+              :'background:rgba(245,197,24,.08);border:1px solid rgba(245,197,24,.3);color:var(--gold)'}">${joined?'✓ Entrou':'⏳ Enviado'}</span>
+          </div>
+        </div>`;
+      });
+    }
     el.innerHTML=html;
   } catch(e){ el.innerHTML='<div style="font-size:.78rem;color:var(--red)">Erro ao carregar pedidos.</div>'; }
 }
