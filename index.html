@@ -657,9 +657,11 @@
             <div class="rules-subtitle">⚔️ Duelos &amp; 🏆 MVP da Jornada</div>
             <div style="font-size:.76rem;line-height:1.7;color:var(--text)">
               <div style="padding:4px 0;border-bottom:1px solid var(--border)">⚔️ Em cada jornada és <strong>sorteado contra outro membro da liga</strong> — ganha quem fizer mais pontos nessa jornada</div>
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">⏳ Sorteio provisório até ao fecho das apostas do 1º jogo da jornada — depois fica 🔒 fechado</div>
               <div style="padding:4px 0;border-bottom:1px solid var(--border)">Vitória <strong style="color:#e67e22">2 pts</strong> · Empate <strong>1 pt</strong> · Derrota 0 · Bye (nº ímpar) 1 pt</div>
               <div style="padding:4px 0;border-bottom:1px solid var(--border)">📊 Tabela <strong>paralela</strong> — os pontos de duelo não somam ao total da classificação</div>
-              <div style="padding:4px 0">🏆 O melhor de cada jornada é coroado <strong style="color:var(--gold)">MVP</strong> na classificação</div>
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">🏆 O melhor de cada jornada é coroado <strong style="color:var(--gold)">MVP</strong> na classificação</div>
+              <div style="padding:4px 0">🏅 No fim do Mundial: <strong style="color:#e67e22">Campeão de Duelos</strong> da liga (desempate: vitórias → posição na classificação)</div>
             </div>
           </div>
 
@@ -987,9 +989,11 @@
       <div class="rules-subtitle">⚔️ Duelos Head-to-Head &amp; 🏆 MVP da Jornada</div>
       <div style="font-size:.8rem;line-height:1.7;color:var(--text)">
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">⚔️ Em cada jornada (J1–J3 e cada ronda KO) és <strong>sorteado contra outro membro da tua liga</strong>. O sorteio é aleatório mas igual para todos — podes ver o teu adversário na Classificação antes da jornada começar.</div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">⏳ Até ao <strong>fecho das apostas do 1º jogo da jornada</strong> o emparelhamento é <strong>provisório</strong> (novos membros podem entrar na liga e alterar o sorteio). Nesse momento fica 🔒 <strong>fechado</strong>.</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏅 Ganha o duelo quem fizer <strong>mais pontos nessa jornada</strong> (joker e raridade contam). Vitória <strong style="color:#e67e22">2 pts</strong> · Empate <strong>1 pt</strong> · Derrota <strong>0</strong>. Com nº ímpar de membros, quem fica de fora recebe <strong>bye = 1 pt</strong>.</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">📊 Os pontos de duelo vivem na coluna <strong style="color:#e67e22">⚔️</strong> da classificação detalhada — é uma <strong>tabela paralela</strong>, não soma ao Total.</div>
-        <div style="padding:5px 0">🏆 O jogador com mais pontos de cada jornada é o <strong style="color:var(--gold)">MVP</strong> — fica no banner da Classificação e ganha um troféu 🥇 junto ao nome.</div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏆 O jogador com mais pontos de cada jornada é o <strong style="color:var(--gold)">MVP</strong> — fica no banner da Classificação e ganha um troféu 🥇 junto ao nome.</div>
+        <div style="padding:5px 0">🏅 No fim do Mundial, quem somar mais pontos de duelo é coroado <strong style="color:#e67e22">⚔️ Campeão de Duelos</strong> da liga — um título próprio, ao lado do campeão geral. Desempate: mais vitórias em duelos → melhor posição na classificação.</div>
       </div>
     </div>
 
@@ -1573,11 +1577,16 @@ function duelPairs(leagueId,j,codes){
   return pairs;
 }
 // Pontos de duelo por jogador: vitória 2 · empate 1 · derrota 0 · bye 1
-function computeDuels(leagueId,codes,jpOf){
+// rosterOf(j): membros congelados para essa jornada (snapshot no deadline); fallback = membros atuais
+function computeDuels(leagueId,codes,jpOf,rosterOf){
   const pts={},record={};
-  codes.forEach(c=>{pts[c]=0;record[c]={v:0,e:0,d:0};});
+  const ensure=c=>{if(pts[c]===undefined){pts[c]=0;record[c]={v:0,e:0,d:0};}};
+  codes.forEach(ensure);
   completeJornadas().forEach(j=>{
-    duelPairs(leagueId,j,codes).forEach(([a,b])=>{
+    const roster=(rosterOf?rosterOf(j):codes)||codes;
+    if(roster.length<2)return;
+    roster.forEach(ensure);
+    duelPairs(leagueId,j,roster).forEach(([a,b])=>{
       if(b===null){pts[a]+=1;return;}
       const pa=jpOf(a,j),pb=jpOf(b,j);
       if(pa>pb){pts[a]+=2;record[a].v++;record[b].d++;}
@@ -2019,6 +2028,18 @@ function renderLB() {
     S._cardData={j,league:S.curLeague?S.curLeague.name:'Geral',top:ranked.slice(0,3),worst:ranked.length>3?ranked[ranked.length-1]:null};
   }
 
+  // ── Campeão geral (fim do Mundial) ──
+  let champHtml='';
+  if(jornadaComplete('FIN')&&humans.length){
+    champHtml=`<div style="background:rgba(245,197,24,.12);border:2px solid var(--gold);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:1.7rem">🏆</span>
+      <div style="flex:1">
+        <div style="font-size:.62rem;letter-spacing:1.5px;color:var(--gold);font-family:'Rajdhani',sans-serif;font-weight:700">CAMPEÃO${S.curLeague?' · '+escapeHtml(S.curLeague.name).toUpperCase():' GERAL'}</div>
+        <div style="font-size:1.05rem;font-weight:700">${humans[0].name} · <span style="color:var(--gold)">${humans[0].total} pts</span></div>
+      </div>
+    </div>`;
+  }
+
   // ── Evolução de posições (#12) — histórico de ranks por jornada ──
   S.rankHist={};
   if(hasJP&&compJs.length>=2){
@@ -2030,15 +2051,44 @@ function renderLB() {
     });
   }
 
-  // ── Duelos head-to-head (#7) — só dentro de uma liga (visível mesmo antes da 1ª jornada) ──
+  // ── Social: reações (#6A) + rosters de duelos — lazy-load por liga ──
+  if(S.curLeague&&S.socialLeague!==S.curLeague.id&&!S.socialLoading)loadSocial();
+  const social=(S.curLeague&&S.social&&S.socialLeague===S.curLeague.id)?S.social:null;
+
+  // ── Duelos head-to-head (#7) — só dentro de uma liga ──
+  // Emparelhamento fica DEFINITIVO no deadline do 1º jogo da jornada (snapshot backend);
+  // até lá é provisório (novos membros ainda podem entrar e alterar o sorteio)
   let duelData=null,duelHtml='';
   if(S.curLeague&&humans.length>=2){
     const codes=humans.map(p=>p.code);
+    const rosters=(social&&social.duelRosters)||{};
+    const rosterOf=j=>(rosters[j]&&rosters[j].length>=2)?rosters[j]:codes;
     const nameOf=c=>{const p=data.find(x=>x.code===c);return p?p.name:c;};
-    duelData=computeDuels(S.curLeague.id,codes,(c,j)=>{const p=data.find(x=>x.code===c);return (p&&p.jp&&p.jp[j])||0;});
+    duelData=computeDuels(S.curLeague.id,codes,(c,j)=>{const p=data.find(x=>x.code===c);return (p&&p.jp&&p.jp[j])||0;},rosterOf);
+
+    // Líder / Campeão de Duelos (desempate: pts duelo → vitórias → posição na classificação)
+    const rankIdx={};data.forEach((p,i)=>{rankIdx[p.code]=i;});
+    const duelOrder=Object.keys(duelData.pts).sort((a,b)=>(duelData.pts[b]||0)-(duelData.pts[a]||0)||((duelData.record[b]||{v:0}).v)-((duelData.record[a]||{v:0}).v)||(rankIdx[a]??99)-(rankIdx[b]??99));
+    const dLeader=duelOrder[0];
+    const leaderTag=(dLeader&&(duelData.pts[dLeader]||0)>0&&!jornadaComplete('FIN'))
+      ?` <span style="font-size:.68rem;color:var(--sub)">· Líder ⚔️: <strong style="color:#e67e22">${nameOf(dLeader)}</strong> ${duelData.pts[dLeader]} pts</span>`:'';
+
+    // Fim do Mundial → Campeão de Duelos da liga
+    if(jornadaComplete('FIN')&&dLeader&&(duelData.pts[dLeader]||0)>0){
+      const r=duelData.record[dLeader]||{v:0,e:0,d:0};
+      duelHtml+=`<div style="background:rgba(230,126,34,.1);border:1px solid #e67e22;border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:1.5rem">⚔️</span>
+        <div style="flex:1">
+          <div style="font-size:.62rem;letter-spacing:1.5px;color:#e67e22;font-family:'Rajdhani',sans-serif;font-weight:700">CAMPEÃO DE DUELOS · ${escapeHtml(S.curLeague.name).toUpperCase()}</div>
+          <div style="font-size:.95rem;font-weight:700">${nameOf(dLeader)} · <span style="color:#e67e22">${duelData.pts[dLeader]} pts</span> <span style="font-size:.7rem;color:var(--sub)">(${r.v}V ${r.e}E ${r.d}D)</span></div>
+        </div>
+      </div>`;
+    }
+
     const nj=nextJornada();
     if(nj){
-      const pairs=duelPairs(S.curLeague.id,nj,codes);
+      const locked=!!(rosters[nj]&&rosters[nj].length>=2);
+      const pairs=duelPairs(S.curLeague.id,nj,rosterOf(nj));
       let mine='';
       if(S.user){
         const mp=pairs.find(pr=>pr[0]===S.user.code||pr[1]===S.user.code);
@@ -2047,17 +2097,16 @@ function renderLB() {
           mine=opp===null?'tens <strong>BYE</strong> (+1 pt)':`tu <span style="color:#e67e22">vs</span> <strong>${nameOf(opp)}</strong>`;
         }
       }
-      duelHtml=`<div style="background:rgba(230,126,34,.06);border:1px solid rgba(230,126,34,.35);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:.78rem">
-        ⚔️ <strong style="color:#e67e22">Duelo ${jLabel(nj)}:</strong> ${mine||'—'}
+      const lockTag=locked
+        ?'<span style="font-size:.62rem;color:var(--green);margin-left:6px">🔒 fechado</span>'
+        :`<span style="font-size:.62rem;color:var(--sub);margin-left:6px">⏳ provisório — fecha ${S.deadlineH||1}h antes do 1º jogo da jornada</span>`;
+      duelHtml+=`<div style="background:rgba(230,126,34,.06);border:1px solid rgba(230,126,34,.35);border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:.78rem">
+        ⚔️ <strong style="color:#e67e22">Duelo ${jLabel(nj)}:</strong> ${mine||'—'}${lockTag}${leaderTag}
         <span onclick="S.duelsOpen=!S.duelsOpen;renderLB()" style="cursor:pointer;color:var(--sub);text-decoration:underline;margin-left:6px;font-size:.7rem">${S.duelsOpen?'esconder':'ver todos'}</span>
         ${S.duelsOpen?`<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px;font-size:.72rem;color:var(--sub)">${pairs.map(pr=>pr[1]===null?`<div>${nameOf(pr[0])} — <em>bye</em> (+1)</div>`:`<div>${nameOf(pr[0])} <span style="color:#e67e22">vs</span> ${nameOf(pr[1])}</div>`).join('')}</div>`:''}
       </div>`;
     }
   }
-
-  // ── Social: reações (#6A) — lazy-load por liga ──
-  if(S.curLeague&&S.socialLeague!==S.curLeague.id&&!S.socialLoading)loadSocial();
-  const social=(S.curLeague&&S.social&&S.socialLeague===S.curLeague.id)?S.social:null;
   const reactAgg={};
   if(social)social.reactions.forEach(r=>{const t=(r.target||'').toUpperCase();if(!reactAgg[t])reactAgg[t]={};reactAgg[t][r.emoji]=(reactAgg[t][r.emoji]||0)+1;});
   const reactHtml=code=>{
@@ -2071,7 +2120,7 @@ function renderLB() {
 
   const noLeagueHint=!S.curLeague?`<div class="alert alert-info" style="font-size:.74rem;margin-bottom:10px">⚔️🔥🗣️ Os <strong>duelos</strong>, <strong>reações</strong> e a <strong>bancada</strong> vivem dentro das ligas — usa o botão <strong>🏆 Ver todas as ligas</strong> em baixo e entra na tua.</div>`:'';
 
-  let html = ligaHdr + noLeagueHint + mvpHtml + duelHtml;
+  let html = ligaHdr + noLeagueHint + champHtml + duelHtml + mvpHtml;
   // Toggle row
   html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
     <div style="font-size:.7rem;color:var(--sub)">Clica num jogador para ver apostas</div>
@@ -2207,9 +2256,9 @@ async function loadSocial(){
   const lid=S.curLeague.id;
   try{
     const r=await api('getSocial',{league_id:lid});
-    S.social={reactions:r.reactions||[],comments:r.comments||[]};
+    S.social={reactions:r.reactions||[],comments:r.comments||[],duelRosters:r.duelRosters||{}};
     S.socialLeague=lid;
-  }catch(e){S.social={reactions:[],comments:[]};S.socialLeague=lid;}
+  }catch(e){S.social={reactions:[],comments:[],duelRosters:{}};S.socialLeague=lid;}
   S.socialLoading=false;
   if(S.curView==='leaderboard')renderLB();
 }
@@ -3746,7 +3795,7 @@ function mockApi(action,data){
     if(idx>=0)DEMO_LEAGUES.splice(idx,1);
     return{success:true};
   }
-  if(action==='getSocial')return{reactions:DEMO_SOCIAL.reactions,comments:DEMO_SOCIAL.comments};
+  if(action==='getSocial')return{reactions:DEMO_SOCIAL.reactions,comments:DEMO_SOCIAL.comments,duelRosters:{}};
   if(action==='react'){
     const me=(data.code||'').toUpperCase(),tg=(data.target_code||'').toUpperCase();
     const ex=DEMO_SOCIAL.reactions.find(r=>r.from===me&&r.target===tg);
