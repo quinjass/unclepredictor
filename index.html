@@ -528,11 +528,11 @@
   <button class="nav-btn" onclick="showView('leaderboard')" id="nav-leaderboard">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>Classif.
   </button>
-  <button class="nav-btn" onclick="showView('bets')" id="nav-bets">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Apostas
-  </button>
   <button class="nav-btn" onclick="showView('prebets')" id="nav-prebets">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Pré-Ap.
+  </button>
+  <button class="nav-btn" onclick="showView('bets')" id="nav-bets">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Apostas
   </button>
   <button class="nav-btn" onclick="showView('mundial')" id="nav-mundial">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Mundial
@@ -2030,9 +2030,9 @@ function renderLB() {
     });
   }
 
-  // ── Duelos head-to-head (#7) — só dentro de uma liga ──
+  // ── Duelos head-to-head (#7) — só dentro de uma liga (visível mesmo antes da 1ª jornada) ──
   let duelData=null,duelHtml='';
-  if(S.curLeague&&hasJP&&humans.length>=2){
+  if(S.curLeague&&humans.length>=2){
     const codes=humans.map(p=>p.code);
     const nameOf=c=>{const p=data.find(x=>x.code===c);return p?p.name:c;};
     duelData=computeDuels(S.curLeague.id,codes,(c,j)=>{const p=data.find(x=>x.code===c);return (p&&p.jp&&p.jp[j])||0;});
@@ -2069,7 +2069,9 @@ function renderLB() {
   };
   const reactPickerRow=(code,colspan)=>S.reactFor===code?`<tr><td colspan="${colspan}" style="padding:5px 10px;background:var(--bg2);text-align:center">${REACT_EMOJIS.map(e=>`<button class="react-pick" onclick="event.stopPropagation();sendReact('${code}','${e}')">${e}</button>`).join('')}</td></tr>`:'';
 
-  let html = ligaHdr + mvpHtml + duelHtml;
+  const noLeagueHint=!S.curLeague?`<div class="alert alert-info" style="font-size:.74rem;margin-bottom:10px">⚔️🔥🗣️ Os <strong>duelos</strong>, <strong>reações</strong> e a <strong>bancada</strong> vivem dentro das ligas — usa o botão <strong>🏆 Ver todas as ligas</strong> em baixo e entra na tua.</div>`:'';
+
+  let html = ligaHdr + noLeagueHint + mvpHtml + duelHtml;
   // Toggle row
   html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
     <div style="font-size:.7rem;color:var(--sub)">Clica num jogador para ver apostas</div>
