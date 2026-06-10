@@ -257,7 +257,13 @@
     .logo-img-md{width:90px;height:90px;object-fit:contain;filter:drop-shadow(0 3px 12px rgba(245,197,24,.3))}
 
     /* ── MISC ── */
-    .spinner{display:inline-block;width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+    /* Loading: 3 pontos dourados em onda (dot do meio via box-shadow do próprio elemento) */
+    .spinner{position:relative;display:inline-block;width:9px;height:9px;margin-right:32px;border-radius:50%;box-shadow:32px 0 0 rgba(245,197,24,.4);animation:dotw3 1.1s ease-in-out .36s infinite}
+    .spinner::before,.spinner::after{content:'';position:absolute;top:0;width:9px;height:9px;border-radius:50%;background:var(--gold)}
+    .spinner::before{left:0;animation:dotw 1.1s ease-in-out infinite}
+    .spinner::after{left:16px;animation:dotw 1.1s ease-in-out .18s infinite}
+    @keyframes dotw{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-8px);opacity:1}}
+    @keyframes dotw3{0%,60%,100%{box-shadow:32px 0 0 rgba(245,197,24,.4)}30%{box-shadow:32px -8px 0 #f5c518}}
     @keyframes spin{to{transform:rotate(360deg)}}
     .loading-center{display:flex;justify-content:center;padding:40px}
     .autosave-pill{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;padding:3px 9px;border-radius:20px;transition:opacity .4s}
@@ -1623,9 +1629,8 @@ const S = {
 //  PRÉ-APOSTAS DEADLINE TEXT
 // ════════════════════════════════════════════════
 function updatePrebetDeadlineText() {
-  // 1º jogo: 2026-06-11T21:00 (hora local do jogo — Cidade do México, UTC-5 → UTC 02:00 Jun12)
-  // Usamos a data/hora display coerente com o resto da app
-  const firstGame = new Date('2026-06-11T21:00:00-05:00'); // Cidade do México UTC-5
+  // 1º jogo: A1 México vs África do Sul — 11 Jun às 20:00 hora de Portugal (UTC+1 verão)
+  const firstGame = new Date('2026-06-11T20:00:00+01:00');
   const dh = S.deadlineH || 1;
   const deadline = new Date(firstGame.getTime() - dh * 60 * 60 * 1000);
   const opts = {day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'};
@@ -1664,14 +1669,22 @@ async function init() {
     if (sc) S.savedCards = JSON.parse(sc);
     const sb = localStorage.getItem('up26_prebets_'+S.user.code);
     if (sb) S.prebets = JSON.parse(sb);
-    // Restore last-used league
+    // Arranque instantâneo: restaurar classificação + ligas da cache local,
+    // mostrar a app já, e atualizar tudo em background (sem bloquear no Apps Script)
+    loadCachedLB();
+    try{const cl=localStorage.getItem('up26_leagues_'+S.user.code);if(cl)S.leagues=JSON.parse(cl)||[];}catch(e){}
     const sl = localStorage.getItem('up26_league_'+S.user.code);
-    await loadMyLeagues();
     if (sl && S.leagues.length) {
       const saved_lg = S.leagues.find(l=>l.id===sl);
       if (saved_lg) S.curLeague = saved_lg;
     }
     showApp(); loadData();
+    loadMyLeagues().then(()=>{
+      if (sl && !S.curLeague && S.leagues.length) {
+        const lg = S.leagues.find(l=>l.id===sl);
+        if (lg) { S.curLeague = lg; updateLeaguePill(); if(S.curView==='leaderboard')renderLB(); }
+      }
+    });
   } else {
     // Sem sessão guardada — só permitir login após interação real do utilizador
     // (evita submit automático do browser via autocomplete)
@@ -1698,9 +1711,10 @@ async function login() {
       localStorage.setItem('up26_user', JSON.stringify(S.user));
       const sc = localStorage.getItem('up26_saved_'+S.user.code);
       if (sc) S.savedCards = JSON.parse(sc); else S.savedCards = {};
-      await loadMyLeagues();
-      loadData();
-      showApp();
+      loadCachedLB();
+      showApp();        // mostrar já (com cache, se existir)
+      loadData();       // atualizar em background
+      loadMyLeagues();
     } else {
       showLoginErr('Email ou password incorretos.');
     }
@@ -1908,6 +1922,22 @@ function showView(v) {
 // ════════════════════════════════════════════════
 //  DATA
 // ════════════════════════════════════════════════
+// Restaura a última classificação conhecida da cache local (renderiza de imediato;
+// loadData() atualiza em background e re-renderiza quando o servidor responder)
+function loadCachedLB(){
+  if(!S.user)return;
+  try{
+    const c=JSON.parse(localStorage.getItem('up26_lbcache_'+S.user.code));
+    if(c&&c.lb&&c.lb.length){
+      S.lb=c.lb;
+      S.rarityMap=c.rarityMap||{};
+      if(c.results&&!Object.keys(S.results).length)S.results=c.results;
+      if(c.specials)S.specials=c.specials;
+      if(c.deadlineH)S.deadlineH=c.deadlineH;
+    }
+  }catch(e){}
+}
+
 async function loadData() {
   try {
     const r=await api('getData',{code:S.user.code});
@@ -1928,6 +1958,8 @@ async function loadData() {
     if(r.rarityMap)S.rarityMap=r.rarityMap;
     if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
     if(r.specials)S.specials=r.specials;
+    // Cache local para arranque instantâneo na próxima visita
+    try{localStorage.setItem('up26_lbcache_'+S.user.code,JSON.stringify({lb:S.lb,rarityMap:S.rarityMap,results:S.results,specials:S.specials,deadlineH:S.deadlineH,at:Date.now()}));}catch(e){}
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -2666,12 +2698,12 @@ async function saveAllCards(){
 //  PRÉ-APOSTAS
 // ════════════════════════════════════════════════
 function renderPrebets(){
-  const closed=dlPassed('2026-06-11T21:00');
+  const closed=dlPassed('2026-06-11T20:00'); // A1 às 20:00 PT — fecha deadlineH antes (19:00)
   const msg=document.getElementById('prebets-status');
   msg.className=closed?'alert alert-error':'alert alert-info';
   msg.textContent=closed
     ?'🔒 Pré-apostas fechadas — o torneio já começou.'
-    :'⏰ Fecha quando o torneio começar (11 Jun). Clica num grupo para ver as apostas de todos.';
+    :'⏰ Fecham às 19h00 de dia 11 Jun (1h antes do 1º jogo). Clica num grupo para ver as apostas de todos.';
 
   let html=`<div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:10px">
     📊 Fase de Grupos <span style="font-size:.78rem;color:var(--sub);font-weight:400">2pts por posição acertada</span>
@@ -3857,6 +3889,7 @@ async function loadMyLeagues() {
   try {
     const r = await api('getMyLeagues', {code: S.user.code});
     S.leagues = r.leagues || [];
+    try{localStorage.setItem('up26_leagues_'+S.user.code,JSON.stringify(S.leagues));}catch(e){}
     // Sync curLeague reference to fresh data (prevents stale member lists)
     if (S.curLeague) {
       S.curLeague = S.leagues.find(l => l.id === S.curLeague.id) || null;
