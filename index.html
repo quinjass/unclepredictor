@@ -436,9 +436,18 @@
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="liga-pill" id="league-pill" style="display:none" onclick="showLeagueSwitcher()">🏆 —</div>
+    <div class="user-pill" id="notif-bell" style="position:relative;padding:4px 9px" onclick="showNotifs()" title="Notificações">🔔<span id="notif-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:9px;min-width:16px;height:16px;font-size:.6rem;line-height:16px;text-align:center;font-weight:700;padding:0 3px"></span></div>
     <div class="user-pill" onclick="showAccountMenu()" id="user-pill" title="Minha conta">👤 —</div>
   </div>
 </header>
+<!-- Notificações sheet -->
+<div class="switcher-overlay" id="notif-overlay" onclick="closeNotifs()">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:14px">🔔 Notificações</div>
+    <div id="notif-body" style="max-height:50vh;overflow-y:auto"></div>
+    <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:.78rem" onclick="closeNotifs()">Fechar</button>
+  </div>
+</div>
 <!-- Account menu sheet -->
 <div class="switcher-overlay" id="account-menu-overlay" onclick="closeAccountMenu()">
   <div class="switcher-box" onclick="event.stopPropagation()">
@@ -798,6 +807,17 @@
           <button class="btn btn-outline" style="font-size:.73rem;padding:4px 10px" onclick="copyInviteCode()">📋 Copiar</button>
         </div>
         <div style="font-size:.72rem;color:var(--sub);margin-top:4px">Partilha este código para convidar jogadores</div>
+      </div>
+
+      <!-- Convidar jogador -->
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:8px">💌 Convidar jogador</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="invite-target" type="text" placeholder="Código de jogador ou email" autocomplete="off" style="flex:1" onkeydown="if(event.key==='Enter')sendLeagueInvite()">
+          <button class="btn btn-primary" id="invite-send-btn" style="font-size:.78rem;padding:6px 12px;white-space:nowrap" onclick="sendLeagueInvite()">Enviar</button>
+        </div>
+        <div id="invite-msg" style="display:none;margin-top:6px;font-size:.75rem;padding:6px 10px;border-radius:6px"></div>
+        <div style="font-size:.7rem;color:var(--sub);margin-top:6px">Jogadores registados recebem notificação 🔔 + email com o código; emails não registados recebem o convite por email.</div>
       </div>
 
       <!-- Pedidos pendentes -->
@@ -1202,6 +1222,12 @@
             <div style="font-size:.7rem;color:var(--sub);margin-top:4px">Regista-te em <a href="https://the-odds-api.com" target="_blank" style="color:var(--gold)">the-odds-api.com</a> (plano gratuito disponível).</div>
           </div>
           <button class="btn btn-primary btn-full" onclick="saveConfig()">Guardar</button>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:8px">📣 Mensagem a todos os jogadores</div>
+          <textarea class="form-input" id="broadcast-text" rows="3" maxlength="300" placeholder="Ex: Resultados da Jornada 1 já lançados — vê a classificação!" style="resize:vertical;width:100%;box-sizing:border-box"></textarea>
+          <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="sendBroadcast()">Enviar notificação 🔔</button>
+          <div style="font-size:.7rem;color:var(--sub);margin-top:6px">Aparece no sino 🔔 de todos os jogadores na app.</div>
         </div>
         <div class="card" style="margin-top:12px">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:10px">🤖 Bot IA</div>
@@ -1622,6 +1648,7 @@ const S = {
   specials:{},
   social:null, socialLeague:null, socialLoading:false,
   reactFor:null, duelsOpen:false, mvpJ:null, rankHist:{}, _cardData:null,
+  notifs:[],
 };
 
 // ════════════════════════════════════════════════
@@ -1669,18 +1696,12 @@ async function init() {
     if (sc) S.savedCards = JSON.parse(sc);
     const sb = localStorage.getItem('up26_prebets_'+S.user.code);
     if (sb) S.prebets = JSON.parse(sb);
-    // Arranque instantâneo: restaurar classificação + ligas da cache local,
-    // mostrar a app já, e atualizar tudo em background (sem bloquear no Apps Script)
-    loadCachedLB();
-    try{const cl=localStorage.getItem('up26_leagues_'+S.user.code);if(cl)S.leagues=JSON.parse(cl)||[];}catch(e){}
+    // Mostrar a app de imediato (com loading) e ir buscar tudo ao servidor em paralelo
+    // (antes: 2 chamadas sequenciais ao Apps Script bloqueavam o ecrã de login)
     const sl = localStorage.getItem('up26_league_'+S.user.code);
-    if (sl && S.leagues.length) {
-      const saved_lg = S.leagues.find(l=>l.id===sl);
-      if (saved_lg) S.curLeague = saved_lg;
-    }
     showApp(); loadData();
     loadMyLeagues().then(()=>{
-      if (sl && !S.curLeague && S.leagues.length) {
+      if (sl && S.leagues.length) {
         const lg = S.leagues.find(l=>l.id===sl);
         if (lg) { S.curLeague = lg; updateLeaguePill(); if(S.curView==='leaderboard')renderLB(); }
       }
@@ -1711,9 +1732,8 @@ async function login() {
       localStorage.setItem('up26_user', JSON.stringify(S.user));
       const sc = localStorage.getItem('up26_saved_'+S.user.code);
       if (sc) S.savedCards = JSON.parse(sc); else S.savedCards = {};
-      loadCachedLB();
-      showApp();        // mostrar já (com cache, se existir)
-      loadData();       // atualizar em background
+      showApp();        // mostrar já (com loading)
+      loadData();       // buscar em paralelo
       loadMyLeagues();
     } else {
       showLoginErr('Email ou password incorretos.');
@@ -1922,22 +1942,6 @@ function showView(v) {
 // ════════════════════════════════════════════════
 //  DATA
 // ════════════════════════════════════════════════
-// Restaura a última classificação conhecida da cache local (renderiza de imediato;
-// loadData() atualiza em background e re-renderiza quando o servidor responder)
-function loadCachedLB(){
-  if(!S.user)return;
-  try{
-    const c=JSON.parse(localStorage.getItem('up26_lbcache_'+S.user.code));
-    if(c&&c.lb&&c.lb.length){
-      S.lb=c.lb;
-      S.rarityMap=c.rarityMap||{};
-      if(c.results&&!Object.keys(S.results).length)S.results=c.results;
-      if(c.specials)S.specials=c.specials;
-      if(c.deadlineH)S.deadlineH=c.deadlineH;
-    }
-  }catch(e){}
-}
-
 async function loadData() {
   try {
     const r=await api('getData',{code:S.user.code});
@@ -1958,8 +1962,7 @@ async function loadData() {
     if(r.rarityMap)S.rarityMap=r.rarityMap;
     if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
     if(r.specials)S.specials=r.specials;
-    // Cache local para arranque instantâneo na próxima visita
-    try{localStorage.setItem('up26_lbcache_'+S.user.code,JSON.stringify({lb:S.lb,rarityMap:S.rarityMap,results:S.results,specials:S.specials,deadlineH:S.deadlineH,at:Date.now()}));}catch(e){}
+    if(r.notifs){S.notifs=r.notifs;renderNotifBadge();}
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -2327,6 +2330,80 @@ async function sendBancada(){
   renderLB();
   try{await api('addComment',{league_id:S.curLeague.id,jornada:j,code:S.user.code,text});}
   catch(e){showToast('Erro ao comentar','error');loadSocial();}
+}
+
+// ════════════════════════════════════════════════
+//  NOTIFICAÇÕES — sino no header
+//  Estado "lido" guardado localmente (timestamp da última abertura)
+// ════════════════════════════════════════════════
+function notifSeenKey(){return 'up26_notifseen_'+(S.user?S.user.code:'x');}
+function unreadNotifs(){
+  const seen=localStorage.getItem(notifSeenKey())||'';
+  return (S.notifs||[]).filter(n=>!seen||(n.at&&String(n.at)>seen));
+}
+function renderNotifBadge(){
+  const b=document.getElementById('notif-badge');
+  if(!b)return;
+  const n=unreadNotifs().length;
+  b.style.display=n?'':'none';
+  b.textContent=n>9?'9+':n;
+}
+function showNotifs(){
+  const body=document.getElementById('notif-body');
+  const seen=localStorage.getItem(notifSeenKey())||'';
+  const list=[...(S.notifs||[])].reverse();
+  body.innerHTML=list.length?list.map(n=>{
+    const unread=!seen||(n.at&&String(n.at)>seen);
+    return`<div style="padding:9px 4px;border-bottom:1px solid var(--border);${unread?'':'opacity:.55'}">
+      <div style="font-size:.8rem;line-height:1.45">${escapeHtml(n.text)}</div>
+      <div style="font-size:.62rem;color:var(--sub);margin-top:2px">${n.at?new Date(n.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</div>
+    </div>`;
+  }).join(''):'<div style="font-size:.8rem;color:var(--sub);padding:10px 0">Sem notificações.</div>';
+  document.getElementById('notif-overlay').classList.add('open');
+  localStorage.setItem(notifSeenKey(),new Date().toISOString());
+  renderNotifBadge();
+}
+function closeNotifs(){document.getElementById('notif-overlay').classList.remove('open');}
+
+// ── Convite de liga (admin da liga, página Gerir) ──
+async function sendLeagueInvite(){
+  const inp=document.getElementById('invite-target');
+  const msg=document.getElementById('invite-msg');
+  const btn=document.getElementById('invite-send-btn');
+  if(!inp||!S_managingLeague||!S.user)return;
+  const target=inp.value.trim();
+  if(!target)return;
+  btn.disabled=true;btn.textContent='...';
+  try{
+    const r=await api('inviteToLeague',{league_id:S_managingLeague.id,code:S.user.code,target});
+    msg.style.display='block';
+    if(r.success){
+      msg.style.background='rgba(39,174,96,.12)';msg.style.border='1px solid rgba(39,174,96,.3)';msg.style.color='var(--green)';
+      msg.textContent='✓ '+(r.message||'Convite enviado!');
+      inp.value='';
+    }else{
+      msg.style.background='rgba(231,76,60,.12)';msg.style.border='1px solid rgba(231,76,60,.3)';msg.style.color='var(--red)';
+      msg.textContent='✕ '+(r.error||'Erro ao enviar convite.');
+    }
+  }catch(e){
+    msg.style.display='block';
+    msg.style.background='rgba(231,76,60,.12)';msg.style.border='1px solid rgba(231,76,60,.3)';msg.style.color='var(--red)';
+    msg.textContent='✕ Erro de ligação.';
+  }
+  btn.disabled=false;btn.textContent='Enviar';
+}
+
+// ── Broadcast do admin global ──
+async function sendBroadcast(){
+  const ta=document.getElementById('broadcast-text');
+  const text=(ta.value||'').trim();
+  if(!text){showToast('Escreve a mensagem primeiro','error');return;}
+  if(!confirm('Enviar esta mensagem a TODOS os jogadores?\n\n"'+text+'"'))return;
+  try{
+    const r=await api('broadcast',{password:document.getElementById('admin-pw').value,text});
+    if(r.success){showToast('Mensagem enviada a todos! 🔔','success');ta.value='';}
+    else showToast(r.error||'Erro ao enviar','error');
+  }catch(e){showToast('Erro de ligação','error');}
 }
 
 // ════════════════════════════════════════════════
@@ -3788,7 +3865,9 @@ function mockApi(action,data){
     const code=data.code?data.code.toUpperCase():'';
     const isDemoUser=DEMO_USERS.find(u=>u.code===code);
     const preds=isDemoUser?genDemoPreds(code):(S.preds||{});
-    return{preds,prebets:S.prebets||{},results:Object.keys(S.results||{}).length>0?S.results:DEMO_RESULTS,lb:calcDemoLB(),deadlineH:1};
+    return{preds,prebets:S.prebets||{},results:Object.keys(S.results||{}).length>0?S.results:DEMO_RESULTS,lb:calcDemoLB(),deadlineH:1,
+      notifs:[{id:'n1',type:'admin',text:'📣 Bem-vindos ao Uncle Predictor 2026! Boa sorte a todos.',at:'2026-06-09T10:00:00Z'},
+              {id:'n2',type:'invite',text:'💌 Foste convidado para a liga "Amigos"! Entra em Ligas com o código AMG26.',at:'2026-06-10T09:30:00Z'}]};
   }
   if(action==='getUsers')return{users:DEMO_USERS};
   if(action==='fetchResults')return{success:false,error:'Auto-fetch não disponível em modo demo. Configura o Apps Script e uma API key para usar em produção.'};
@@ -3840,6 +3919,8 @@ function mockApi(action,data){
     DEMO_SOCIAL.comments.push({jornada:String(data.jornada||''),code:(data.code||'').toUpperCase(),name:(S.user&&S.user.name)||data.code,text:String(data.text||'').substring(0,200),at:new Date().toISOString()});
     return{success:true};
   }
+  if(action==='inviteToLeague')return{success:true,message:'(demo) Convite enviado a '+data.target+'.'};
+  if(action==='broadcast')return{success:true};
   return{success:true};
 }
 
@@ -3889,7 +3970,6 @@ async function loadMyLeagues() {
   try {
     const r = await api('getMyLeagues', {code: S.user.code});
     S.leagues = r.leagues || [];
-    try{localStorage.setItem('up26_leagues_'+S.user.code,JSON.stringify(S.leagues));}catch(e){}
     // Sync curLeague reference to fresh data (prevents stale member lists)
     if (S.curLeague) {
       S.curLeague = S.leagues.find(l => l.id === S.curLeague.id) || null;
