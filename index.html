@@ -1359,22 +1359,26 @@ const GAMES = [
   {id:'J5',g:'J',md:3,t1:'Argélia',t2:'Áustria',date:'2026-06-28T03:00',venue:'Kansas City'},
   {id:'J6',g:'J',md:3,t1:'Jordânia',t2:'Argentina',date:'2026-06-28T03:00',venue:'Arlington'},
   // ── R32 — Round of 32 (16 jogos · 29 Jun – 3 Jul) ──
-  {id:'R32_01',md:'R32',ko:true,t1:'1º Gr.A', t2:'2º Gr.B', date:'2026-06-29T20:00',venue:'TBD'},
-  {id:'R32_02',md:'R32',ko:true,t1:'1º Gr.C', t2:'2º Gr.D', date:'2026-06-29T23:00',venue:'TBD'},
-  {id:'R32_03',md:'R32',ko:true,t1:'1º Gr.E', t2:'2º Gr.F', date:'2026-06-30T20:00',venue:'TBD'},
-  {id:'R32_04',md:'R32',ko:true,t1:'1º Gr.G', t2:'2º Gr.H', date:'2026-06-30T23:00',venue:'TBD'},
-  {id:'R32_05',md:'R32',ko:true,t1:'1º Gr.I', t2:'2º Gr.J', date:'2026-07-01T20:00',venue:'TBD'},
-  {id:'R32_06',md:'R32',ko:true,t1:'1º Gr.K', t2:'2º Gr.L', date:'2026-07-01T23:00',venue:'TBD'},
-  {id:'R32_07',md:'R32',ko:true,t1:'Melhor 3º A', t2:'Melhor 3º B', date:'2026-07-02T20:00',venue:'TBD'},
-  {id:'R32_08',md:'R32',ko:true,t1:'Melhor 3º C', t2:'Melhor 3º D', date:'2026-07-02T23:00',venue:'TBD'},
-  {id:'R32_09',md:'R32',ko:true,t1:'1º Gr.B', t2:'2º Gr.A', date:'2026-06-29T22:00',venue:'TBD'},
-  {id:'R32_10',md:'R32',ko:true,t1:'1º Gr.D', t2:'2º Gr.C', date:'2026-06-30T01:00',venue:'TBD'},
-  {id:'R32_11',md:'R32',ko:true,t1:'1º Gr.F', t2:'2º Gr.E', date:'2026-06-30T22:00',venue:'TBD'},
-  {id:'R32_12',md:'R32',ko:true,t1:'1º Gr.H', t2:'2º Gr.G', date:'2026-07-01T01:00',venue:'TBD'},
-  {id:'R32_13',md:'R32',ko:true,t1:'1º Gr.J', t2:'2º Gr.I', date:'2026-07-01T22:00',venue:'TBD'},
-  {id:'R32_14',md:'R32',ko:true,t1:'1º Gr.L', t2:'2º Gr.K', date:'2026-07-02T01:00',venue:'TBD'},
-  {id:'R32_15',md:'R32',ko:true,t1:'Melhor 3º E', t2:'Melhor 3º F', date:'2026-07-02T22:00',venue:'TBD'},
-  {id:'R32_16',md:'R32',ko:true,t1:'Melhor 3º G', t2:'Melhor 3º H', date:'2026-07-03T01:00',venue:'TBD'},
+  // Emparelhamento OFICIAL FIFA (regulamento, matches 73-88) mapeado para os slots da app
+  // de forma a que o encadeamento R16→QF→SF reproduza o bracket real.
+  // Nenhum 3º joga contra outro 3º: 8 vencedores de grupo recebem 3ºs,
+  // 4 vencedores recebem 2ºs, e os restantes 2ºs jogam entre si.
+  {id:'R32_01',md:'R32',ko:true,t1:'1º Gr.E', t2:'Melhor 3º A/B/C/D/F', date:'2026-06-29T20:00',venue:'TBD'},
+  {id:'R32_02',md:'R32',ko:true,t1:'1º Gr.I', t2:'Melhor 3º C/D/F/G/H', date:'2026-06-29T23:00',venue:'TBD'},
+  {id:'R32_03',md:'R32',ko:true,t1:'2º Gr.A', t2:'2º Gr.B', date:'2026-06-30T20:00',venue:'TBD'},
+  {id:'R32_04',md:'R32',ko:true,t1:'1º Gr.F', t2:'2º Gr.C', date:'2026-06-30T23:00',venue:'TBD'},
+  {id:'R32_05',md:'R32',ko:true,t1:'2º Gr.K', t2:'2º Gr.L', date:'2026-07-01T20:00',venue:'TBD'},
+  {id:'R32_06',md:'R32',ko:true,t1:'1º Gr.H', t2:'2º Gr.J', date:'2026-07-01T23:00',venue:'TBD'},
+  {id:'R32_07',md:'R32',ko:true,t1:'1º Gr.D', t2:'Melhor 3º B/E/F/I/J', date:'2026-07-02T20:00',venue:'TBD'},
+  {id:'R32_08',md:'R32',ko:true,t1:'1º Gr.G', t2:'Melhor 3º A/E/H/I/J', date:'2026-07-02T23:00',venue:'TBD'},
+  {id:'R32_09',md:'R32',ko:true,t1:'1º Gr.C', t2:'2º Gr.F', date:'2026-06-29T22:00',venue:'TBD'},
+  {id:'R32_10',md:'R32',ko:true,t1:'2º Gr.E', t2:'2º Gr.I', date:'2026-06-30T01:00',venue:'TBD'},
+  {id:'R32_11',md:'R32',ko:true,t1:'1º Gr.A', t2:'Melhor 3º C/E/F/H/I', date:'2026-06-30T22:00',venue:'TBD'},
+  {id:'R32_12',md:'R32',ko:true,t1:'1º Gr.L', t2:'Melhor 3º E/H/I/J/K', date:'2026-07-01T01:00',venue:'TBD'},
+  {id:'R32_13',md:'R32',ko:true,t1:'1º Gr.J', t2:'2º Gr.H', date:'2026-07-01T22:00',venue:'TBD'},
+  {id:'R32_14',md:'R32',ko:true,t1:'2º Gr.D', t2:'2º Gr.G', date:'2026-07-02T01:00',venue:'TBD'},
+  {id:'R32_15',md:'R32',ko:true,t1:'1º Gr.B', t2:'Melhor 3º E/F/G/I/J', date:'2026-07-02T22:00',venue:'TBD'},
+  {id:'R32_16',md:'R32',ko:true,t1:'1º Gr.K', t2:'Melhor 3º D/E/I/J/L', date:'2026-07-03T01:00',venue:'TBD'},
   // ── R16 — Oitavos de Final (8 jogos · 5–8 Jul) ──
   {id:'R16_01',md:'R16',ko:true,t1:'V R32_01', t2:'V R32_02', date:'2026-07-05T20:00',venue:'TBD'},
   {id:'R16_02',md:'R16',ko:true,t1:'V R32_03', t2:'V R32_04', date:'2026-07-05T23:00',venue:'TBD'},
@@ -2274,11 +2278,12 @@ function renderLB() {
       <div id="bancada-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
         ${cms.length?cms.map(c=>`<div>
           <div style="font-size:.62rem;color:var(--sub)">${escapeHtml(c.name)}${c.jornada?` · ${JORNADA_SHORT[c.jornada]||escapeHtml(c.jornada)}`:''}${c.at?` · ${new Date(c.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}</div>
-          <div style="font-size:.8rem;line-height:1.4">${escapeHtml(c.text)}</div>
+          <div style="font-size:.8rem;line-height:1.4">${highlightMentions(escapeHtml(c.text))}</div>
         </div>`).join(''):'<div style="font-size:.75rem;color:var(--sub)">Ainda ninguém falou. Sê o primeiro a mandar bitaites! 😏</div>'}
       </div>
+      <div id="bancada-sugg" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
       <div style="display:flex;gap:8px">
-        <input class="form-input" id="bancada-input" maxlength="200" autocomplete="off" placeholder="Escreve na bancada…" style="flex:1" onkeydown="if(event.key==='Enter')sendBancada()">
+        <input class="form-input" id="bancada-input" maxlength="200" autocomplete="off" placeholder="Escreve na bancada… (@nome para mencionar)" style="flex:1" oninput="bancadaSuggest(this.value)" onkeydown="if(event.key==='Enter')sendBancada()">
         <button class="btn btn-primary" style="font-size:.78rem;padding:6px 12px;white-space:nowrap" onclick="sendBancada()">Enviar</button>
       </div>
     </div>`;
@@ -2326,12 +2331,43 @@ async function sendReact(target,emoji){
   catch(e){showToast('Erro ao reagir','error');loadSocial();}
 }
 
+// ── Menções @nome na bancada ──
+function highlightMentions(s){
+  return s.replace(/@([A-Za-zÀ-ÿ0-9_]+)/g,'<span style="color:var(--gold);font-weight:600">@$1</span>');
+}
+function bancadaSuggest(v){
+  const el=document.getElementById('bancada-sugg');
+  if(!el)return;
+  const m=v.match(/@([A-Za-zÀ-ÿ0-9_]*)$/);
+  if(!m||!S.curLeague){el.style.display='none';return;}
+  const norm=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const q=norm(m[1]);
+  const mc=(S.curLeague.members||[]).map(c=>(c||'').toUpperCase());
+  const names=[...new Set((S.lb||[])
+    .filter(p=>p.code!=='BOT_IA'&&mc.includes((p.code||'').toUpperCase()))
+    .filter(p=>!S.user||p.code!==S.user.code)
+    .map(p=>(p.name||'').split(' ')[0]))];
+  const hits=names.filter(n=>norm(n).startsWith(q)).slice(0,4);
+  if(!hits.length){el.style.display='none';return;}
+  el.style.display='flex';
+  el.innerHTML=hits.map(n=>`<span class="react-chip" style="cursor:pointer;font-size:.74rem;padding:3px 9px;color:var(--gold)" onclick="pickMention('${n}')">@${n}</span>`).join('');
+}
+function pickMention(n){
+  const inp=document.getElementById('bancada-input');
+  if(!inp)return;
+  inp.value=inp.value.replace(/@([A-Za-zÀ-ÿ0-9_]*)$/,'@'+n+' ');
+  document.getElementById('bancada-sugg').style.display='none';
+  inp.focus();
+}
+
 async function sendBancada(){
   const inp=document.getElementById('bancada-input');
   if(!inp||!S.curLeague||!S.user)return;
   const text=inp.value.trim();
   if(!text)return;
   inp.value='';
+  const sg=document.getElementById('bancada-sugg');
+  if(sg)sg.style.display='none';
   const j=nextJornada()||'FIN';
   const c={jornada:j,code:S.user.code,name:S.user.name,text,at:new Date().toISOString()};
   if(S.social)S.social.comments.push(c);
@@ -2806,6 +2842,20 @@ function renderPrebets(){
     ?'🔒 Pré-apostas fechadas — o torneio já começou.'
     :'⏰ Fecham às 19h00 de dia 11 Jun (1h antes do 1º jogo). Clica num grupo para ver as apostas de todos.';
 
+  // Botão Guardar: bloqueado e transparente após o fecho
+  const saveBtn=document.getElementById('save-prebets-btn');
+  if(saveBtn){
+    saveBtn.disabled=closed;
+    saveBtn.style.opacity=closed?'.35':'';
+    saveBtn.style.cursor=closed?'not-allowed':'';
+    saveBtn.textContent=closed?'🔒 Fechado':'💾 Guardar';
+  }
+  if(closed){
+    const ub=document.getElementById('prebet-unsaved-badge');
+    if(ub)ub.style.display='none';
+    S.prebetPending=false;
+  }
+
   let html=`<div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:10px">
     📊 Fase de Grupos <span style="font-size:.78rem;color:var(--sub);font-weight:400">2pts por posição acertada</span>
   </div>`;
@@ -2893,6 +2943,7 @@ function showPrebetSaveSuccess(){
   },2500);
 }
 async function savePrebetsAuto(){
+  if(dlPassed('2026-06-11T20:00')){showToast('🔒 As pré-apostas já fecharam.','error');return;}
   const btn=document.getElementById('save-prebets-btn');
   if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
   try {
