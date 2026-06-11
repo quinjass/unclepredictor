@@ -1224,6 +1224,14 @@
           <button class="btn btn-primary btn-full" onclick="saveConfig()">Guardar</button>
         </div>
         <div class="card" style="margin-top:12px">
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:8px">📋 Quem falta apostar</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input class="form-input" id="report-gameid" type="text" value="A1" placeholder="ID do jogo (ex: A1, K3, R32_01)" style="flex:1;text-transform:uppercase">
+            <button class="btn btn-primary" style="font-size:.78rem;padding:6px 12px;white-space:nowrap" onclick="loadPendingReport()">Ver relatório</button>
+          </div>
+          <div id="report-out" style="font-size:.78rem;color:var(--sub)">Mostra quem ainda não fez pré-apostas e quem não apostou no jogo indicado.</div>
+        </div>
+        <div class="card" style="margin-top:12px">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:8px">📣 Mensagem a todos os jogadores</div>
           <textarea class="form-input" id="broadcast-text" rows="3" maxlength="300" placeholder="Ex: Resultados da Jornada 1 já lançados — vê a classificação!" style="resize:vertical;width:100%;box-sizing:border-box"></textarea>
           <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="sendBroadcast()">Enviar notificação 🔔</button>
@@ -2392,6 +2400,21 @@ async function sendLeagueInvite(){
     msg.textContent='✕ Erro de ligação.';
   }
   btn.disabled=false;btn.textContent='Enviar';
+}
+
+// ── Relatório de pendentes (admin): sem pré-apostas / sem aposta num jogo ──
+async function loadPendingReport(){
+  const gid=(document.getElementById('report-gameid').value||'A1').trim().toUpperCase();
+  const out=document.getElementById('report-out');
+  out.innerHTML='<div class="loading-center" style="padding:8px"><div class="spinner"></div></div>';
+  try{
+    const r=await api('pendingReport',{password:document.getElementById('admin-pw').value,game_id:gid});
+    if(!r.success){out.innerHTML='<div style="color:var(--red)">'+escapeHtml(r.error||'Erro')+'</div>';return;}
+    out.innerHTML=`<div style="line-height:1.7;color:var(--text)">
+      <div><strong style="color:var(--gold)">🏆 Sem pré-apostas (${r.noPrebets.length}/${r.total}):</strong><br>${r.noPrebets.length?r.noPrebets.map(escapeHtml).join(', '):'<span style="color:var(--green)">todos fizeram ✓</span>'}</div>
+      <div style="margin-top:8px"><strong style="color:var(--gold)">⚽ Sem aposta no jogo ${escapeHtml(r.game_id)} (${r.noGameBet.length}/${r.total}):</strong><br>${r.noGameBet.length?r.noGameBet.map(escapeHtml).join(', '):'<span style="color:var(--green)">todos apostaram ✓</span>'}</div>
+    </div>`;
+  }catch(e){out.innerHTML='<div style="color:var(--red)">Erro de ligação.</div>';}
 }
 
 // ── Broadcast do admin global ──
@@ -3922,6 +3945,7 @@ function mockApi(action,data){
   }
   if(action==='inviteToLeague')return{success:true,message:'(demo) Convite enviado a '+data.target+'.'};
   if(action==='getLeagueInvites')return{invites:[{name:'SOFIA',status:'sent',at:'2026-06-10T12:00:00Z'},{name:'BRUNO',status:'joined',at:'2026-06-09T18:00:00Z'}]};
+  if(action==='pendingReport')return{success:true,total:10,game_id:data.game_id||'A1',noPrebets:['MARTA','FILIPE'],noGameBet:['MARTA']};
   if(action==='broadcast')return{success:true};
   return{success:true};
 }
