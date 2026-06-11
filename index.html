@@ -2186,7 +2186,7 @@ function renderLB() {
       const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
       const bot=isBot(p);
-      html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'':` openPlayerModal('${p.name}')`}">
+      html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
         <td class="td-name">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}${bot?'':reactHtml(p.code)}</td>
         <td>${finishedGames}</td>
@@ -2235,7 +2235,7 @@ function renderLB() {
       const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
       const bot=isBot(p);
-      html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'':` openPlayerModal('${p.name}')`}">
+      html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
         <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
         <td style="${tdN};color:var(--sub)">${finishedGames}</td>
@@ -3300,6 +3300,25 @@ function openGameModal(gameId) {
 
   html+=`</tbody></table>`;
   document.getElementById('modal-body').innerHTML=html;
+  openModal();
+}
+
+// ════════════════════════════════════════════════
+//  MODAL — BOT IA (como aposta)
+// ════════════════════════════════════════════════
+function openBotModal() {
+  document.getElementById('modal-title').textContent = '🤖 Como aposta o Bot IA';
+  document.getElementById('modal-subtitle').textContent = 'Apostas automáticas, sem intervenção humana';
+  const row=(emoji,title,text)=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="font-weight:700;color:var(--gold);font-size:.85rem;margin-bottom:3px">${emoji} ${title}</div>
+    <div style="font-size:.78rem;color:var(--text);line-height:1.6">${text}</div>
+  </div>`;
+  document.getElementById('modal-body').innerHTML=
+    row('📊','Odds reais','Antes de cada jornada, o bot consulta as odds de casas de apostas europeias e converte-as em probabilidades de vitória, empate e derrota (removendo a margem da casa).')+
+    row('🏅','Ranking FIFA','Mistura 80% mercado + 20% ranking FIFA, para corrigir jogos com pouco volume de apostas. Se não houver odds para um jogo, usa só o ranking.')+
+    row('⚽','Do palpite ao resultado','As probabilidades são convertidas em golos esperados por equipa e o resultado final é gerado com um modelo de Poisson — o padrão estatístico que os golos seguem no futebol real.')+
+    row('🚫','Sem batota','O bot não vê as apostas de ninguém, aposta antes do fecho como toda a gente, e não usa joker nem pré-apostas especiais.')+
+    `<div style="padding:10px 0;font-size:.74rem;color:var(--sub);line-height:1.6">💡 Podes ver as apostas do bot em cada jogo terminado, nos cartões da tab Apostas — como qualquer jogador.</div>`;
   openModal();
 }
 
