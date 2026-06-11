@@ -625,7 +625,7 @@
           </div>
 
           <div class="card">
-            <div class="rules-subtitle">🃏 O JOKER</div>
+            <div class="rules-subtitle"><span class="joker-badge" style="font-size:.72rem;padding:2px 7px">J</span> O JOKER</div>
             <div class="scoring-cell sc-joker" style="border-radius:10px;margin-bottom:8px;flex-direction:row;gap:12px;padding:10px 14px">
               <div class="scoring-pts" style="font-size:1.8rem;color:#00bcd4">×2</div>
               <div style="text-align:left">
@@ -664,7 +664,7 @@
               </div>
             </div>
             <div style="margin-top:6px;font-size:.72rem;color:var(--sub);line-height:1.6">
-              <div>✅ Só em acertos no resultado exato · 🃏 Joker duplica o bónus também</div>
+              <div>✅ Só em acertos no resultado exato · Joker (J) duplica o bónus também</div>
             </div>
           </div>
 
@@ -963,7 +963,7 @@
 
     <!-- JOKER -->
     <div class="card">
-      <div class="rules-subtitle">🃏 O JOKER</div>
+      <div class="rules-subtitle"><span class="joker-badge" style="font-size:.72rem;padding:2px 7px">J</span> O JOKER</div>
       <div class="scoring-cell sc-joker" style="border-radius:10px;margin-bottom:10px;flex-direction:row;gap:14px;padding:12px 16px">
         <div class="scoring-pts" style="font-size:2.2rem;color:#00bcd4">×2</div>
         <div style="text-align:left">
@@ -1004,7 +1004,7 @@
       </div>
       <div style="padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:2px">
         <div>✅ Bónus aplica-se apenas a <strong style="color:var(--text)">acertos no resultado exato</strong></div>
-        <div>🃏 O <strong style="color:var(--text)">JOKER</strong> duplica o bónus de raridade também</div>
+        <div><span class="joker-badge">J</span> O <strong style="color:var(--text)">JOKER</strong> duplica o bónus de raridade também</div>
         <div>📊 Mais de 40% a apostar igual → sem bónus <span style="opacity:.7">(Comum)</span></div>
       </div>
     </div>
@@ -2204,15 +2204,15 @@ function renderLB() {
     // % explícitas a somar 100% — sem scroll horizontal, sem col auto
     const thS='padding:5px 3px;font-size:.62rem';
     const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 3px;text-align:center';
-    const nCols=duelData?13:12;
+    const nCols=duelData?14:13;
     html+=`<div class="standings-wrap"><table class="standings-table" style="table-layout:fixed;width:100%">
       <colgroup>
         <col style="width:5%">
-        <col style="width:${duelData?'19':'24'}%">
+        <col style="width:${duelData?'16':'21'}%">
         <col style="width:5%">
         <col style="width:6%"><col style="width:7%"><col style="width:7%">
         <col style="width:6%"><col style="width:7%"><col style="width:7%">
-        <col style="width:7%"><col style="width:6%">${duelData?'<col style="width:5%">':''}<col style="width:8%">
+        <col style="width:6%"><col style="width:5%"><col style="width:5%">${duelData?'<col style="width:5%">':''}<col style="width:8%">
       </colgroup>
       <thead>
         <tr>
@@ -2222,7 +2222,8 @@ function renderLB() {
           <th colspan="3" style="${thS};color:var(--green);font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">GRUPOS<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th colspan="3" style="${thS};color:#7986cb;font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">KO<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
-          <th rowspan="2" title="Bónus: Joker + Raridade combinados" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem;line-height:1.1">J+⭐</th>
+          <th rowspan="2" title="Bónus de raridade (acertos exatos pouco comuns)" style="${thS};vertical-align:bottom;color:#f39c12;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">⭐</th>
+          <th rowspan="2" title="Bónus do joker — duplica a base e a raridade do jogo onde foi usado" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">J</th>
           ${duelData?`<th rowspan="2" title="Duelos head-to-head — tabela paralela, não soma ao Total" style="${thS};color:#e67e22;vertical-align:bottom;cursor:help">⚔️</th>`:''}
           <th rowspan="2" title="Total" style="${thS};color:var(--gold);vertical-align:bottom">Total</th>
         </tr>
@@ -2250,7 +2251,8 @@ function renderLB() {
         <td style="${tdN};color:#9fa8da">${p.ko_draws||0}</td>
         <td style="${tdN};color:#7986cb">${p.ko_pts||0}</td>
         <td style="${tdN};color:var(--sub)">${p.prebets_pts||0}</td>
-        <td style="${tdN};color:#00bcd4;font-size:.88rem">${(p.joker_pts||0)+(p.rarity_pts||0)}</td>
+        <td style="${tdN};color:#f39c12">${p.rarity_pts||0}</td>
+        <td style="${tdN};color:#00bcd4">${p.joker_pts||0}</td>
         ${duelData?`<td style="${tdN};color:#e67e22">${bot?'—':(duelData.pts[p.code]||0)}</td>`:''}
         <td class="td-pts" style="padding:9px 4px">${p.total}</td>
       </tr>`;
@@ -2261,7 +2263,8 @@ function renderLB() {
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
-      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J+⭐ = Joker + Raridade</span>
+      <span style="white-space:nowrap;color:#f39c12">⭐ = Raridade</span>
+      <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Joker</span>
       ${duelData?'<span style="white-space:nowrap;color:#e67e22">⚔️ = Duelos (paralelo)</span>':''}
     </div>`;
   }
@@ -3329,33 +3332,55 @@ function openGameModal(gameId) {
   const isKO = !!game.ko;
   const gamePreds = (S.allPreds&&S.allPreds[gameId])||{};
   const users = S.demoMode ? DEMO_USERS : (S.lb.length ? S.lb : S.participants);
+  const rarBonus = (S.rarityMap&&S.rarityMap[gameId])?S.rarityMap[gameId].bonus:0;
   const rows = users.map(u => {
     let pred;
     if (S.demoMode) pred = genDemoPreds(u.code)[gameId];
     else pred = gamePreds[u.code] || (S.user&&u.code===S.user.code ? S.preds[gameId] : undefined);
-    const pts = (isFinished && pred && pred.t1!==undefined) ? calcPts(pred,res,isKO) : null;
-    return {name:u.name, code:u.code, pred, pts, isMe: S.user && u.name===S.user.name};
-  }).sort((a,b)=>(b.pts||0)-(a.pts||0));
+    const hasPred = pred && pred.t1!==undefined;
+    let base=null, rar=0, jok=0, tot=null;
+    if (isFinished && hasPred) {
+      base = calcPts({...pred, joker:false}, res, isKO);             // pontos do jogo, sem joker
+      const exact = pred.t1===res.t1 && pred.t2===res.t2;
+      rar = exact ? rarBonus : 0;                                     // bónus de raridade (base)
+      jok = pred.joker ? (base + rar) : 0;                            // joker duplica base E raridade
+      tot = base + rar + jok;
+    }
+    return {name:u.name, code:u.code, pred, base, rar, jok, tot, isMe: S.user && u.name===S.user.name};
+  }).sort((a,b)=>(b.tot||0)-(a.tot||0));
 
   let html=`<table class="modal-table"><thead><tr>
     <th class="th-left">Jogador</th>
     <th>Aposta</th>
-    ${isFinished?'<th>Resultado</th><th>Pontos</th>':''}
+    ${isFinished?`<th title="Pontos do jogo (sem joker/raridade)">Base</th>
+    <th title="Bónus de raridade" style="color:#f39c12">⭐</th>
+    <th title="Bónus do joker — duplica a base e a raridade" style="color:#00bcd4">J</th>
+    <th title="Total deste jogo" style="color:var(--gold)">Total</th>`:''}
   </tr></thead><tbody>`;
 
+  const nCell=`font-family:'Rajdhani',sans-serif;font-weight:700`;
   rows.forEach(r=>{
     const hasPred = r.pred && r.pred.t1!==undefined;
-    const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' 🃏':''}` : '—';
-    const ptsCls = isFinished ? (!hasPred||r.pts===0?'pred-wrong':r.pts===1?'pred-partial':'pred-correct') : '';
+    const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : '—';
+    const ptsCls = isFinished ? (!hasPred||r.base===0?'pred-wrong':r.base===1||r.base===2?'pred-partial':'pred-correct') : '';
     html+=`<tr class="${r.isMe?'row-me':''}">
       <td class="td-left">${r.code==='BOT_IA'?'🤖 IA':r.name}${r.isMe?' <span class="me-tag">(tu)</span>':''}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
-      ${isFinished?`<td style="font-family:'Rajdhani',sans-serif;font-weight:700">${res.t1}–${res.t2}</td>
-      <td>${r.pts===null?'—':ptsBadgeHtml(r.pts)}</td>`:''}
+      ${isFinished?`
+      <td style="${nCell}">${r.base===null?'—':r.base}</td>
+      <td style="${nCell};color:${r.rar?'#f39c12':'var(--sub)'}">${r.rar?'+'+r.rar:'—'}</td>
+      <td style="${nCell};color:${r.jok?'#00bcd4':'var(--sub)'}">${r.jok?'+'+r.jok:'—'}</td>
+      <td style="${nCell};color:var(--gold);font-size:.95rem">${r.tot===null?'—':r.tot}</td>`:''}
     </tr>`;
   });
 
   html+=`</tbody></table>`;
+  if(isFinished){
+    html+=`<div style="font-size:.68rem;color:var(--sub);margin-top:8px;line-height:1.6">
+      <strong style="color:var(--text)">Base</strong> = pontos do jogo · <strong style="color:#f39c12">⭐</strong> = bónus de raridade${rarBonus?` (neste jogo: +${rarBonus} por acerto exato)`:' (sem bónus neste jogo)'} · <strong style="color:#00bcd4">J</strong> = bónus do joker (duplica a base e a raridade)<br>
+      ⭐ e J são as colunas homónimas da classificação detalhada — somadas, formam o 1º critério de desempate.
+    </div>`;
+  }
   if(!isFinished) html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:8px;text-align:center">As apostas ficam visíveis assim que fecham (${S.deadlineH||1}h antes do jogo).</div>`;
   document.getElementById('modal-body').innerHTML=html;
   openModal();
@@ -3424,13 +3449,18 @@ function buildPlayerBetsHtml(playerName) {
   let finishedCount=0;
 
   let total=0, wins=0, draws=0;
+  const thP=`font-size:.62rem`;
   let html=`<table class="modal-table"><thead><tr>
-    <th class="th-left" style="min-width:130px">Jogo</th>
-    <th>Aposta</th>
-    <th>Resultado</th>
-    <th>Pts</th>
+    <th class="th-left" style="min-width:110px;${thP}">Jogo</th>
+    <th style="${thP}">Aposta</th>
+    <th style="${thP}">Res.</th>
+    <th style="${thP}" title="Pontos do jogo (sem joker/raridade)">Base</th>
+    <th style="${thP};color:#f39c12" title="Bónus de raridade">⭐</th>
+    <th style="${thP};color:#00bcd4" title="Bónus do joker (duplica base e raridade)">J</th>
+    <th style="${thP};color:var(--gold)" title="Total deste jogo">Tot</th>
   </tr></thead><tbody>`;
 
+  const nC=`font-family:'Rajdhani',sans-serif;font-weight:700`;
   shownGames.forEach(g=>{
     const res=results[g.id];
     const isF=res&&res.t1!==undefined;
@@ -3438,22 +3468,30 @@ function buildPlayerBetsHtml(playerName) {
     const pred=preds[g.id];
     const hasPred=pred&&pred.t1!==undefined;
     const isKO=!!(g.ko);
-    const pts=(isF&&hasPred)?calcPts(pred,res,isKO):null;
-    if(pts!==null){
-      total+=pts;
+    // Decomposição igual ao modal de jogo: base + raridade + joker
+    let base=null,rar=0,jok=0,tot=null;
+    if(isF&&hasPred){
+      base=calcPts({...pred,joker:false},res,isKO);
+      const exact=pred.t1===res.t1&&pred.t2===res.t2;
+      rar=exact?((S.rarityMap&&S.rarityMap[g.id])?S.rarityMap[g.id].bonus:0):0;
+      jok=pred.joker?(base+rar):0;
+      tot=base+rar+jok;
+      total+=tot;
       const pw=pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
       const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
-      if(pred.t1===res.t1&&pred.t2===res.t2)wins++;
+      if(exact)wins++;
       else if(pw===rw)draws++;
     }
-    const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' 🃏':''}`:'-';
-    const ptsCls=isF?(!hasPred||pts===0?'pred-wrong':pts===1?'pred-partial':'pred-correct'):'';
-    const ptsBadge=isF?(pts===null?'-':ptsBadgeHtml(pts)):'<span style="font-size:.68rem;color:var(--sub)">🔒</span>';
+    const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:'-';
+    const ptsCls=isF?(!hasPred||base===0?'pred-wrong':base===1||base===2?'pred-partial':'pred-correct'):'';
     html+=`<tr>
-      <td style="font-size:.76rem;font-weight:500;padding:9px 6px;text-align:left;max-width:130px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
+      <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
-      <td style="font-family:'Rajdhani',sans-serif;font-weight:700">${isF?`${res.t1}–${res.t2}`:'—'}</td>
-      <td>${ptsBadge}</td>
+      <td style="${nC}">${isF?`${res.t1}–${res.t2}`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>'}</td>
+      <td style="${nC}">${base===null?'—':base}</td>
+      <td style="${nC};color:${rar?'#f39c12':'var(--sub)'}">${rar?'+'+rar:'—'}</td>
+      <td style="${nC};color:${jok?'#00bcd4':'var(--sub)'}">${jok?'+'+jok:'—'}</td>
+      <td style="${nC};color:var(--gold)">${tot===null?'—':tot}</td>
     </tr>`;
   });
 
@@ -3591,13 +3629,13 @@ function buildPrebetModalSection(playerName, _preds) {
     else if (!hasAny) msg = isMe ? '❌ Não fizeste pré-apostas dentro do prazo.' : `❌ ${playerName} não fez pré-apostas dentro do prazo.`;
     else msg = 'Sem pré-apostas para mostrar.';
     return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🃏 Pré-Apostas</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🏆 Pré-Apostas</div>
       <div class="alert alert-info" style="font-size:.75rem">${msg}</div>
     </div>`;
   }
 
   return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🃏 Pré-Apostas <span style="font-size:.75rem;color:var(--sub);font-weight:400">(${pbTotal}pts ganhos)</span></div>
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🏆 Pré-Apostas <span style="font-size:.75rem;color:var(--sub);font-weight:400">(${pbTotal}pts ganhos)</span></div>
     <div style="overflow-x:auto"><table class="modal-table">
       <thead><tr>
         <th class="th-left">Aposta</th>
@@ -3943,8 +3981,8 @@ function ptsBadgeHtml(pts) {
   if(pts===3)  return `<span class="pts-badge pts-3">RESULTADO +3</span>`;
   if(pts===4)  return `<span class="pts-badge pts-4">VENC/EMP +4</span>`;
   if(pts===5)  return `<span class="pts-badge pts-5">RESULTADO +5</span>`;
-  if(pts===6)  return `<span class="pts-badge pts-6">RESULTADO+🃏 +6</span>`;
-  if(pts===10) return `<span class="pts-badge pts-10">RESULTADO+🃏 +10</span>`;
+  if(pts===6)  return `<span class="pts-badge pts-6">RESULTADO+J +6</span>`;
+  if(pts===10) return `<span class="pts-badge pts-10">RESULTADO+J +10</span>`;
   return `<span class="pts-badge pts-3">+${pts}</span>`;
 }
 
