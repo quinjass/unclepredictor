@@ -3320,12 +3320,15 @@ function openBotModal() {
     <div style="font-weight:700;color:var(--gold);font-size:.85rem;margin-bottom:3px">${emoji} ${title}</div>
     <div style="font-size:.78rem;color:var(--text);line-height:1.6">${text}</div>
   </div>`;
-  document.getElementById('modal-body').innerHTML=
+  const desc=
     row('📊','Odds reais','Antes de cada jornada, o bot consulta as odds de casas de apostas europeias e converte-as em probabilidades de vitória, empate e derrota (removendo a margem da casa).')+
     row('🏅','Ranking FIFA','Mistura 80% mercado + 20% ranking FIFA, para corrigir jogos com pouco volume de apostas. Se não houver odds para um jogo, usa só o ranking.')+
     row('⚽','Do palpite ao resultado','As probabilidades são convertidas em golos esperados por equipa e o resultado final é gerado com um modelo de Poisson — o padrão estatístico que os golos seguem no futebol real.')+
-    row('🚫','Sem batota','O bot não vê as apostas de ninguém, aposta antes do fecho como toda a gente, e não usa joker nem pré-apostas especiais.')+
-    `<div style="padding:10px 0;font-size:.74rem;color:var(--sub);line-height:1.6">💡 Podes ver as apostas do bot em cada jogo terminado, nos cartões da tab Apostas — como qualquer jogador.</div>`;
+    row('🚫','Sem batota','O bot não vê as apostas de ninguém, aposta antes do fecho como toda a gente, e não usa joker.');
+  // Perfil de apostas do bot — igual ao de qualquer jogador (nome 'IA' na classificação)
+  document.getElementById('modal-body').innerHTML=desc+
+    `<div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin:16px 0 8px;padding-top:12px;border-top:1px solid var(--border)">📋 As apostas do bot</div>`+
+    buildPlayerBetsHtml('IA');
   openModal();
 }
 
@@ -3336,6 +3339,14 @@ function openPlayerModal(playerName) {
   const isMe = S.user && playerName.toLowerCase()===S.user.name.toLowerCase();
   document.getElementById('modal-title').textContent = isMe ? 'As minhas apostas' : `Apostas de ${playerName}`;
   document.getElementById('modal-subtitle').textContent = 'Jogos terminados e jogos com apostas já fechadas';
+  document.getElementById('modal-body').innerHTML = buildPlayerBetsHtml(playerName);
+  openModal();
+}
+
+// Constrói o perfil de apostas (tabela + stats + evolução + pré-apostas)
+// Reutilizado pelo modal de jogador e pelo modal do Bot IA
+function buildPlayerBetsHtml(playerName) {
+  const isMe = S.user && playerName.toLowerCase()===S.user.name.toLowerCase();
 
   // Apostas do jogador: as próprias vêm de S.preds; as dos outros de S.allPreds (só jogos fechados)
   let preds;
@@ -3357,8 +3368,7 @@ function openPlayerModal(playerName) {
     (dlPassed(g.date) && preds[g.id] && preds[g.id].t1!==undefined));
 
   if (!shownGames.length) {
-    document.getElementById('modal-body').innerHTML='<div class="alert alert-info">Ainda não há jogos terminados nem apostas fechadas.</div>';
-    openModal(); return;
+    return '<div class="alert alert-info">Ainda não há jogos terminados nem apostas fechadas.</div>';
   }
   let finishedCount=0;
 
@@ -3410,8 +3420,7 @@ function openPlayerModal(playerName) {
   // ── Secção Pré-Apostas ──
   html += buildPrebetModalSection(playerName, preds);
 
-  document.getElementById('modal-body').innerHTML=html;
-  openModal();
+  return html;
 }
 
 // Sparkline da evolução de posição na classificação (dados de S.rankHist, calculados no renderLB)
@@ -3523,10 +3532,16 @@ function buildPrebetModalSection(playerName, _preds) {
 
   const allRows = rows + groupRows;
   if (!allRows) {
-    // Nenhuma pré-aposta visível ainda
+    // Distinguir: pré-apostas ainda abertas (escondidas) vs jogador que não as fez
+    const closed = dlPassed('2026-06-11T20:00');
+    const hasAny = Object.keys(pb).length > 0;
+    let msg;
+    if (!closed) msg = 'As pré-apostas dos jogadores ficam visíveis quando fecharem (19h00 de 11 Jun).';
+    else if (!hasAny) msg = isMe ? '❌ Não fizeste pré-apostas dentro do prazo.' : `❌ ${playerName} não fez pré-apostas dentro do prazo.`;
+    else msg = 'Sem pré-apostas para mostrar.';
     return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🃏 Pré-Apostas</div>
-      <div class="alert alert-info" style="font-size:.75rem">Os resultados de pré-apostas ficam disponíveis quando o torneio terminar.</div>
+      <div class="alert alert-info" style="font-size:.75rem">${msg}</div>
     </div>`;
   }
 
