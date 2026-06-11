@@ -1654,7 +1654,7 @@ const S = {
   specials:{},
   social:null, socialLeague:null, socialLoading:false,
   reactFor:null, duelsOpen:false, mvpJ:null, rankHist:{}, _cardData:null,
-  notifs:[], allPreds:{},
+  notifs:[], allPreds:{}, allPrebets:{},
 };
 
 // ════════════════════════════════════════════════
@@ -1970,6 +1970,7 @@ async function loadData() {
     if(r.specials)S.specials=r.specials;
     if(r.notifs){S.notifs=r.notifs;renderNotifBadge();}
     if(r.allPreds)S.allPreds=r.allPreds;
+    if(r.allPrebets)S.allPrebets=r.allPrebets;
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -3449,8 +3450,12 @@ function buildPrebetModalSection(playerName, _preds) {
   if (S.demoMode) {
     const u = DEMO_USERS.find(u=>u.name===playerName);
     pb = u ? {} : {}; // demo: sem pré-apostas predefinidas, mostrar vazio
+  } else if (isMe) {
+    pb = S.prebets;
   } else {
-    pb = isMe ? S.prebets : {}; // só temos acesso completo às próprias pré-apostas
+    // Pré-apostas dos outros: S.allPrebets (backend só as envia depois de fecharem)
+    const u = S.lb.find(p=>p.name.toLowerCase()===playerName.toLowerCase());
+    pb = (u && S.allPrebets && S.allPrebets[u.code]) || {};
   }
 
   const sp = S.specials; // resultados oficiais (podem estar vazios antes do fim)
@@ -3582,7 +3587,7 @@ function openGroupModal(grp) {
   document.getElementById('modal-title').textContent = `Pré-Apostas — Grupo ${grp}`;
   document.getElementById('modal-subtitle').textContent = `${GROUPS[grp].join(' · ')}`;
 
-  const users = S.demoMode ? DEMO_USERS : S.participants;
+  const users = S.demoMode ? DEMO_USERS : (S.lb.length ? S.lb : S.participants);
 
   let html=`<table class="modal-table"><thead><tr>
     <th class="th-left">Jogador</th>
@@ -3601,8 +3606,10 @@ function openGroupModal(grp) {
       let idx2=Math.floor(rnd()*(teams.length-1)); if(idx2>=idx1)idx2++;
       pb1=teams[idx1]; pb2=teams[idx2];
     } else {
-      pb1=S.prebets['g'+grp+'_1']||'—';
-      pb2=S.prebets['g'+grp+'_2']||'—';
+      // Pré-apostas de cada jogador (visíveis após o fecho); as próprias vêm sempre de S.prebets
+      const upb=(S.allPrebets&&S.allPrebets[u.code])||(S.user&&u.code===S.user.code?S.prebets:{});
+      pb1=upb['g'+grp+'_1']||'—';
+      pb2=upb['g'+grp+'_2']||'—';
     }
     const isMe=S.user&&u.name===S.user.name;
     html+=`<tr class="${isMe?'row-me':''}">
