@@ -669,13 +669,12 @@
           </div>
 
           <div class="card">
-            <div class="rules-subtitle">⚔️ Duelos &amp; 🏆 MVP da Jornada</div>
+            <div class="rules-subtitle">⚔️ Duelos</div>
             <div style="font-size:.76rem;line-height:1.7;color:var(--text)">
               <div style="padding:4px 0;border-bottom:1px solid var(--border)">⚔️ Em cada jornada és <strong>sorteado contra outro membro da liga</strong> — ganha quem fizer mais pontos nessa jornada</div>
               <div style="padding:4px 0;border-bottom:1px solid var(--border)">⏳ Sorteio provisório até ao fecho das apostas do 1º jogo da jornada — depois fica 🔒 fechado</div>
               <div style="padding:4px 0;border-bottom:1px solid var(--border)">Vitória <strong style="color:#e67e22">2 pts</strong> · Empate <strong>1 pt</strong> · Derrota 0 · Bye (nº ímpar) 1 pt</div>
               <div style="padding:4px 0;border-bottom:1px solid var(--border)">📊 Tabela <strong>paralela</strong> — os pontos de duelo não somam ao total da classificação</div>
-              <div style="padding:4px 0;border-bottom:1px solid var(--border)">🏆 O melhor de cada jornada é coroado <strong style="color:var(--gold)">MVP</strong> na classificação</div>
               <div style="padding:4px 0">🏅 No fim do Mundial: <strong style="color:#e67e22">Campeão de Duelos</strong> da liga (desempate: vitórias → posição na classificação)</div>
             </div>
           </div>
@@ -908,7 +907,7 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
       Mundial 2026
     </div>
-    <div class="alert alert-info" style="font-size:.74rem;margin-bottom:12px">📡 Dados de demonstração. Em produção os resultados serão atualizados em tempo real.</div>
+    <div class="alert alert-info" style="font-size:.74rem;margin-bottom:12px">📡 Classificações e bracket calculados a partir dos resultados oficiais — a mesma fonte das pontuações das apostas.</div>
     <div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:8px">📊 Classificação por Grupo</div>
     <div class="grp-tabs" id="mundial-grp-tabs"></div>
     <div id="mundial-content"></div>
@@ -1010,15 +1009,14 @@
       </div>
     </div>
 
-    <!-- Duelos + MVP -->
+    <!-- Duelos -->
     <div class="card">
-      <div class="rules-subtitle">⚔️ Duelos Head-to-Head &amp; 🏆 MVP da Jornada</div>
+      <div class="rules-subtitle">⚔️ Duelos Head-to-Head</div>
       <div style="font-size:.8rem;line-height:1.7;color:var(--text)">
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">⚔️ Em cada jornada (J1–J3 e cada ronda KO) és <strong>sorteado contra outro membro da tua liga</strong>. O sorteio é aleatório mas igual para todos — podes ver o teu adversário na Classificação antes da jornada começar.</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">⏳ Até ao <strong>fecho das apostas do 1º jogo da jornada</strong> o emparelhamento é <strong>provisório</strong> (novos membros podem entrar na liga e alterar o sorteio). Nesse momento fica 🔒 <strong>fechado</strong>.</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏅 Ganha o duelo quem fizer <strong>mais pontos nessa jornada</strong> (joker e raridade contam). Vitória <strong style="color:#e67e22">2 pts</strong> · Empate <strong>1 pt</strong> · Derrota <strong>0</strong>. Com nº ímpar de membros, quem fica de fora recebe <strong>bye = 1 pt</strong>.</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">📊 Os pontos de duelo vivem na coluna <strong style="color:#e67e22">⚔️</strong> da classificação detalhada — é uma <strong>tabela paralela</strong>, não soma ao Total.</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏆 O jogador com mais pontos de cada jornada é o <strong style="color:var(--gold)">MVP</strong> — fica no banner da Classificação e ganha um troféu 🥇 junto ao nome.</div>
         <div style="padding:5px 0">🏅 No fim do Mundial, quem somar mais pontos de duelo é coroado <strong style="color:#e67e22">⚔️ Campeão de Duelos</strong> da liga — um título próprio, ao lado do campeão geral. Desempate: mais vitórias em duelos → melhor posição na classificação.</div>
       </div>
     </div>
@@ -1656,7 +1654,7 @@ const S = {
   specials:{},
   social:null, socialLeague:null, socialLoading:false,
   reactFor:null, duelsOpen:false, mvpJ:null, rankHist:{}, _cardData:null,
-  notifs:[],
+  notifs:[], allPreds:{},
 };
 
 // ════════════════════════════════════════════════
@@ -1971,6 +1969,7 @@ async function loadData() {
     if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
     if(r.specials)S.specials=r.specials;
     if(r.notifs){S.notifs=r.notifs;renderNotifBadge();}
+    if(r.allPreds)S.allPreds=r.allPreds;
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -2539,7 +2538,7 @@ function renderBetsKO() {
     const t1ph = isKOPlaceholder(t1) ? ' placeholder' : '';
     const t2ph = isKOPlaceholder(t2) ? ' placeholder' : '';
 
-    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}" ${isFinished?`onclick="openGameModal('${g.id}')"`:''}>
+    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}" ${(isFinished||(locked&&knownTeams))?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
       <div class="game-meta">
         <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</span>
         <span>${dlWarn}${ptsHtml}</span>
@@ -2575,9 +2574,8 @@ function renderBetsKO() {
             ? `<button class="joker-btn ${jokerOn?'active':''}" onclick="toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
                 <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
               </button>`
-            : jokerOn
-              ? `<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`
-              : ''
+            : `${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
+              ${locked&&knownTeams?'<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>':''}`
       }
     </div>`;
   });
@@ -2640,7 +2638,7 @@ function renderBets() {
         colorClass='card-saved';                           // guardado sem resultado → cinza
       }
 
-      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${isFinished?`onclick="openGameModal('${g.id}')"`:''}>
+      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||locked)?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
         <div class="game-meta">
           <span><span class="grp-badge">Gr.${g.g}</span>${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})} · ${g.venue}</span>
           <span>${dlWarn}${ptsHtml}</span>
@@ -2672,7 +2670,8 @@ function renderBets() {
             </button>
             <button class="card-save-btn" style="${(hasPred&&!isSaved)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
             <button class="card-clear-btn" style="${isSaved?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
-            `:jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:'')
+            `:`${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
+            <div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>`)
         }
       </div>`;
     });
@@ -3264,41 +3263,48 @@ function openGameModal(gameId) {
   const game = GAMES.find(g=>g.id===gameId);
   if (!game) return;
   const res = S.results[gameId]||(S.demoMode?DEMO_RESULTS[gameId]:null);
-  if (!res||res.t1===undefined) return;
+  const isFinished = !!(res&&res.t1!==undefined);
+  const locked = dlPassed(game.date);
+  if (!isFinished && !locked) return; // antes do fecho ninguém vê as apostas
 
-  document.getElementById('modal-title').textContent = `${game.t1} ${res.t1}–${res.t2} ${game.t2}`;
-  document.getElementById('modal-subtitle').textContent = `Grupo ${game.g} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}`;
+  const t1 = game.ko ? getKOTeamName(gameId,'t1') : game.t1;
+  const t2 = game.ko ? getKOTeamName(gameId,'t2') : game.t2;
+  document.getElementById('modal-title').textContent = isFinished ? `${t1} ${res.t1}–${res.t2} ${t2}` : `${t1} vs ${t2}`;
+  document.getElementById('modal-subtitle').textContent =
+    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?'':' · 🔒 Apostas fechadas — jogo por disputar'}`;
 
-  // Gather all predictions
+  // Apostas de todos: S.allPreds (backend só envia jogos já fechados)
   const isKO = !!game.ko;
-  const users = S.demoMode ? DEMO_USERS : S.participants;
+  const gamePreds = (S.allPreds&&S.allPreds[gameId])||{};
+  const users = S.demoMode ? DEMO_USERS : (S.lb.length ? S.lb : S.participants);
   const rows = users.map(u => {
-    const pred = S.demoMode ? genDemoPreds(u.code)[gameId] : (S.preds[gameId]||{});
-    const pts = pred && pred.t1!==undefined ? calcPts(pred,res,isKO) : null;
-    return {name:u.name, pred, pts, isMe: S.user && u.name===S.user.name};
+    let pred;
+    if (S.demoMode) pred = genDemoPreds(u.code)[gameId];
+    else pred = gamePreds[u.code] || (S.user&&u.code===S.user.code ? S.preds[gameId] : undefined);
+    const pts = (isFinished && pred && pred.t1!==undefined) ? calcPts(pred,res,isKO) : null;
+    return {name:u.name, code:u.code, pred, pts, isMe: S.user && u.name===S.user.name};
   }).sort((a,b)=>(b.pts||0)-(a.pts||0));
 
   let html=`<table class="modal-table"><thead><tr>
     <th class="th-left">Jogador</th>
     <th>Aposta</th>
-    <th>Resultado</th>
-    <th>Pontos</th>
+    ${isFinished?'<th>Resultado</th><th>Pontos</th>':''}
   </tr></thead><tbody>`;
 
   rows.forEach(r=>{
     const hasPred = r.pred && r.pred.t1!==undefined;
     const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' 🃏':''}` : '—';
-    const ptsCls = !hasPred||r.pts===0?'pred-wrong':r.pts===1?'pred-partial':'pred-correct';
-    const ptsBadge = r.pts===null?'—':ptsBadgeHtml(r.pts);
+    const ptsCls = isFinished ? (!hasPred||r.pts===0?'pred-wrong':r.pts===1?'pred-partial':'pred-correct') : '';
     html+=`<tr class="${r.isMe?'row-me':''}">
-      <td class="td-left">${r.name}${r.isMe?' <span class="me-tag">(tu)</span>':''}</td>
+      <td class="td-left">${r.code==='BOT_IA'?'🤖 IA':r.name}${r.isMe?' <span class="me-tag">(tu)</span>':''}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
-      <td style="font-family:'Rajdhani',sans-serif;font-weight:700">${res.t1}–${res.t2}</td>
-      <td>${ptsBadge}</td>
+      ${isFinished?`<td style="font-family:'Rajdhani',sans-serif;font-weight:700">${res.t1}–${res.t2}</td>
+      <td>${r.pts===null?'—':ptsBadgeHtml(r.pts)}</td>`:''}
     </tr>`;
   });
 
   html+=`</tbody></table>`;
+  if(!isFinished) html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:8px;text-align:center">As apostas ficam visíveis assim que fecham (${S.deadlineH||1}h antes do jogo).</div>`;
   document.getElementById('modal-body').innerHTML=html;
   openModal();
 }
@@ -3328,24 +3334,32 @@ function openBotModal() {
 function openPlayerModal(playerName) {
   const isMe = S.user && playerName.toLowerCase()===S.user.name.toLowerCase();
   document.getElementById('modal-title').textContent = isMe ? 'As minhas apostas' : `Apostas de ${playerName}`;
-  document.getElementById('modal-subtitle').textContent = 'Apenas jogos já terminados';
+  document.getElementById('modal-subtitle').textContent = 'Jogos terminados e jogos com apostas já fechadas';
 
-  // Get user's predictions
+  // Apostas do jogador: as próprias vêm de S.preds; as dos outros de S.allPreds (só jogos fechados)
   let preds;
   if (S.demoMode) {
     const u = DEMO_USERS.find(u=>u.name===playerName);
     preds = u ? genDemoPreds(u.code) : {};
+  } else if (isMe) {
+    preds = S.preds;
   } else {
-    preds = isMe ? S.preds : {};
+    preds = {};
+    const u = S.lb.find(p=>p.name.toLowerCase()===playerName.toLowerCase());
+    if (u) Object.entries(S.allPreds||{}).forEach(([gid,m])=>{ if(m[u.code]) preds[gid]=m[u.code]; });
   }
 
   const results = S.demoMode ? DEMO_RESULTS : S.results;
-  const finishedGames = GAMES.filter(g => results[g.id]!==undefined);
+  // Jogos terminados + jogos fechados (deadline passou) com aposta deste jogador
+  const shownGames = GAMES.filter(g =>
+    results[g.id]!==undefined ||
+    (dlPassed(g.date) && preds[g.id] && preds[g.id].t1!==undefined));
 
-  if (!finishedGames.length) {
-    document.getElementById('modal-body').innerHTML='<div class="alert alert-info">Ainda não há jogos terminados.</div>';
+  if (!shownGames.length) {
+    document.getElementById('modal-body').innerHTML='<div class="alert alert-info">Ainda não há jogos terminados nem apostas fechadas.</div>';
     openModal(); return;
   }
+  let finishedCount=0;
 
   let total=0, wins=0, draws=0;
   let html=`<table class="modal-table"><thead><tr>
@@ -3355,31 +3369,28 @@ function openPlayerModal(playerName) {
     <th>Pts</th>
   </tr></thead><tbody>`;
 
-  finishedGames.forEach(g=>{
+  shownGames.forEach(g=>{
     const res=results[g.id];
+    const isF=res&&res.t1!==undefined;
+    if(isF)finishedCount++;
     const pred=preds[g.id];
     const hasPred=pred&&pred.t1!==undefined;
     const isKO=!!(g.ko);
-    const pts=hasPred?calcPts(pred,res,isKO):null;
+    const pts=(isF&&hasPred)?calcPts(pred,res,isKO):null;
     if(pts!==null){
       total+=pts;
-      // Exact score: 3,6 (group) or 5,10 (KO)
-      const exactThreshold = isKO ? 5 : 3;
-      const winnerThreshold = isKO ? 2 : 1;
-      if(hasPred){
-        const pw=pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
-        const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
-        if(pred.t1===res.t1&&pred.t2===res.t2)wins++;
-        else if(pw===rw)draws++;
-      }
+      const pw=pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
+      const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
+      if(pred.t1===res.t1&&pred.t2===res.t2)wins++;
+      else if(pw===rw)draws++;
     }
     const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' 🃏':''}`:'-';
-    const ptsCls=!hasPred||pts===0?'pred-wrong':pts===1?'pred-partial':'pred-correct';
-    const ptsBadge=pts===null?'-':ptsBadgeHtml(pts);
+    const ptsCls=isF?(!hasPred||pts===0?'pred-wrong':pts===1?'pred-partial':'pred-correct'):'';
+    const ptsBadge=isF?(pts===null?'-':ptsBadgeHtml(pts)):'<span style="font-size:.68rem;color:var(--sub)">🔒</span>';
     html+=`<tr>
-      <td style="font-size:.76rem;font-weight:500;padding:9px 6px;text-align:left;max-width:130px;white-space:normal;line-height:1.45"><span class="grp-badge">Gr.${g.g}</span>${g.t1}<br>${g.t2}</td>
+      <td style="font-size:.76rem;font-weight:500;padding:9px 6px;text-align:left;max-width:130px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
-      <td style="font-family:'Rajdhani',sans-serif;font-weight:700">${res.t1}–${res.t2}</td>
+      <td style="font-family:'Rajdhani',sans-serif;font-weight:700">${isF?`${res.t1}–${res.t2}`:'—'}</td>
       <td>${ptsBadge}</td>
     </tr>`;
   });
@@ -3389,7 +3400,7 @@ function openPlayerModal(playerName) {
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL JOGOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">RESULTADOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">${wins}</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">VENC/EMP ✓</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#f39c12">${draws}</div></div>
-    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">ERROS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--red)">${finishedGames.length-wins-draws}</div></div>
+    <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">ERROS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--red)">${finishedCount-wins-draws}</div></div>
   </div>`;
 
   // ── Evolução de posição (#12) — sparkline por jornada ──
@@ -3908,7 +3919,12 @@ function mockApi(action,data){
     const code=data.code?data.code.toUpperCase():'';
     const isDemoUser=DEMO_USERS.find(u=>u.code===code);
     const preds=isDemoUser?genDemoPreds(code):(S.preds||{});
-    return{preds,prebets:S.prebets||{},results:Object.keys(S.results||{}).length>0?S.results:DEMO_RESULTS,lb:calcDemoLB(),deadlineH:1,
+    const allPreds={};
+    GAMES.filter(g=>dlPassed(g.date)).forEach(g=>{
+      allPreds[g.id]={};
+      DEMO_USERS.forEach(u=>{const p=genDemoPreds(u.code)[g.id];if(p&&p.t1!==undefined)allPreds[g.id][u.code]=p;});
+    });
+    return{preds,prebets:S.prebets||{},results:Object.keys(S.results||{}).length>0?S.results:DEMO_RESULTS,lb:calcDemoLB(),deadlineH:1,allPreds,
       notifs:[{id:'n1',type:'admin',text:'📣 Bem-vindos ao Uncle Predictor 2026! Boa sorte a todos.',at:'2026-06-09T10:00:00Z'},
               {id:'n2',type:'invite',text:'💌 Foste convidado para a liga "Amigos"! Entra em Ligas com o código AMG26.',at:'2026-06-10T09:30:00Z'}]};
   }
