@@ -161,6 +161,9 @@
     .date-sep{font-size:.72rem;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;padding-left:2px}
     .grp-badge{font-size:.7rem;font-weight:700;color:var(--gold);background:rgba(245,197,24,.1);padding:2px 7px;border-radius:4px;margin-right:5px}
     .dl-warn{color:var(--orange)}.dl-pass{color:var(--red)}.dl-count{color:var(--sub)}
+    .live-dot{color:var(--red);font-weight:700;animation:livepulse 1.2s ease-in-out infinite;white-space:nowrap}
+    @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .live-score{border:1px solid var(--red);color:#fff;background:rgba(231,76,60,.1)}
     .react-chip{display:inline-block;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:0 5px;font-size:.6rem;margin-left:3px;vertical-align:middle}
     .react-add{display:inline-block;border:1px dashed var(--border);border-radius:10px;padding:0 6px;font-size:.62rem;color:var(--sub);margin-left:3px;cursor:pointer;vertical-align:middle}
     .react-add:hover{color:var(--gold);border-color:var(--gold)}
@@ -1659,6 +1662,7 @@ const S = {
   social:null, socialLeague:null, socialLoading:false,
   reactFor:null, duelsOpen:false, mvpJ:null, rankHist:{}, _cardData:null,
   notifs:[], allPreds:{}, allPrebets:{},
+  live:{}, liveLB:false,
 };
 
 // ════════════════════════════════════════════════
@@ -1975,6 +1979,7 @@ async function loadData() {
     if(r.notifs){S.notifs=r.notifs;renderNotifBadge();}
     if(r.allPreds)S.allPreds=r.allPreds;
     if(r.allPrebets)S.allPrebets=r.allPrebets;
+    if(r.live)S.live=r.live;
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -2022,6 +2027,27 @@ function renderLB() {
     if(delta===0)return '';
     return `<span style="font-size:.6rem;color:${delta>0?'#2ecc71':'#e74c3c'};font-weight:700;font-family:'Rajdhani',sans-serif;margin-left:2px">${delta>0?'↑':'↓'}${Math.abs(delta)}</span>`;
   };
+
+  // ── LIVE: pontos potenciais por jogador nos jogos a decorrer ──
+  // NOTA: o snapshot das setas de posição (acima) usa SEMPRE a ordenação oficial;
+  // o modo live só reordena uma cópia para display — nunca contamina o estado guardado
+  const liveGameIds=Object.keys(S.live||{}).filter(id=>{const R=activeResults();return !(R[id]&&R[id].t1!==undefined);});
+  const liveAdd={};
+  if(liveGameIds.length){
+    data.forEach(p=>{
+      let s=0;
+      liveGameIds.forEach(gid=>{
+        const pr=(S.allPreds&&S.allPreds[gid]&&S.allPreds[gid][p.code])||(S.user&&p.code===S.user.code?S.preds[gid]:null);
+        if(pr&&pr.t1!==undefined){const pot=livePotential(gid,pr);if(pot)s+=pot.tot;}
+      });
+      liveAdd[p.code]=s;
+    });
+  } else if(S.liveLB){
+    S.liveLB=false; // sem jogos live → volta ao oficial
+  }
+  const showData=S.liveLB
+    ?[...data].sort((a,b)=>((b.total+(liveAdd[b.code]||0))-(a.total+(liveAdd[a.code]||0)))||(b.total-a.total))
+    :data;
 
   const trophySyms=['🥇','🥈','🥉'];
   const posSyms=['👑','🥈','🥉'];
@@ -2169,12 +2195,18 @@ function renderLB() {
 
   let html = ligaHdr + noLeagueHint + champHtml + duelHtml + mvpHtml;
   // Toggle row
-  html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+  html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
     <div style="font-size:.7rem;color:var(--sub)">Clica num jogador para ver apostas</div>
-    <button onclick="S.lbDetailed=!S.lbDetailed;renderLB()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--sub);cursor:pointer;font-size:.72rem;padding:4px 10px;font-family:'Inter',sans-serif;transition:all .2s">
-      ${S.lbDetailed?'📊 Simplificar':'📊 Ver detalhe'}
-    </button>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      ${liveGameIds.length?`<button onclick="S.liveLB=!S.liveLB;S.lbDetailed=false;renderLB()" style="background:${S.liveLB?'rgba(231,76,60,.15)':'none'};border:1px solid ${S.liveLB?'var(--red)':'var(--border)'};border-radius:6px;color:${S.liveLB?'var(--red)':'var(--sub)'};cursor:pointer;font-size:.72rem;padding:4px 10px;font-family:'Inter',sans-serif">${S.liveLB?'⏹ Oficial':'🔴 Live'}</button>`:''}
+      <button onclick="S.lbDetailed=!S.lbDetailed;S.liveLB=false;renderLB()" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--sub);cursor:pointer;font-size:.72rem;padding:4px 10px;font-family:'Inter',sans-serif;transition:all .2s">
+        ${S.lbDetailed?'📊 Simplificar':'📊 Ver detalhe'}
+      </button>
+    </div>
   </div>`;
+  if(S.liveLB){
+    html+=`<div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.35);border-radius:8px;padding:7px 10px;margin-bottom:8px;font-size:.72rem;text-align:center"><span class="live-dot">🔴 CLASSIFICAÇÃO LIVE</span> — provisória, inclui ${liveGameIds.length} jogo${liveGameIds.length>1?'s':''} a decorrer (raridade/joker estimados). A oficial só muda no fim de cada jogo.</div>`;
+  }
 
   if(!S.lbDetailed){
     // ── MODO SIMPLES ──
@@ -2186,15 +2218,16 @@ function renderLB() {
         <th title="Jogos com resultado">J</th>
         <th title="Total de pontos" style="color:var(--gold)">Pts</th>
       </tr></thead><tbody>`;
-    data.forEach((p,i)=>{
+    showData.forEach((p,i)=>{
       const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
       const bot=isBot(p);
+      const add=S.liveLB?(liveAdd[p.code]||0):0;
       html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
-        <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
+        <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}${S.liveLB?'':posArrow(p.code,rank)}</td>
         <td class="td-name">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}${bot?'':reactHtml(p.code)}</td>
         <td>${finishedGames}</td>
-        <td class="td-pts">${p.total}</td>
+        <td class="td-pts">${S.liveLB?`${p.total+add}${add?` <span class="live-dot" style="animation:none;font-size:.62rem">+${add}</span>`:''}`:p.total}</td>
       </tr>`;
       if(!bot)html+=reactPickerRow(p.code,4);
     });
@@ -2574,7 +2607,9 @@ function renderBetsKO() {
     const t2v = pred.t2 !== undefined ? pred.t2 : '';
     const ptsHtml = pts !== null ? ` ${ptsBadgeHtml(pts)}` : '';
     const matchNum = `J${idx+1}`;
-    const dlWarn = !locked ? dlWarnHtml(g.date) : (isFinished ? '' : '<span class="dl-pass">🔒 Fechado</span>');
+    const lvKO = !isFinished ? liveOf(g.id) : null;
+    const potKO = (lvKO && pred.t1 !== undefined) ? livePotential(g.id, pred) : null;
+    const dlWarn = !locked ? dlWarnHtml(g.date) : (isFinished ? '' : (lvKO ? `<span class="live-dot">🔴 ${lvKO.st==='HT'?'INTERVALO':'AO VIVO'}</span>` : '<span class="dl-pass">🔒 Fechado</span>'));
     const t1ph = isKOPlaceholder(t1) ? ' placeholder' : '';
     const t2ph = isKOPlaceholder(t2) ? ' placeholder' : '';
 
@@ -2587,6 +2622,8 @@ function renderBetsKO() {
         <div class="team-name${t1ph}">${t1}</div>
         ${isFinished
           ? `<div class="result-badge">${res.t1} – ${res.t2}</div>`
+          : lvKO
+          ? `<div class="result-badge live-score">${lvKO.t1} – ${lvKO.t2}</div>`
           : knownTeams
             ? `<div class="score-inputs">
                 <input class="score-input" type="number" min="0" max="20" value="${t1v}" placeholder="–"
@@ -2615,7 +2652,9 @@ function renderBetsKO() {
                 <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
               </button>`
             : `${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
-              ${locked&&knownTeams?'<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>':''}`
+              ${lvKO
+                ?`<div style="text-align:center;font-size:.72rem;margin-top:5px">${pred.t1!==undefined?`A tua aposta: <strong>${pred.t1}–${pred.t2}</strong>${potKO?` · <span class="live-dot" style="animation:none">potencial +${potKO.tot}</span>${potKO.rar?` <span style="color:#f39c12">⭐+${potKO.rar}</span>`:''}${potKO.jok?` <span style="color:#00bcd4">J+${potKO.jok}</span>`:''}`:''}`:'<span style="color:var(--sub)">Sem aposta neste jogo</span>'} <span style="color:var(--sub)">· 👆 ver todos</span></div>`
+                :(locked&&knownTeams?'<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>':'')}`
       }
     </div>`;
   });
@@ -2663,7 +2702,9 @@ function renderBets() {
 
       let ptsHtml='';
       if(pts!==null){ ptsHtml=` ${ptsBadgeHtml(pts)}`; }
-      const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':'<span class="dl-pass">🔒 Fechado</span>');
+      const lv=!isFinished?liveOf(g.id):null;
+      const pot=(lv&&hasPred)?livePotential(g.id,pred):null;
+      const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':(lv?`<span class="live-dot">🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'}</span>`:'<span class="dl-pass">🔒 Fechado</span>'));
 
       // Classe de cor do cartão
       let colorClass='';
@@ -2687,6 +2728,8 @@ function renderBets() {
           <div class="team-name">${flag(g.t1)}${g.t1}</div>
           ${isFinished
             ?`<div class="result-badge">${res.t1} – ${res.t2}</div>`
+            :lv
+            ?`<div class="result-badge live-score">${lv.t1} – ${lv.t2}</div>`
             :`<div class="score-inputs">
                <input class="score-input" type="number" min="0" max="20" value="${t1v}" placeholder="–"
                  ${locked?'disabled':''} oninput="setPred('${g.id}','t1',this.value)">
@@ -2711,7 +2754,9 @@ function renderBets() {
             <button class="card-save-btn" style="${(hasPred&&!isSaved)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
             <button class="card-clear-btn" style="${isSaved?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
             `:`${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
-            <div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>`)
+            ${lv
+              ?`<div style="text-align:center;font-size:.72rem;margin-top:5px">${hasPred?`A tua aposta: <strong>${pred.t1}–${pred.t2}</strong>${pot?` · <span class="live-dot" style="animation:none">potencial +${pot.tot}</span>${pot.rar?` <span style="color:#f39c12">⭐+${pot.rar}</span>`:''}${pot.jok?` <span style="color:#00bcd4">J+${pot.jok}</span>`:''}`:''}`:'<span style="color:var(--sub)">Sem aposta neste jogo</span>'} <span style="color:var(--sub)">· 👆 ver todos</span></div>`
+              :`<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>`}`)
         }
       </div>`;
     });
@@ -3322,26 +3367,40 @@ function openGameModal(gameId) {
   const locked = dlPassed(game.date);
   if (!isFinished && !locked) return; // antes do fecho ninguém vê as apostas
 
+  const lv = !isFinished ? liveOf(gameId) : null;
+  const resEff = isFinished ? res : (lv ? {t1:lv.t1, t2:lv.t2} : null); // resultado efetivo p/ cálculo
+  const showPts = !!resEff;
+
   const t1 = game.ko ? getKOTeamName(gameId,'t1') : game.t1;
   const t2 = game.ko ? getKOTeamName(gameId,'t2') : game.t2;
-  document.getElementById('modal-title').textContent = isFinished ? `${t1} ${res.t1}–${res.t2} ${t2}` : `${t1} vs ${t2}`;
+  document.getElementById('modal-title').textContent = resEff ? `${t1} ${resEff.t1}–${resEff.t2} ${t2}` : `${t1} vs ${t2}`;
   document.getElementById('modal-subtitle').textContent =
-    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?'':' · 🔒 Apostas fechadas — jogo por disputar'}`;
+    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?'':(lv?` · 🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'} — pontuação potencial`:' · 🔒 Apostas fechadas — jogo por disputar')}`;
 
   // Apostas de todos: S.allPreds (backend só envia jogos já fechados)
   const isKO = !!game.ko;
   const gamePreds = (S.allPreds&&S.allPreds[gameId])||{};
   const users = S.demoMode ? DEMO_USERS : (S.lb.length ? S.lb : S.participants);
-  const rarBonus = (S.rarityMap&&S.rarityMap[gameId])?S.rarityMap[gameId].bonus:0;
+  // Raridade: oficial (backend) em jogos terminados; calculada localmente sobre o resultado live
+  let rarBonus = (isFinished&&S.rarityMap&&S.rarityMap[gameId])?S.rarityMap[gameId].bonus:0;
+  if (lv) {
+    let bets=0, ex=0;
+    Object.values(gamePreds).forEach(p=>{
+      if(p.t1===undefined)return;
+      bets++;
+      if(p.t1===resEff.t1&&p.t2===resEff.t2)ex++;
+    });
+    rarBonus = rarityBonusLocal(ex,bets);
+  }
   const rows = users.map(u => {
     let pred;
     if (S.demoMode) pred = genDemoPreds(u.code)[gameId];
     else pred = gamePreds[u.code] || (S.user&&u.code===S.user.code ? S.preds[gameId] : undefined);
     const hasPred = pred && pred.t1!==undefined;
     let base=null, rar=0, jok=0, tot=null;
-    if (isFinished && hasPred) {
-      base = calcPts({...pred, joker:false}, res, isKO);             // pontos do jogo, sem joker
-      const exact = pred.t1===res.t1 && pred.t2===res.t2;
+    if (showPts && hasPred) {
+      base = calcPts({...pred, joker:false}, resEff, isKO);           // pontos do jogo, sem joker
+      const exact = pred.t1===resEff.t1 && pred.t2===resEff.t2;
       rar = exact ? rarBonus : 0;                                     // bónus de raridade (base)
       jok = pred.joker ? (base + rar) : 0;                            // joker duplica base E raridade
       tot = base + rar + jok;
@@ -3349,36 +3408,38 @@ function openGameModal(gameId) {
     return {name:u.name, code:u.code, pred, base, rar, jok, tot, isMe: S.user && u.name===S.user.name};
   }).sort((a,b)=>(b.tot||0)-(a.tot||0));
 
-  let html=`<table class="modal-table"><thead><tr>
+  let html='';
+  if(lv) html+=`<div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.35);border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:.72rem;text-align:center"><span class="live-dot">🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'}</span> — pontuação <strong>potencial</strong> com o resultado atual. Só conta no apito final.</div>`;
+  html+=`<table class="modal-table"><thead><tr>
     <th class="th-left">Jogador</th>
     <th>Aposta</th>
-    ${isFinished?`<th title="Pontos do jogo (sem joker/raridade)">Base</th>
-    <th title="Bónus de raridade" style="color:#f39c12">⭐</th>
+    ${showPts?`<th title="Pontos do jogo (sem joker/raridade)">Base</th>
+    <th title="Bónus de raridade${lv?' (estimado com o resultado atual)':''}" style="color:#f39c12">⭐</th>
     <th title="Bónus do joker — duplica a base e a raridade" style="color:#00bcd4">J</th>
-    <th title="Total deste jogo" style="color:var(--gold)">Total</th>`:''}
+    <th title="${lv?'Total potencial':'Total deste jogo'}" style="color:${lv?'var(--red)':'var(--gold)'}">${lv?'Pot.':'Total'}</th>`:''}
   </tr></thead><tbody>`;
 
   const nCell=`font-family:'Rajdhani',sans-serif;font-weight:700`;
   rows.forEach(r=>{
     const hasPred = r.pred && r.pred.t1!==undefined;
     const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : '—';
-    const ptsCls = isFinished ? (!hasPred||r.base===0?'pred-wrong':r.base===1||r.base===2?'pred-partial':'pred-correct') : '';
+    const ptsCls = showPts ? (!hasPred||r.base===0?'pred-wrong':r.base===1||r.base===2?'pred-partial':'pred-correct') : '';
     html+=`<tr class="${r.isMe?'row-me':''}">
       <td class="td-left">${r.code==='BOT_IA'?'🤖 IA':r.name}${r.isMe?' <span class="me-tag">(tu)</span>':''}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
-      ${isFinished?`
+      ${showPts?`
       <td style="${nCell}">${r.base===null?'—':r.base}</td>
       <td style="${nCell};color:${r.rar?'#f39c12':'var(--sub)'}">${r.rar?'+'+r.rar:'—'}</td>
       <td style="${nCell};color:${r.jok?'#00bcd4':'var(--sub)'}">${r.jok?'+'+r.jok:'—'}</td>
-      <td style="${nCell};color:var(--gold);font-size:.95rem">${r.tot===null?'—':r.tot}</td>`:''}
+      <td style="${nCell};color:${lv?'var(--red)':'var(--gold)'};font-size:.95rem">${r.tot===null?'—':r.tot}</td>`:''}
     </tr>`;
   });
 
   html+=`</tbody></table>`;
-  if(isFinished){
+  if(showPts){
     html+=`<div style="font-size:.68rem;color:var(--sub);margin-top:8px;line-height:1.6">
-      <strong style="color:var(--text)">Base</strong> = pontos do jogo · <strong style="color:#f39c12">⭐</strong> = bónus de raridade${rarBonus?` (neste jogo: +${rarBonus} por acerto exato)`:' (sem bónus neste jogo)'} · <strong style="color:#00bcd4">J</strong> = bónus do joker (duplica a base e a raridade)<br>
-      ⭐ e J são as colunas homónimas da classificação detalhada — somadas, formam o 1º critério de desempate.
+      <strong style="color:var(--text)">Base</strong> = pontos do jogo · <strong style="color:#f39c12">⭐</strong> = bónus de raridade${rarBonus?` (${lv?'com o resultado atual':'neste jogo'}: +${rarBonus} por acerto exato)`:' (sem bónus neste jogo)'} · <strong style="color:#00bcd4">J</strong> = bónus do joker (duplica a base e a raridade)<br>
+      ${lv?'🔴 Valores provisórios — a raridade pode mudar com cada golo.':'⭐ e J são as colunas homónimas da classificação detalhada — somadas, formam o 1º critério de desempate.'}
     </div>`;
   }
   if(!isFinished) html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:8px;text-align:center">As apostas ficam visíveis assim que fecham (${S.deadlineH||1}h antes do jogo).</div>`;
@@ -3461,6 +3522,7 @@ function buildPlayerBetsHtml(playerName) {
   </tr></thead><tbody>`;
 
   const nC=`font-family:'Rajdhani',sans-serif;font-weight:700`;
+  let anyLive=false;
   shownGames.forEach(g=>{
     const res=results[g.id];
     const isF=res&&res.t1!==undefined;
@@ -3468,6 +3530,7 @@ function buildPlayerBetsHtml(playerName) {
     const pred=preds[g.id];
     const hasPred=pred&&pred.t1!==undefined;
     const isKO=!!(g.ko);
+    const lv=!isF?liveOf(g.id):null;
     // Decomposição igual ao modal de jogo: base + raridade + joker
     let base=null,rar=0,jok=0,tot=null;
     if(isF&&hasPred){
@@ -3481,21 +3544,28 @@ function buildPlayerBetsHtml(playerName) {
       const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
       if(exact)wins++;
       else if(pw===rw)draws++;
+    } else if(lv&&hasPred){
+      // Jogo a decorrer: pontuação POTENCIAL (não soma ao total oficial)
+      anyLive=true;
+      const pot=livePotential(g.id,pred);
+      if(pot){base=pot.base;rar=pot.rar;jok=pot.jok;tot=pot.tot;}
     }
     const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:'-';
     const ptsCls=isF?(!hasPred||base===0?'pred-wrong':base===1||base===2?'pred-partial':'pred-correct'):'';
+    const liveStyle=lv?';opacity:.85;font-style:italic':'';
     html+=`<tr>
       <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
-      <td style="${nC}">${isF?`${res.t1}–${res.t2}`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>'}</td>
-      <td style="${nC}">${base===null?'—':base}</td>
-      <td style="${nC};color:${rar?'#f39c12':'var(--sub)'}">${rar?'+'+rar:'—'}</td>
-      <td style="${nC};color:${jok?'#00bcd4':'var(--sub)'}">${jok?'+'+jok:'—'}</td>
-      <td style="${nC};color:var(--gold)">${tot===null?'—':tot}</td>
+      <td style="${nC}">${isF?`${res.t1}–${res.t2}`:(lv?`<span class="live-dot" style="font-size:.72rem">🔴 ${lv.t1}–${lv.t2}</span>`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>')}</td>
+      <td style="${nC}${liveStyle}">${base===null?'—':base}</td>
+      <td style="${nC};color:${rar?'#f39c12':'var(--sub)'}${liveStyle}">${rar?'+'+rar:'—'}</td>
+      <td style="${nC};color:${jok?'#00bcd4':'var(--sub)'}${liveStyle}">${jok?'+'+jok:'—'}</td>
+      <td style="${nC};color:${lv?'var(--red)':'var(--gold)'}${liveStyle}">${tot===null?'—':tot}</td>
     </tr>`;
   });
 
   html+=`</tbody></table>
+  ${anyLive?'<div style="font-size:.68rem;color:var(--sub);margin-top:6px">🔴 = jogo a decorrer — pontos potenciais (em itálico), não somam ao total até ao apito final.</div>':''}
   <div style="display:flex;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL JOGOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">RESULTADOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">${wins}</div></div>
@@ -4036,6 +4106,7 @@ function mockApi(action,data){
       DEMO_USERS.forEach(u=>{const p=genDemoPreds(u.code)[g.id];if(p&&p.t1!==undefined)allPreds[g.id][u.code]=p;});
     });
     return{preds,prebets:S.prebets||{},results:Object.keys(S.results||{}).length>0?S.results:DEMO_RESULTS,lb:calcDemoLB(),deadlineH:1,allPreds,
+      live:{'H1':{t1:1,t2:0,st:'LIVE'}},
       notifs:[{id:'n1',type:'admin',text:'📣 Bem-vindos ao Uncle Predictor 2026! Boa sorte a todos.',at:'2026-06-09T10:00:00Z'},
               {id:'n2',type:'invite',text:'💌 Foste convidado para a liga "Amigos"! Entra em Ligas com o código AMG26.',at:'2026-06-10T09:30:00Z'}]};
   }
@@ -4092,6 +4163,7 @@ function mockApi(action,data){
   if(action==='inviteToLeague')return{success:true,message:'(demo) Convite enviado a '+data.target+'.'};
   if(action==='getLeagueInvites')return{invites:[{name:'SOFIA',status:'sent',at:'2026-06-10T12:00:00Z'},{name:'BRUNO',status:'joined',at:'2026-06-09T18:00:00Z'}]};
   if(action==='pendingReport')return{success:true,total:10,game_id:data.game_id||'A1',noPrebets:['MARTA','FILIPE'],noGameBet:['MARTA']};
+  if(action==='getLive')return{live:{'H1':{t1:1,t2:0,st:'LIVE'}}};
   if(action==='broadcast')return{success:true};
   return{success:true};
 }
@@ -4129,6 +4201,86 @@ setInterval(()=>{
     el.className=(dl-Date.now())<3600000?'dl-warn':'dl-count';
   });
 },30000);
+
+// ════════════════════════════════════════════════
+//  LIVE — resultados ao vivo (camada de display, nunca toca em S.results)
+// ════════════════════════════════════════════════
+// Mesmos limiares do backend (getRarityBonus) — MANTER SINCRONIZADO se mudarem
+function rarityBonusLocal(exactCount,bets){
+  if(!bets||!exactCount)return 0;
+  const pct=exactCount/bets;
+  if(pct<0.05)return 6;
+  if(pct<0.15)return 4;
+  if(pct<=0.30)return 2;
+  return 0;
+}
+
+// Jogo a decorrer (e ainda sem resultado final)
+function liveOf(gameId){
+  const R=activeResults();
+  if(R[gameId]&&R[gameId].t1!==undefined)return null;
+  return (S.live&&S.live[gameId])||null;
+}
+
+// Pontuação potencial de uma aposta contra o resultado live (base + raridade local + joker)
+function livePotential(gameId,pred){
+  const lv=liveOf(gameId);
+  if(!lv||!pred||pred.t1===undefined)return null;
+  const g=GAMES.find(x=>x.id===gameId);
+  const isKO=!!(g&&g.ko);
+  const res={t1:lv.t1,t2:lv.t2};
+  const base=calcPts({...pred,joker:false},res,isKO);
+  const exact=pred.t1===res.t1&&pred.t2===res.t2;
+  let rar=0;
+  if(exact){
+    const gp=S.allPreds&&S.allPreds[gameId];
+    if(gp){
+      let bets=0,ex=0;
+      Object.values(gp).forEach(p=>{
+        if(p.t1===undefined)return;
+        bets++;
+        if(p.t1===res.t1&&p.t2===res.t2)ex++;
+      });
+      rar=rarityBonusLocal(ex,bets);
+    }
+  }
+  const jok=pred.joker?(base+rar):0;
+  return {base,rar,jok,tot:base+rar+jok};
+}
+
+// Janela ativa de jogos (5 min antes do kickoff até ~2h45 depois) — espelha o backend
+function liveWindowActive(){
+  const now=Date.now();
+  return GAMES.some(g=>{
+    const t=new Date(g.date).getTime();
+    return now>=t-5*60000&&now<=t+165*60000;
+  });
+}
+
+// Polling leve: pede getLive a cada ~60s (com jitter), só com a app visível e dentro da janela
+let _livePollLast=Date.now()-Math.floor(Math.random()*30000); // jitter inicial — espalha os clientes
+let _livePollBusy=false;
+setInterval(async()=>{
+  if(typeof document==='undefined'||document.visibilityState!=='visible')return;
+  if(!S.user||S.demoMode||_livePollBusy)return;
+  if(!liveWindowActive()&&!Object.keys(S.live||{}).length)return;
+  if(Date.now()-_livePollLast<58000)return;
+  _livePollLast=Date.now();
+  _livePollBusy=true;
+  try{
+    const r=await api('getLive',{});
+    const nw=r.live||{};
+    if(JSON.stringify(nw)!==JSON.stringify(S.live)){
+      const hadLive=Object.keys(S.live||{}).length>0;
+      S.live=nw;
+      if(S.curView==='bets')renderBets();
+      else if(S.curView==='mundial')renderMundial();
+      else if(S.curView==='leaderboard')renderLB();
+      if(hadLive&&!Object.keys(nw).length)loadData(); // todos os jogos acabaram → buscar finais
+    }
+  }catch(e){}
+  _livePollBusy=false;
+},15000);
 function showToast(msg,type){
   const el=document.getElementById('toast');
   el.textContent=msg; el.className='toast show'+(type?' '+type:'');
