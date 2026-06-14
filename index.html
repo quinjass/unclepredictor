@@ -83,7 +83,7 @@
     #nav-sim.active{color:#a78bfa !important}
     /* NEW badge */
     .nav-new{position:relative}
-    .nav-new::after{content:'NEW';position:absolute;top:4px;right:4px;background:#e74c3c;color:#fff;font-size:.38rem;font-weight:800;padding:1px 3px;border-radius:3px;letter-spacing:.04em;line-height:1.3}
+    .nav-new::after{content:'NEW';position:absolute;top:5px;right:calc(50% - 18px);background:#e74c3c;color:#fff;font-size:.36rem;font-weight:800;padding:1px 3px;border-radius:3px;letter-spacing:.04em;line-height:1.3;pointer-events:none}
     /* Sim announcement toast */
     #sim-toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#1e1b4b;border:1px solid #7c3aed;color:#e0d7ff;border-radius:12px;padding:12px 16px;font-size:.78rem;max-width:340px;width:calc(100% - 40px);z-index:500;box-shadow:0 4px 24px rgba(0,0,0,.5);line-height:1.5;text-align:center;animation:toastIn .3s ease}
     #sim-toast strong{color:#c4b5fd;display:block;margin-bottom:3px;font-size:.85rem}
@@ -159,7 +159,7 @@
     #bkt-wrap .bkt-match{position:absolute;border-radius:5px;overflow:hidden;border:1px solid rgba(124,58,237,.35);background:rgba(13,11,30,.96);z-index:2}
     #bkt-wrap .bkt-match.bkt-final{border-color:#fbbf24!important;background:rgba(25,20,0,.96)}
     #bkt-wrap .bkt-match.bkt-f3{border-color:rgba(124,58,237,.5)}
-    #bkt-wrap .bkt-t{height:17px;display:flex;align-items:center;justify-content:center;padding:1px 0;border-bottom:1px solid rgba(124,58,237,.1);cursor:default;transition:background .13s}
+    #bkt-wrap .bkt-t{height:20px;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden;border-bottom:1px solid rgba(124,58,237,.1);cursor:default;transition:background .13s}
     #bkt-wrap .bkt-t:last-child{border-bottom:none}
     #bkt-wrap .bkt-t.bkt-pick{cursor:pointer}
     #bkt-wrap .bkt-t.bkt-pick:hover{background:rgba(124,58,237,.22);color:var(--text)}
@@ -4985,7 +4985,18 @@ const KO_ROUNDS=[
 const POS_LABEL=['1.º','2.º','3.º','4.º'];
 const GRP_NAMES='ABCDEFGHIJKL'.split('');
 const TEAM_CC={'México':'mx','Africa do Sul':'za','África do Sul':'za','Coreia do Sul':'kr','Chéquia':'cz','Canadá':'ca','Bósnia e Herzegovina':'ba','Qatar':'qa','Suíça':'ch','Brasil':'br','Marrocos':'ma','Haiti':'ht','Escócia':'gb-sct','EUA':'us','Paraguai':'py','Austrália':'au','Turquia':'tr','Alemanha':'de','Curaçao':'cw','Costa do Marfim':'ci','Equador':'ec','Holanda':'nl','Japão':'jp','Suécia':'se','Tunísia':'tn','Bélgica':'be','Egipto':'eg','Irão':'ir','Nova Zelândia':'nz','Espanha':'es','Cabo Verde':'cv','Arábia Saudita':'sa','Uruguai':'uy','França':'fr','Senegal':'sn','Iraque':'iq','Noruega':'no','Argentina':'ar','Argélia':'dz','Áustria':'at','Jordânia':'jo','Portugal':'pt','R.D. Congo':'cd','Uzbequistão':'uz','Colômbia':'co','Colômbia':'co','Inglaterra':'gb-eng','Croácia':'hr','Gana':'gh','Panamá':'pa'};
-function getFlagImg(team,w,h){const cc=TEAM_CC[team];if(!cc)return'<span style="opacity:.3;font-size:.55rem">?</span>';return`<img src="https://flagcdn.com/${w}x${h}/${cc}.png" title="${team}" style="display:block;border-radius:1px;box-shadow:0 1px 3px rgba(0,0,0,.5)">`;}
+function getFlagImg(team,w,h){
+  const cc=TEAM_CC[team];
+  if(!cc)return`<span title="${team}" style="opacity:.35;font-size:.6rem">?</span>`;
+  // Use emoji flag (no external CDN - works everywhere)
+  let em;
+  if(cc==='gb-sct')em='\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}';
+  else if(cc==='gb-eng')em='\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+  else{const b=0x1F1E6-65;em=String.fromCodePoint(b+cc.toUpperCase().charCodeAt(0),b+cc.toUpperCase().charCodeAt(1));}
+  const fs=Math.max(Math.round(h*1.45),10);
+  // Also load img as overlay for higher quality on desktop
+  return`<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:${w}px;height:${h}px" title="${team}"><span style="font-size:${fs}px;line-height:1;position:absolute">${em}</span><img src="https://flagcdn.com/${w}x${h}/${cc}.png" alt="" onerror="this.style.display='none'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:1px;z-index:1"></span>`;
+}
 
 
 // ──────────────────────────────────────────
@@ -5131,10 +5142,9 @@ function showSimToast(){
   if(document.getElementById('sim-toast'))return;
   const d=document.createElement('div');
   d.id='sim-toast';
-  d.innerHTML=`<strong>🔮 Simulador de Bracket • 📡 Resultados Live</strong>
-    <span style="display:block;margin:4px 0 2px">🔮 <b>Simul.</b> — simula toda a fase a eliminar à tua vontade, sem afetar a tua pontuação.</span>
-    <span style="display:block;margin-bottom:4px">📡 <b>Live</b> — durante os jogos, a classificação atualiza em tempo real com pontos potenciais.</span>
-    <button class="toast-close" onclick="document.getElementById('sim-toast').remove();localStorage.setItem('up26_sim_toasted','1')">Percebi, obrigado!</button>`;
+  d.innerHTML=`<strong>🔮 Simulador de Bracket disponível!</strong>
+    <span style="display:block;margin:4px 0 6px">Simula toda a fase a eliminar à tua vontade — sem afetar a tua pontuação real.</span>
+    <button class="toast-close" onclick="document.getElementById('sim-toast').remove();localStorage.setItem('up26_sim_toasted','1')">Percebi!</button>`;
   document.body.appendChild(d);
   setTimeout(()=>{const el=document.getElementById('sim-toast');if(el)el.remove();},10000);
   localStorage.setItem('up26_sim_toasted','1');
@@ -5352,7 +5362,7 @@ function renderSimBracketVisual(){
   // Dynamic sizing — fills the full container width
   const containerW=(document.getElementById("sim-content")||{}).offsetWidth||520;
   const availW=Math.max(containerW-4,280);
-  const MH=34; // 2 flag rows × 17px (fixed by CSS)
+  const MH=40; // 2 flag rows × 20px (fixed by CSS)
   // totalW = 7*STEP + 2*COL_W + GAP → fill availW
   const R_CW=0.70; // COL_W/STEP ratio
   const STEP=Math.max(Math.floor((availW-8)/(7+2*R_CW)),36);
