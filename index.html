@@ -1603,6 +1603,13 @@ function flag(t){
   if(!c)return'';
   return`<img src="https://flagcdn.com/w20/${c}.png" style="width:18px;height:12px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:4px" alt="${t}">`;
 }
+// Bandeira para as pré-apostas — mesma estratégia dos cartões de jogo (img flagcdn, sem emoji).
+// Resolve o problema do PC (Windows não renderiza emoji de bandeira).
+function pbFlag(t,w,h){
+  const c=FLAG_CODES[t]||(typeof TEAM_CC!=='undefined'?TEAM_CC[t]:null);
+  if(!c)return`<span style="display:inline-block;width:${w}px;height:${h}px"></span>`;
+  return`<img src="https://flagcdn.com/w80/${c}.png" alt="${t}" style="width:${w}px;height:${h}px;object-fit:cover;border-radius:2px;vertical-align:middle;display:inline-block">`;
+}
 
 function getKOTeamName(gameId, side) {
   const res = S.results[gameId];
@@ -3102,7 +3109,7 @@ function renderPrebets(){
     order.forEach((team,i)=>{
       const counts=i<2;
       const posCls=['p1','p2','p3','p4'][i]||'p4';
-      const flag=`<span class="pb-row-flag">${getFlagImg(team,18,13)}</span>`;
+      const flag=`<span class="pb-row-flag">${pbFlag(team,18,13)}</span>`;
       if(closed){
         html+=`<div class="pb-team-row ${counts?'counts':'dim'}">
           <div class="pb-pos ${posCls}">${i+1}</div>${flag}
@@ -3204,7 +3211,7 @@ function renderPrebetPodium(closed){
   let h=`<div class="pb-podium">`;
   slots.forEach(s=>{
     const team=S.prebets[s.k]||'';
-    const flag=team?`<div class="pb-pod-flag">${getFlagImg(team,32,24)}</div>`:'';
+    const flag=team?`<div class="pb-pod-flag">${pbFlag(team,32,24)}</div>`:'';
     const name=team
       ?`<div class="pb-pod-name" title="${team}">${team}</div>`
       :`<div class="pb-pod-empty">${closed?'—':'+ escolher'}</div>`;
@@ -3226,7 +3233,7 @@ function openPodiumPicker(slot){
   const cur=S.prebets[slot]||'';
   let h=`<div class="pb-pick-grid">`;
   ALL_TEAMS.forEach(t=>{
-    h+=`<button class="pb-pick-btn${cur===t?' sel':''}" onclick="pickPodium('${slot}','${escHtml(t)}')">${getFlagImg(t,20,15)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t}</span></button>`;
+    h+=`<button class="pb-pick-btn${cur===t?' sel':''}" onclick="pickPodium('${slot}','${escHtml(t)}')">${pbFlag(t,20,15)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t}</span></button>`;
   });
   h+=`</div>`;
   if(cur)h+=`<button class="btn" style="margin-top:12px;font-size:.76rem;width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--sub)" onclick="pickPodium('${slot}','')">✕ Remover seleção</button>`;
