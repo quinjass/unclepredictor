@@ -79,6 +79,103 @@
     tr.rank-2:hover td{background:linear-gradient(90deg,rgba(192,192,192,.1) 0%,rgba(192,192,192,.02) 60%) !important}
     tr.rank-3:hover td{background:linear-gradient(90deg,rgba(205,127,50,.1) 0%,rgba(205,127,50,.02) 60%) !important}
     /* ── BRACKET ROUND COLORS ── */
+    /* ── SIMULATOR ── */
+    #nav-sim.active{color:#a78bfa !important}
+    /* NEW badge */
+    .nav-new{position:relative}
+    .nav-new::after{content:'NEW';position:absolute;top:4px;right:4px;background:#e74c3c;color:#fff;font-size:.38rem;font-weight:800;padding:1px 3px;border-radius:3px;letter-spacing:.04em;line-height:1.3}
+    /* Sim announcement toast */
+    #sim-toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:#1e1b4b;border:1px solid #7c3aed;color:#e0d7ff;border-radius:12px;padding:12px 16px;font-size:.78rem;max-width:340px;width:calc(100% - 40px);z-index:500;box-shadow:0 4px 24px rgba(0,0,0,.5);line-height:1.5;text-align:center;animation:toastIn .3s ease}
+    #sim-toast strong{color:#c4b5fd;display:block;margin-bottom:3px;font-size:.85rem}
+    #sim-toast .toast-close{display:block;margin-top:8px;background:rgba(124,58,237,.3);border:1px solid rgba(124,58,237,.5);color:#c4b5fd;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:.72rem;font-family:'Inter',sans-serif;width:100%}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+    /* Mobile sim fixes */
+    @media(max-width:520px){
+      .sim-groups-grid{grid-template-columns:1fr 1fr;gap:6px}
+      .sim-grp-card{padding:7px}
+      .sim-tname{font-size:.62rem}
+      .sim-podium{gap:2px;padding:8px 4px 0}
+      .sim-pod-item>span{font-size:.75rem}
+      .sim-pod-name{font-size:.55rem}
+      #bkt-wrap{font-size:.55rem}
+    }
+    @media(max-width:380px){
+      .sim-groups-grid{grid-template-columns:1fr 1fr;gap:4px}
+      .sim-grp-card{padding:5px 6px}
+    }
+    .sim-banner{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+    .sim-badge{background:rgba(139,92,246,.2);border:1px solid rgba(139,92,246,.4);border-radius:10px;padding:2px 10px;font-size:.64rem;color:#c4b5fd;font-weight:700;letter-spacing:.3px}
+    .sim-phase{font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;color:#c4b5fd;margin:14px 0 8px}
+    .sim-groups-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+    .sim-grp-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px}
+    .sim-grp-card.grp-done{border-color:rgba(139,92,246,.35)}
+    .sim-grp-title{font-family:'Rajdhani',sans-serif;font-size:.88rem;font-weight:700;color:#a78bfa;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+    .sim-grp-done-badge{font-size:.55rem;background:rgba(139,92,246,.25);border-radius:6px;padding:1px 5px;color:#c4b5fd}
+    .sim-team-row{display:flex;align-items:center;padding:2px 0;gap:5px}
+    .sim-pos{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.78rem;width:14px;text-align:center;flex-shrink:0}
+    .sim-pos.sp1{color:var(--gold)}.sim-pos.sp2{color:#60a5fa}.sim-pos.sp3{color:#9ca3af}.sim-pos.sp4{color:#6b7280}
+    .sim-tname{font-size:.71rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sim-arrows{display:flex;flex-direction:column;margin-left:auto}
+    .sim-arr{background:none;border:none;color:var(--sub);cursor:pointer;font-size:.55rem;padding:0 2px;line-height:1.4}
+    .sim-arr:hover{color:var(--text)}
+    .sim-thirds-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+    .sim-3rd-btn{border-radius:8px;padding:7px 5px;background:var(--card);border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .18s;color:var(--text)}
+    .sim-3rd-btn:hover{border-color:rgba(139,92,246,.4)}
+    .sim-3rd-btn.sel{background:rgba(139,92,246,.2);border-color:#a78bfa}
+    .sim-3rd-btn.disabled{opacity:.4;cursor:not-allowed}
+    .sim-3rd-grp{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem;color:#a78bfa}
+    .sim-3rd-team{font-size:.66rem;margin-top:2px;line-height:1.2}
+    .sim-bracket-phase{margin-bottom:16px}
+    .sim-bp-title{font-family:'Rajdhani',sans-serif;font-size:.8rem;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+    .sim-match{background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;overflow:hidden}
+    .sim-match-t{display:flex;align-items:center;padding:8px 11px;cursor:pointer;transition:background .15s;font-size:.8rem;min-height:38px}
+    .sim-match-t:first-of-type{border-bottom:1px solid rgba(37,58,80,.6)}
+    .sim-match-t:hover:not(.sim-tbd-row){background:rgba(139,92,246,.1)}
+    .sim-match-t.winner{background:rgba(139,92,246,.18);font-weight:600;color:#e9d5ff}
+    .sim-match-t.winner::after{content:'✓';margin-left:auto;color:#a78bfa;font-size:.72rem}
+    .sim-tbd-row{color:var(--sub);font-style:italic;cursor:default}
+    .sim-match-lbl{font-size:.58rem;color:var(--sub);padding:2px 10px;background:rgba(0,0,0,.15);border-bottom:1px solid rgba(37,58,80,.4)}
+    .sim-champion{background:linear-gradient(135deg,rgba(245,197,24,.12),rgba(139,92,246,.12));border:2px solid var(--gold);border-radius:14px;padding:20px;text-align:center;margin-bottom:16px}
+    .sim-champion-title{font-family:'Rajdhani',sans-serif;font-size:.85rem;font-weight:700;color:var(--gold);margin-bottom:6px;letter-spacing:.5px}
+    .sim-champion-team{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--gold)}
+    .sim-reset-btn{background:rgba(231,76,60,.1);border:1px solid rgba(231,76,60,.3);color:#fc8181;border-radius:8px;padding:7px 14px;font-size:.75rem;cursor:pointer;font-family:'Inter',sans-serif;width:100%;margin-top:8px}
+    .sim-reset-btn:hover{background:rgba(231,76,60,.2)}
+    /* ── Bracket visual ── */
+    /* Podium */
+    .sim-podium{display:flex;gap:4px;justify-content:center;align-items:flex-end;margin-bottom:14px;padding:10px 6px 0;background:linear-gradient(135deg,rgba(245,197,24,.07),rgba(139,92,246,.07));border:1px solid rgba(167,139,250,.2);border-radius:12px;overflow:hidden}
+    .sim-pod-item{display:flex;flex-direction:column;align-items:center;flex:1;max-width:110px;gap:2px}
+    .sim-pod-item>span{font-size:.85rem}
+    .sim-pod-name{font-size:.6rem;font-weight:700;color:var(--text);text-align:center;line-height:1.2;font-family:'Rajdhani',sans-serif;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+    .sim-pod-plat{width:100%;text-align:center;font-size:.5rem;letter-spacing:.03em;border-radius:4px 4px 0 0;padding-top:5px;display:flex;align-items:flex-start;justify-content:center}
+    .pod-gold .sim-pod-plat{background:linear-gradient(180deg,rgba(251,191,36,.3),rgba(251,191,36,.07));color:#fbbf24;height:56px}
+    .pod-silver .sim-pod-plat{background:linear-gradient(180deg,rgba(148,163,184,.22),rgba(148,163,184,.06));color:#94a3b8;height:40px}
+    .pod-bronze .sim-pod-plat{background:linear-gradient(180deg,rgba(180,120,50,.22),rgba(180,120,50,.06));color:#b47832;height:28px}
+    /* Drag groups */
+    .sim-team-row[draggable=true]{cursor:grab}
+    .sim-team-row[draggable=true]:active{cursor:grabbing;opacity:.6}
+    .sim-drag-hdl{font-size:.65rem;color:rgba(167,139,250,.4);width:10px;flex-shrink:0;text-align:center;user-select:none}
+    /* Compact bracket flags */
+    #bkt-wrap .bkt-t img{border-radius:1px;display:block}
+    #bkt-wrap .bkt-match{position:absolute;border-radius:5px;overflow:hidden;border:1px solid rgba(124,58,237,.35);background:rgba(13,11,30,.96);z-index:2}
+    #bkt-wrap .bkt-match.bkt-final{border-color:#fbbf24!important;background:rgba(25,20,0,.96)}
+    #bkt-wrap .bkt-match.bkt-f3{border-color:rgba(124,58,237,.5)}
+    #bkt-wrap .bkt-t{height:17px;display:flex;align-items:center;justify-content:center;padding:1px 0;border-bottom:1px solid rgba(124,58,237,.1);cursor:default;transition:background .13s}
+    #bkt-wrap .bkt-t:last-child{border-bottom:none}
+    #bkt-wrap .bkt-t.bkt-pick{cursor:pointer}
+    #bkt-wrap .bkt-t.bkt-pick:hover{background:rgba(124,58,237,.22);color:var(--text)}
+    #bkt-wrap .bkt-t.bkt-win{color:#c4b5fd;font-weight:700;background:rgba(124,58,237,.18)}
+    #bkt-wrap .bkt-match.bkt-final .bkt-t.bkt-win{color:#fbbf24;background:rgba(251,191,36,.1)}
+    #bkt-wrap .bkt-lbl{font-size:.5rem;color:#a78bfa;text-align:center;padding:2px 0;background:rgba(124,58,237,.1);border-bottom:1px solid rgba(124,58,237,.2);letter-spacing:.04em;text-transform:uppercase}
+    .sim-exp-btn{background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.45);color:#c4b5fd;padding:5px 12px;border-radius:6px;font-size:.68rem;cursor:pointer;transition:background .15s;font-family:'Inter',sans-serif}
+    .sim-exp-btn:hover{background:rgba(124,58,237,.32)}
+    @media print{.nav-bar,.sim-banner,.sim-progress,.sim-phase,.sim-groups-grid,.sim-thirds-grid,.sim-reset-btn,#bkt-header-bar,.sim-info{display:none!important}#view-sim{padding:0!important;background:#0d0b1e!important}}
+    .sim-action-btn{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.4);color:#c4b5fd;border-radius:8px;padding:8px 14px;font-size:.78rem;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;width:100%;margin-top:8px}
+    .sim-action-btn:hover{background:rgba(139,92,246,.25)}
+    .sim-info{font-size:.72rem;color:var(--sub);text-align:center;margin:4px 0 10px}
+    .sim-progress{display:flex;gap:4px;margin-bottom:12px}
+    .sim-prog-step{flex:1;height:3px;border-radius:2px;background:var(--border)}
+    .sim-prog-step.done{background:#a78bfa}
+    .sim-prog-step.active{background:rgba(167,139,250,.5)}
     .bk-r32{border-left:3px solid rgba(33,150,243,.5);background:rgba(33,150,243,.03)}
     .bk-r16{border-left:3px solid rgba(0,188,212,.5);background:rgba(0,188,212,.03)}
     .bk-qf{border-left:3px solid rgba(255,152,0,.5);background:rgba(255,152,0,.03)}
@@ -555,6 +652,9 @@
   <button class="nav-btn" onclick="showView('mundial')" id="nav-mundial">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Mundial
   </button>
+  <button class="nav-btn nav-new" onclick="showView('sim')" id="nav-sim">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Simul.
+  </button>
   <button class="nav-btn" onclick="showView('rules')" id="nav-rules">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Regras
   </button>
@@ -916,6 +1016,11 @@
     <div id="mundial-content"></div>
     <div id="mundial-bracket"></div>
     <div id="mundial-scorers" style="margin-top:8px"></div>
+  </div>
+
+  <!-- ═══════════════ SIMULADOR ═══════════════ -->
+  <div class="view" id="view-sim">
+    <div id="sim-content"></div>
   </div>
 
   <!-- ═══════════════ REGRAS ═══════════════ -->
@@ -1714,6 +1819,25 @@ async function init() {
     // (antes: 2 chamadas sequenciais ao Apps Script bloqueavam o ecrã de login)
     const sl = localStorage.getItem('up26_league_'+S.user.code);
     showApp(); loadData();
+    // Fetch sim state from backend (non-blocking)
+    if(!S.demoMode && S.user && S.user.code){
+      api('getSimState',{code:S.user.code}).then(r=>{
+        if(r&&r.state){
+          try{
+            const remote=JSON.parse(r.state);
+            // Only overwrite if remote has more ko picks than local
+            const localSim=S.sim;
+            const remoteKoCount=Object.keys((remote&&remote.ko)||{}).length;
+            const localKoCount=Object.keys((localSim&&localSim.ko)||{}).length;
+            if(remoteKoCount>=localKoCount){
+              S.sim=remote;
+              localStorage.setItem('up26_sim',r.state);
+              if(S.curView==='sim')renderSim();
+            }
+          }catch(e){}
+        }
+      }).catch(()=>{});
+    }
     loadMyLeagues().then(()=>{
       if (sl && S.leagues.length) {
         const lg = S.leagues.find(l=>l.id===sl);
@@ -1951,6 +2075,7 @@ function showView(v) {
   if(v==='bets')renderBets();
   if(v==='prebets')renderPrebets();
   if(v==='mundial')renderMundial();
+  if(v==='sim'){renderSim();showSimToast();}
 }
 
 // ════════════════════════════════════════════════
@@ -4811,6 +4936,591 @@ async function adminRemoveLeagueMember(lid, memberCode) {
 
 updatePrebetDeadlineText();
 init();
+
+// ════════════════════════════════════════════════
+//  SIMULADOR DE BRACKET
+// ════════════════════════════════════════════════
+
+// Annex C (495 combinações): key = 8 grupos sorted, value = 8 chars [1A_opp,1B_opp,1D_opp,1E_opp,1G_opp,1I_opp,1K_opp,1L_opp]
+// Slots correspondentes: [R32_11, R32_15, R32_07, R32_01, R32_08, R32_02, R32_16, R32_12]
+const ANNEX_C={'ABCDEFGH':'HGBCAFDE','ABCDEFGI':'CGBDAFEI','ABCDEFGJ':'CGBDAFEJ','ABCDEFGK':'CGBDAFEK','ABCDEFGL':'CGBDAFLE','ABCDEFHI':'HEBCAFDI','ABCDEFHJ':'HJBCAFDE','ABCDEFHK':'HEBCAFDK','ABCDEFHL':'HFBCADLE','ABCDEFIJ':'CJBDAFEI','ABCDEFIK':'CEBDAFIK','ABCDEFIL':'CEBDAFLI','ABCDEFJK':'CJBDAFEK','ABCDEFJL':'CJBDAFLE','ABCDEFKL':'CEBDAFLK','ABCDEGHI':'HGBCADEI','ABCDEGHJ':'HGBCADEJ','ABCDEGHK':'HGBCADEK','ABCDEGHL':'HGBCADLE','ABCDEGIJ':'EGBCADIJ','ABCDEGIK':'EGBCADIK','ABCDEGIL':'EGBCADLI','ABCDEGJK':'EGBCADJK','ABCDEGJL':'EGBCADLJ','ABCDEGKL':'EGBCADLK','ABCDEHIJ':'HJBCADEI','ABCDEHIK':'HEBCADIK','ABCDEHIL':'HEBCADLI','ABCDEHJK':'HJBCADEK','ABCDEHJL':'HJBCADLE','ABCDEHKL':'HEBCADLK','ABCDEIJK':'EJBCADIK','ABCDEIJL':'EJBCADLI','ABCDEIKL':'EIBCADLK','ABCDEJKL':'EJBCADLK','ABCDFGHI':'HGBCAFDI','ABCDFGHJ':'HGBCAFDJ','ABCDFGHK':'HGBCAFDK','ABCDFGHL':'CGBDAFLH','ABCDFGIJ':'CGBDAFIJ','ABCDFGIK':'CGBDAFIK','ABCDFGIL':'CGBDAFLI','ABCDFGJK':'CGBDAFJK','ABCDFGJL':'CGBDAFLJ','ABCDFGKL':'CGBDAFLK','ABCDFHIJ':'HJBCAFDI','ABCDFHIK':'HFBCADIK','ABCDFHIL':'HFBCADLI','ABCDFHJK':'HJBCAFDK','ABCDFHJL':'CJBDAFLH','ABCDFHKL':'HFBCADLK','ABCDFIJK':'CJBDAFIK','ABCDFIJL':'CJBDAFLI','ABCDFIKL':'CIBDAFLK','ABCDFJKL':'CJBDAFLK','ABCDGHIJ':'HGBCADIJ','ABCDGHIK':'HGBCADIK','ABCDGHIL':'HGBCADLI','ABCDGHJK':'HGBCADJK','ABCDGHJL':'HGBCADLJ','ABCDGHKL':'HGBCADLK','ABCDGIJK':'CJBDAGIK','ABCDGIJL':'CJBDAGLI','ABCDGIKL':'IGBCADLK','ABCDGJKL':'CJBDAGLK','ABCDHIJK':'HJBCADIK','ABCDHIJL':'HJBCADLI','ABCDHIKL':'HIBCADLK','ABCDHJKL':'HJBCADLK','ABCDIJKL':'IJBCADLK','ABCEFGHI':'HGBCAFEI','ABCEFGHJ':'HGBCAFEJ','ABCEFGHK':'HGBCAFEK','ABCEFGHL':'HGBCAFLE','ABCEFGIJ':'EGBCAFIJ','ABCEFGIK':'EGBCAFIK','ABCEFGIL':'EGBCAFLI','ABCEFGJK':'EGBCAFJK','ABCEFGJL':'EGBCAFLJ','ABCEFGKL':'EGBCAFLK','ABCEFHIJ':'HJBCAFEI','ABCEFHIK':'HEBCAFIK','ABCEFHIL':'HEBCAFLI','ABCEFHJK':'HJBCAFEK','ABCEFHJL':'HJBCAFLE','ABCEFHKL':'HEBCAFLK','ABCEFIJK':'EJBCAFIK','ABCEFIJL':'EJBCAFLI','ABCEFIKL':'EIBCAFLK','ABCEFJKL':'EJBCAFLK','ABCEGHIJ':'HJBCAGEI','ABCEGHIK':'EGBCAHIK','ABCEGHIL':'EGBCAHLI','ABCEGHJK':'HJBCAGEK','ABCEGHJL':'HJBCAGLE','ABCEGHKL':'EGBCAHLK','ABCEGIJK':'EJBCAGIK','ABCEGIJL':'EJBCAGLI','ABCEGIKL':'EGBAICLK','ABCEGJKL':'EJBCAGLK','ABCEHIJK':'EJBCAHIK','ABCEHIJL':'EJBCAHLI','ABCEHIKL':'EIBCAHLK','ABCEHJKL':'EJBCAHLK','ABCEIJKL':'EJBAICLK','ABCFGHIJ':'HGBCAFIJ','ABCFGHIK':'HGBCAFIK','ABCFGHIL':'HGBCAFLI','ABCFGHJK':'HGBCAFJK','ABCFGHJL':'HGBCAFLJ','ABCFGHKL':'HGBCAFLK','ABCFGIJK':'CJBFAGIK','ABCFGIJL':'CJBFAGLI','ABCFGIKL':'IGBCAFLK','ABCFGJKL':'CJBFAGLK','ABCFHIJK':'HJBCAFIK','ABCFHIJL':'HJBCAFLI','ABCFHIKL':'HIBCAFLK','ABCFHJKL':'HJBCAFLK','ABCFIJKL':'IJBCAFLK','ABCGHIJK':'HJBCAGIK','ABCGHIJL':'HJBCAGLI','ABCGHIKL':'IGBCAHLK','ABCGHJKL':'HJBCAGLK','ABCGIJKL':'IJBCAGLK','ABCHIJKL':'IJBCAHLK','ABDEFGHI':'HGBDAFEI','ABDEFGHJ':'HGBDAFEJ','ABDEFGHK':'HGBDAFEK','ABDEFGHL':'HGBDAFLE','ABDEFGIJ':'EGBDAFIJ','ABDEFGIK':'EGBDAFIK','ABDEFGIL':'EGBDAFLI','ABDEFGJK':'EGBDAFJK','ABDEFGJL':'EGBDAFLJ','ABDEFGKL':'EGBDAFLK','ABDEFHIJ':'HJBDAFEI','ABDEFHIK':'HEBDAFIK','ABDEFHIL':'HEBDAFLI','ABDEFHJK':'HJBDAFEK','ABDEFHJL':'HJBDAFLE','ABDEFHKL':'HEBDAFLK','ABDEFIJK':'EJBDAFIK','ABDEFIJL':'EJBDAFLI','ABDEFIKL':'EIBDAFLK','ABDEFJKL':'EJBDAFLK','ABDEGHIJ':'HJBDAGEI','ABDEGHIK':'EGBDAHIK','ABDEGHIL':'EGBDAHLI','ABDEGHJK':'HJBDAGEK','ABDEGHJL':'HJBDAGLE','ABDEGHKL':'EGBDAHLK','ABDEGIJK':'EJBDAGIK','ABDEGIJL':'EJBDAGLI','ABDEGIKL':'EGBAIDLK','ABDEGJKL':'EJBDAGLK','ABDEHIJK':'EJBDAHIK','ABDEHIJL':'EJBDAHLI','ABDEHIKL':'EIBDAHLK','ABDEHJKL':'EJBDAHLK','ABDEIJKL':'EJBAIDLK','ABDFGHIJ':'HGBDAFIJ','ABDFGHIK':'HGBDAFIK','ABDFGHIL':'HGBDAFLI','ABDFGHJK':'HGBDAFJK','ABDFGHJL':'HGBDAFLJ','ABDFGHKL':'HGBDAFLK','ABDFGIJK':'FJBDAGIK','ABDFGIJL':'FJBDAGLI','ABDFGIKL':'IGBDAFLK','ABDFGJKL':'FJBDAGLK','ABDFHIJK':'HJBDAFIK','ABDFHIJL':'HJBDAFLI','ABDFHIKL':'HIBDAFLK','ABDFHJKL':'HJBDAFLK','ABDFIJKL':'IJBDAFLK','ABDGHIJK':'HJBDAGIK','ABDGHIJL':'HJBDAGLI','ABDGHIKL':'IGBDAHLK','ABDGHJKL':'HJBDAGLK','ABDGIJKL':'IJBDAGLK','ABDHIJKL':'IJBDAHLK','ABEFGHIJ':'HJBFAGEI','ABEFGHIK':'EGBFAHIK','ABEFGHIL':'EGBFAHLI','ABEFGHJK':'HJBFAGEK','ABEFGHJL':'HJBFAGLE','ABEFGHKL':'EGBFAHLK','ABEFGIJK':'EJBFAGIK','ABEFGIJL':'EJBFAGLI','ABEFGIKL':'EGBAIFLK','ABEFGJKL':'EJBFAGLK','ABEFHIJK':'EJBFAHIK','ABEFHIJL':'EJBFAHLI','ABEFHIKL':'EIBFAHLK','ABEFHJKL':'EJBFAHLK','ABEFIJKL':'EJBAIFLK','ABEGHIJK':'EJBAHGIK','ABEGHIJL':'EJBAHGLI','ABEGHIKL':'EGBAIHLK','ABEGHJKL':'EJBAHGLK','ABEGIJKL':'EJBAIGLK','ABEHIJKL':'EJBAIHLK','ABFGHIJK':'HJBFAGIK','ABFGHIJL':'HJBFAGLI','ABFGHIKL':'HGBAIFLK','ABFGHJKL':'HJBFAGLK','ABFGIJKL':'IJBFAGLK','ABFHIJKL':'HJBAIFLK','ABGHIJKL':'HJBAIGLK','ACDEFGHI':'HGECAFDI','ACDEFGHJ':'HGJCAFDE','ACDEFGHK':'HGECAFDK','ACDEFGHL':'HGFCADLE','ACDEFGIJ':'CGJDAFEI','ACDEFGIK':'CGEDAFIK','ACDEFGIL':'CGEDAFLI','ACDEFGJK':'CGJDAFEK','ACDEFGJL':'CGJDAFLE','ACDEFGKL':'CGEDAFLK','ACDEFHIJ':'HJECAFDI','ACDEFHIK':'HEFCADIK','ACDEFHIL':'HEFCADLI','ACDEFHJK':'HJECAFDK','ACDEFHJL':'HJFCADLE','ACDEFHKL':'HEFCADLK','ACDEFIJK':'CJEDAFIK','ACDEFIJL':'CJEDAFLI','ACDEFIKL':'CEIDAFLK','ACDEFJKL':'CJEDAFLK','ACDEGHIJ':'HGJCADEI','ACDEGHIK':'HGECADIK','ACDEGHIL':'HGECADLI','ACDEGHJK':'HGJCADEK','ACDEGHJL':'HGJCADLE','ACDEGHKL':'HGECADLK','ACDEGIJK':'EGJCADIK','ACDEGIJL':'EGJCADLI','ACDEGIKL':'EGICADLK','ACDEGJKL':'EGJCADLK','ACDEHIJK':'HJECADIK','ACDEHIJL':'HJECADLI','ACDEHIKL':'HEICADLK','ACDEHJKL':'HJECADLK','ACDEIJKL':'EJICADLK','ACDFGHIJ':'HGJCAFDI','ACDFGHIK':'HGFCADIK','ACDFGHIL':'HGFCADLI','ACDFGHJK':'HGJCAFDK','ACDFGHJL':'CGJDAFLH','ACDFGHKL':'HGFCADLK','ACDFGIJK':'CGJDAFIK','ACDFGIJL':'CGJDAFLI','ACDFGIKL':'CGIDAFLK','ACDFGJKL':'CGJDAFLK','ACDFHIJK':'HJFCADIK','ACDFHIJL':'HJFCADLI','ACDFHIKL':'HFICADLK','ACDFHJKL':'HJFCADLK','ACDFIJKL':'CJIDAFLK','ACDGHIJK':'HGJCADIK','ACDGHIJL':'HGJCADLI','ACDGHIKL':'HGICADLK','ACDGHJKL':'HGJCADLK','ACDGIJKL':'IGJCADLK','ACDHIJKL':'HJICADLK','ACEFGHIJ':'HGJCAFEI','ACEFGHIK':'HGECAFIK','ACEFGHIL':'HGECAFLI','ACEFGHJK':'HGJCAFEK','ACEFGHJL':'HGJCAFLE','ACEFGHKL':'HGECAFLK','ACEFGIJK':'EGJCAFIK','ACEFGIJL':'EGJCAFLI','ACEFGIKL':'EGICAFLK','ACEFGJKL':'EGJCAFLK','ACEFHIJK':'HJECAFIK','ACEFHIJL':'HJECAFLI','ACEFHIKL':'HEICAFLK','ACEFHJKL':'HJECAFLK','ACEFIJKL':'EJICAFLK','ACEGHIJK':'EGJCAHIK','ACEGHIJL':'EGJCAHLI','ACEGHIKL':'EGICAHLK','ACEGHJKL':'EGJCAHLK','ACEGIJKL':'EJICAGLK','ACEHIJKL':'EJICAHLK','ACFGHIJK':'HGJCAFIK','ACFGHIJL':'HGJCAFLI','ACFGHIKL':'HGICAFLK','ACFGHJKL':'HGJCAFLK','ACFGIJKL':'IGJCAFLK','ACFHIJKL':'HJICAFLK','ACGHIJKL':'HJICAGLK','ADEFGHIJ':'HGJDAFEI','ADEFGHIK':'HGEDAFIK','ADEFGHIL':'HGEDAFLI','ADEFGHJK':'HGJDAFEK','ADEFGHJL':'HGJDAFLE','ADEFGHKL':'HGEDAFLK','ADEFGIJK':'EGJDAFIK','ADEFGIJL':'EGJDAFLI','ADEFGIKL':'EGIDAFLK','ADEFGJKL':'EGJDAFLK','ADEFHIJK':'HJEDAFIK','ADEFHIJL':'HJEDAFLI','ADEFHIKL':'HEIDAFLK','ADEFHJKL':'HJEDAFLK','ADEFIJKL':'EJIDAFLK','ADEGHIJK':'EGJDAHIK','ADEGHIJL':'EGJDAHLI','ADEGHIKL':'EGIDAHLK','ADEGHJKL':'EGJDAHLK','ADEGIJKL':'EJIDAGLK','ADEHIJKL':'EJIDAHLK','ADFGHIJK':'HGJDAFIK','ADFGHIJL':'HGJDAFLI','ADFGHIKL':'HGIDAFLK','ADFGHJKL':'HGJDAFLK','ADFGIJKL':'IGJDAFLK','ADFHIJKL':'HJIDAFLK','ADGHIJKL':'HJIDAGLK','AEFGHIJK':'EGJFAHIK','AEFGHIJL':'EGJFAHLI','AEFGHIKL':'EGIFAHLK','AEFGHJKL':'EGJFAHLK','AEFGIJKL':'EJIFAGLK','AEFHIJKL':'EJIFAHLK','AEGHIJKL':'EJIAHGLK','AFGHIJKL':'HJIFAGLK','BCDEFGHI':'CGBDHFEI','BCDEFGHJ':'HGBCJFDE','BCDEFGHK':'CGBDHFEK','BCDEFGHL':'CGBDHFLE','BCDEFGIJ':'CGBDJFEI','BCDEFGIK':'CGBDEFIK','BCDEFGIL':'CGBDEFLI','BCDEFGJK':'CGBDJFEK','BCDEFGJL':'CGBDJFLE','BCDEFGKL':'CGBDEFLK','BCDEFHIJ':'CJBDHFEI','BCDEFHIK':'CEBDHFIK','BCDEFHIL':'CEBDHFLI','BCDEFHJK':'CJBDHFEK','BCDEFHJL':'CJBDHFLE','BCDEFHKL':'CEBDHFLK','BCDEFIJK':'CJBDEFIK','BCDEFIJL':'CJBDEFLI','BCDEFIKL':'CEBDIFLK','BCDEFJKL':'CJBDEFLK','BCDEGHIJ':'HGBCJDEI','BCDEGHIK':'EGBCHDIK','BCDEGHIL':'EGBCHDLI','BCDEGHJK':'HGBCJDEK','BCDEGHJL':'HGBCJDLE','BCDEGHKL':'EGBCHDLK','BCDEGIJK':'EGBCJDIK','BCDEGIJL':'EGBCJDLI','BCDEGIKL':'EGBCIDLK','BCDEGJKL':'EGBCJDLK','BCDEHIJK':'EJBCHDIK','BCDEHIJL':'EJBCHDLI','BCDEHIKL':'EIBCHDLK','BCDEHJKL':'EJBCHDLK','BCDEIJKL':'EJBCIDLK','BCDFGHIJ':'HGBCJFDI','BCDFGHIK':'CGBDHFIK','BCDFGHIL':'CGBDHFLI','BCDFGHJK':'HGBCJFDK','BCDFGHJL':'CGBDHFLJ','BCDFGHKL':'CGBDHFLK','BCDFGIJK':'CGBDJFIK','BCDFGIJL':'CGBDJFLI','BCDFGIKL':'CGBDIFLK','BCDFGJKL':'CGBDJFLK','BCDFHIJK':'CJBDHFIK','BCDFHIJL':'CJBDHFLI','BCDFHIKL':'CIBDHFLK','BCDFHJKL':'CJBDHFLK','BCDFIJKL':'CJBDIFLK','BCDGHIJK':'HGBCJDIK','BCDGHIJL':'HGBCJDLI','BCDGHIKL':'HGBCIDLK','BCDGHJKL':'HGBCJDLK','BCDGIJKL':'IGBCJDLK','BCDHIJKL':'HJBCIDLK','BCEFGHIJ':'HGBCJFEI','BCEFGHIK':'EGBCHFIK','BCEFGHIL':'EGBCHFLI','BCEFGHJK':'HGBCJFEK','BCEFGHJL':'HGBCJFLE','BCEFGHKL':'EGBCHFLK','BCEFGIJK':'EGBCJFIK','BCEFGIJL':'EGBCJFLI','BCEFGIKL':'EGBCIFLK','BCEFGJKL':'EGBCJFLK','BCEFHIJK':'EJBCHFIK','BCEFHIJL':'EJBCHFLI','BCEFHIKL':'EIBCHFLK','BCEFHJKL':'EJBCHFLK','BCEFIJKL':'EJBCIFLK','BCEGHIJK':'EJBCHGIK','BCEGHIJL':'EJBCHGLI','BCEGHIKL':'EGBCIHLK','BCEGHJKL':'EJBCHGLK','BCEGIJKL':'EJBCIGLK','BCEHIJKL':'EJBCIHLK','BCFGHIJK':'HGBCJFIK','BCFGHIJL':'HGBCJFLI','BCFGHIKL':'HGBCIFLK','BCFGHJKL':'HGBCJFLK','BCFGIJKL':'IGBCJFLK','BCFHIJKL':'HJBCIFLK','BCGHIJKL':'HJBCIGLK','BDEFGHIJ':'HGBDJFEI','BDEFGHIK':'EGBDHFIK','BDEFGHIL':'EGBDHFLI','BDEFGHJK':'HGBDJFEK','BDEFGHJL':'HGBDJFLE','BDEFGHKL':'EGBDHFLK','BDEFGIJK':'EGBDJFIK','BDEFGIJL':'EGBDJFLI','BDEFGIKL':'EGBDIFLK','BDEFGJKL':'EGBDJFLK','BDEFHIJK':'EJBDHFIK','BDEFHIJL':'EJBDHFLI','BDEFHIKL':'EIBDHFLK','BDEFHJKL':'EJBDHFLK','BDEFIJKL':'EJBDIFLK','BDEGHIJK':'EJBDHGIK','BDEGHIJL':'EJBDHGLI','BDEGHIKL':'EGBDIHLK','BDEGHJKL':'EJBDHGLK','BDEGIJKL':'EJBDIGLK','BDEHIJKL':'EJBDIHLK','BDFGHIJK':'HGBDJFIK','BDFGHIJL':'HGBDJFLI','BDFGHIKL':'HGBDIFLK','BDFGHJKL':'HGBDJFLK','BDFGIJKL':'IGBDJFLK','BDFHIJKL':'HJBDIFLK','BDGHIJKL':'HJBDIGLK','BEFGHIJK':'EJBFHGIK','BEFGHIJL':'EJBFHGLI','BEFGHIKL':'EGBFIHLK','BEFGHJKL':'EJBFHGLK','BEFGIJKL':'EJBFIGLK','BEFHIJKL':'EJBFIHLK','BEGHIJKL':'EJIBHGLK','BFGHIJKL':'HJBFIGLK','CDEFGHIJ':'CGJDHFEI','CDEFGHIK':'CGEDHFIK','CDEFGHIL':'CGEDHFLI','CDEFGHJK':'CGJDHFEK','CDEFGHJL':'CGJDHFLE','CDEFGHKL':'CGEDHFLK','CDEFGIJK':'CGEDJFIK','CDEFGIJL':'CGEDJFLI','CDEFGIKL':'CGEDIFLK','CDEFGJKL':'CGEDJFLK','CDEFHIJK':'CJEDHFIK','CDEFHIJL':'CJEDHFLI','CDEFHIKL':'CEIDHFLK','CDEFHJKL':'CJEDHFLK','CDEFIJKL':'CJEDIFLK','CDEGHIJK':'EGJCHDIK','CDEGHIJL':'EGJCHDLI','CDEGHIKL':'EGICHDLK','CDEGHJKL':'EGJCHDLK','CDEGIJKL':'EGICJDLK','CDEHIJKL':'EJICHDLK','CDFGHIJK':'CGJDHFIK','CDFGHIJL':'CGJDHFLI','CDFGHIKL':'CGIDHFLK','CDFGHJKL':'CGJDHFLK','CDFGIJKL':'CGIDJFLK','CDFHIJKL':'CJIDHFLK','CDGHIJKL':'HGICJDLK','CEFGHIJK':'EGJCHFIK','CEFGHIJL':'EGJCHFLI','CEFGHIKL':'EGICHFLK','CEFGHJKL':'EGJCHFLK','CEFGIJKL':'EGICJFLK','CEFHIJKL':'EJICHFLK','CEGHIJKL':'EJICHGLK','CFGHIJKL':'HGICJFLK','DEFGHIJK':'EGJDHFIK','DEFGHIJL':'EGJDHFLI','DEFGHIKL':'EGIDHFLK','DEFGHJKL':'EGJDHFLK','DEFGIJKL':'EGIDJFLK','DEFHIJKL':'EJIDHFLK','DEGHIJKL':'EJIDHGLK','DFGHIJKL':'HGIDJFLK','EFGHIJKL':'EJIFHGLK'};
+
+// Mapeamento Annex C → slots R32 (cols 0-7 → R32 ids)
+// [col0=1A_opp→R32_11, col1=1B_opp→R32_15, col2=1D_opp→R32_07, col3=1E_opp→R32_01, col4=1G_opp→R32_08, col5=1I_opp→R32_02, col6=1K_opp→R32_16, col7=1L_opp→R32_12]
+const AC_SLOTS=['R32_11','R32_15','R32_07','R32_01','R32_08','R32_02','R32_16','R32_12'];
+
+// R32 fixture definition (t1pos/t2pos: 0=1st, 1=2nd, 2=3rd from group)
+const R32_DEF=[
+  {id:'R32_01',t1:['E',0],t2:null,t2col:3},
+  {id:'R32_02',t1:['I',0],t2:null,t2col:5},
+  {id:'R32_03',t1:['A',1],t2:['B',1]},
+  {id:'R32_04',t1:['F',0],t2:['C',1]},
+  {id:'R32_05',t1:['K',1],t2:['L',1]},
+  {id:'R32_06',t1:['H',0],t2:['J',1]},
+  {id:'R32_07',t1:['D',0],t2:null,t2col:2},
+  {id:'R32_08',t1:['G',0],t2:null,t2col:4},
+  {id:'R32_09',t1:['C',0],t2:['F',1]},
+  {id:'R32_10',t1:['E',1],t2:['I',1]},
+  {id:'R32_11',t1:['A',0],t2:null,t2col:0},
+  {id:'R32_12',t1:['L',0],t2:null,t2col:7},
+  {id:'R32_13',t1:['J',0],t2:['H',1]},
+  {id:'R32_14',t1:['D',1],t2:['G',1]},
+  {id:'R32_15',t1:['B',0],t2:null,t2col:1},
+  {id:'R32_16',t1:['K',0],t2:null,t2col:6},
+];
+
+const KO_ROUNDS=[
+  {key:'R16',label:'Oitavos de Final',ids:['R16_01','R16_02','R16_03','R16_04','R16_05','R16_06','R16_07','R16_08'],
+   srcs:{R16_01:['R32_01','R32_02'],R16_02:['R32_03','R32_04'],R16_03:['R32_09','R32_10'],R16_04:['R32_11','R32_12'],R16_05:['R32_05','R32_06'],R16_06:['R32_07','R32_08'],R16_07:['R32_13','R32_14'],R16_08:['R32_15','R32_16']}},
+  {key:'QF',label:'Quartas de Final',ids:['QF_01','QF_02','QF_03','QF_04'],
+   srcs:{QF_01:['R16_01','R16_02'],QF_02:['R16_05','R16_06'],QF_03:['R16_03','R16_04'],QF_04:['R16_07','R16_08']}},
+  {key:'SF',label:'Meias-Finais',ids:['SF_01','SF_02'],
+   srcs:{SF_01:['QF_01','QF_02'],SF_02:['QF_03','QF_04']}},
+  {key:'F3',label:'3.º / 4.º Lugar',ids:['F3_01'],
+   srcs:{F3_01:['SF_01','SF_02']},losers:true},
+  {key:'FIN',label:'🏆 Final',ids:['FIN_01'],
+   srcs:{FIN_01:['SF_01','SF_02']}},
+];
+
+const POS_LABEL=['1.º','2.º','3.º','4.º'];
+const GRP_NAMES='ABCDEFGHIJKL'.split('');
+const TEAM_CC={'México':'mx','Africa do Sul':'za','África do Sul':'za','Coreia do Sul':'kr','Chéquia':'cz','Canadá':'ca','Bósnia e Herzegovina':'ba','Qatar':'qa','Suíça':'ch','Brasil':'br','Marrocos':'ma','Haiti':'ht','Escócia':'gb-sct','EUA':'us','Paraguai':'py','Austrália':'au','Turquia':'tr','Alemanha':'de','Curaçao':'cw','Costa do Marfim':'ci','Equador':'ec','Holanda':'nl','Japão':'jp','Suécia':'se','Tunísia':'tn','Bélgica':'be','Egipto':'eg','Irão':'ir','Nova Zelândia':'nz','Espanha':'es','Cabo Verde':'cv','Arábia Saudita':'sa','Uruguai':'uy','França':'fr','Senegal':'sn','Iraque':'iq','Noruega':'no','Argentina':'ar','Argélia':'dz','Áustria':'at','Jordânia':'jo','Portugal':'pt','R.D. Congo':'cd','Uzbequistão':'uz','Colômbia':'co','Colômbia':'co','Inglaterra':'gb-eng','Croácia':'hr','Gana':'gh','Panamá':'pa'};
+function getFlagImg(team,w,h){const cc=TEAM_CC[team];if(!cc)return'<span style="opacity:.3;font-size:.55rem">?</span>';return`<img src="https://flagcdn.com/${w}x${h}/${cc}.png" title="${team}" style="display:block;border-radius:1px;box-shadow:0 1px 3px rgba(0,0,0,.5)">`;}
+
+
+// ──────────────────────────────────────────
+//  State helpers
+// ──────────────────────────────────────────
+function simLoad(){
+  try{ const s=localStorage.getItem('up26_sim'); if(s)return JSON.parse(s); }catch(e){}
+  return null;
+}
+let _simSaveTimer=null;
+function simSave(){
+  try{localStorage.setItem('up26_sim',JSON.stringify(S.sim));}catch(e){}
+  if(_simSaveTimer)clearTimeout(_simSaveTimer);
+  _simSaveTimer=setTimeout(()=>{
+    if(!S.user||!S.user.code||S.demoMode)return;
+    api('saveSimState',{code:S.user.code,state:JSON.stringify(S.sim)})
+      .catch(()=>{});
+  },2000);
+}
+function simReset(){
+  if(!confirm('Limpar toda a simulação e recomeçar?'))return;
+  S.sim=null;
+  localStorage.removeItem('up26_sim');
+  renderSim();
+}
+
+// Compute group standings from real results (partial ok)
+function simAutoStandings(g){
+  const teams=[...GROUPS[g]];
+  const pts={},gd={},gf={},gp={};
+  teams.forEach(t=>{pts[t]=0;gd[t]=0;gf[t]=0;gp[t]=0;});
+  const gms=GAMES.filter(x=>x.g===g&&typeof x.md==='number');
+  gms.forEach(m=>{
+    const r=S.results&&S.results[m.id];
+    if(!r||r.t1===undefined)return;
+    const s1=Number(r.t1),s2=Number(r.t2);
+    gp[m.t1]++;gp[m.t2]++;
+    gf[m.t1]+=s1;gf[m.t2]+=s2;
+    gd[m.t1]+=s1-s2;gd[m.t2]+=s2-s1;
+    if(s1>s2){pts[m.t1]+=3;}else if(s1===s2){pts[m.t1]++;pts[m.t2]++;}else{pts[m.t2]+=3;}
+  });
+  // Sort: pts, GD, GF, then original order
+  return [...teams].sort((a,b)=>{
+    if(pts[b]!==pts[a])return pts[b]-pts[a];
+    if(gd[b]!==gd[a])return gd[b]-gd[a];
+    if(gf[b]!==gf[a])return gf[b]-gf[a];
+    return teams.indexOf(a)-teams.indexOf(b);
+  });
+}
+
+// Is group fully played?
+function simGroupDone(g){
+  const gms=GAMES.filter(x=>x.g===g&&typeof x.md==='number');
+  return gms.length>0&&gms.every(m=>S.results&&S.results[m.id]&&S.results[m.id].t1!==undefined);
+}
+
+// Init or restore sim state
+function simEnsureInit(){
+  if(S.sim)return;
+  const saved=simLoad();
+  if(saved&&saved.groups&&saved.ko){S.sim=saved;return;}
+  // Fresh init from real results
+  S.sim={groups:{},thirds:[],ko:{}};
+  GRP_NAMES.forEach(g=>{S.sim.groups[g]=simAutoStandings(g);});
+  simSave();
+}
+
+// Get 3rd place team for a group
+function simThirdOf(g){return S.sim.groups[g]?S.sim.groups[g][2]:GROUPS[g][2];}
+
+// Compute Annex C assignment for chosen thirds
+function simAnnexC(thirds){
+  const key=[...thirds].sort().join('');
+  const val=ANNEX_C[key];
+  if(!val)return null;
+  // val chars: pos0→R32_11, pos1→R32_15, pos2→R32_07, pos3→R32_01, pos4→R32_08, pos5→R32_02, pos6→R32_16, pos7→R32_12
+  const result={};
+  AC_SLOTS.forEach((slot,i)=>{result[slot]=simThirdOf(val[i]);});
+  return result;
+}
+
+// Get team name for a R32 slot (may use sim groups + annex C)
+function simR32Teams(slot){
+  const def=R32_DEF.find(d=>d.id===slot);
+  if(!def)return{t1:'?',t2:'?'};
+  const grp=S.sim.groups||{};
+  const t1=(grp[def.t1[0]]||GROUPS[def.t1[0]])[def.t1[1]];
+  let t2;
+  if(def.t2){
+    t2=(grp[def.t2[0]]||GROUPS[def.t2[0]])[def.t2[1]];
+  } else {
+    // 3rd place slot — look up in computed annex
+    const ac=simAnnexC(S.sim.thirds||[]);
+    t2=ac?ac[slot]:'3.º ?';
+  }
+  return{t1,t2};
+}
+
+// Get winner of a KO match (from ko state)
+// For losers bracket (F3), return loser of src
+function simKOTeams(round, matchId){
+  const rnd=KO_ROUNDS.find(r=>r.key===round);
+  if(!rnd)return{t1:'',t2:''};
+  const srcs=rnd.srcs[matchId];
+  if(!srcs)return{t1:'',t2:''};
+  const isLosers=!!rnd.losers;
+  // Find prev round
+  const prevRound=round==='R16'?'R32':round==='QF'?'R16':round==='SF'?'QF':round==='F3'?'SF':round==='FIN'?'SF':'';
+  function getW(srcId){
+    if(srcId.startsWith('R32')){
+      // winner from R32
+      return S.sim.ko&&S.sim.ko[srcId];
+    }
+    // winner from KO round
+    return S.sim.ko&&S.sim.ko[srcId];
+  }
+  function getL(srcId){
+    // loser = the other team
+    const w=getW(srcId);
+    if(!w)return null;
+    if(srcId.startsWith('R32')){
+      const {t1,t2}=simR32Teams(srcId);
+      return w===t1?t2:t1;
+    }
+    const pr=KO_ROUNDS.find(r=>r.ids.includes(srcId));
+    if(!pr)return null;
+    const pSrcs=pr.srcs[srcId];
+    if(!pSrcs)return null;
+    const {t1,t2}=simKOTeams(pr.key,srcId);
+    return w===t1?t2:t1;
+  }
+  if(isLosers){
+    return{t1:getL(srcs[0]),t2:getL(srcs[1])};
+  }
+  return{t1:getW(srcs[0]),t2:getW(srcs[1])};
+}
+
+// ──────────────────────────────────────────
+//  Rendering
+// ──────────────────────────────────────────
+function showSimToast(){
+  if(localStorage.getItem('up26_sim_toasted'))return;
+  if(document.getElementById('sim-toast'))return;
+  const d=document.createElement('div');
+  d.id='sim-toast';
+  d.innerHTML=`<strong>🔮 Simulador de Bracket • 📡 Resultados Live</strong>
+    <span style="display:block;margin:4px 0 2px">🔮 <b>Simul.</b> — simula toda a fase a eliminar à tua vontade, sem afetar a tua pontuação.</span>
+    <span style="display:block;margin-bottom:4px">📡 <b>Live</b> — durante os jogos, a classificação atualiza em tempo real com pontos potenciais.</span>
+    <button class="toast-close" onclick="document.getElementById('sim-toast').remove();localStorage.setItem('up26_sim_toasted','1')">Percebi, obrigado!</button>`;
+  document.body.appendChild(d);
+  setTimeout(()=>{const el=document.getElementById('sim-toast');if(el)el.remove();},10000);
+  localStorage.setItem('up26_sim_toasted','1');
+}
+function renderSim(){
+  simEnsureInit();
+  const el=document.getElementById('sim-content');
+  if(!el)return;
+
+  const sim=S.sim;
+  const allGroupsDone=GRP_NAMES.every(g=>(sim.groups[g]||[]).length===4);
+  const thirdsOk=sim.thirds&&sim.thirds.length===8;
+  const r32AllDone=sim.ko&&R32_DEF.every(d=>sim.ko[d.id]);
+  const champion=sim.ko&&sim.ko['FIN_01'];
+
+  let h='';
+
+  // Banner
+  h+=`<div class="sim-banner">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#c4b5fd;font-size:1.05rem">🔮 SIMULADOR DE BRACKET</div>
+    <div class="sim-badge">NÃO CONTA PARA PONTOS</div>
+  </div>`;
+
+  // Progress bar
+  const steps=[allGroupsDone,thirdsOk,r32AllDone,!!champion];
+  const doneCount=steps.filter(Boolean).length;
+  h+=`<div class="sim-progress">`;
+  steps.forEach((done,i)=>{h+=`<div class="sim-prog-step ${done?'done':i===doneCount?'active':''}"></div>`;});
+  h+=`</div>`;
+
+  h+=renderSimPodium();
+
+  // ── PHASE 1: GRUPOS ──
+  h+=`<div class="sim-phase">📊 Fase de Grupos</div>`;
+  if(!allGroupsDone){
+    h+=`<div class="sim-info">Arrasta as equipas para reordenar. Grupos com resultados reais são automáticos.</div>`;
+  }
+  h+=`<div class="sim-groups-grid">`;
+  GRP_NAMES.forEach(g=>{
+    const ordered=sim.groups[g]||GROUPS[g];
+    const done=simGroupDone(g);
+    h+=`<div class="sim-grp-card${done?' grp-done':''}">
+      <div class="sim-grp-title">Grupo ${g}${done?` <span class="sim-grp-done-badge">✓ oficial</span>`:''}</div>`;
+    ordered.forEach((team,i)=>{
+      const cls=['sp1','sp2','sp3','sp4'][i];
+      const dd=!done;
+      h+=`<div class="sim-team-row" ${dd?`draggable="true" ondragstart="simDragStart(event,'${g}',${i})" ondragend="simDragEnd(event)" ondragover="simDragOver(event)" ondrop="simDragDrop(event,'${g}',${i})"`:''}>
+        <div class="sim-drag-hdl">${dd?'⣃':''}</div>
+        <div class="sim-pos ${cls}">${i+1}</div>
+        <div class="sim-tname" title="${team}">${team}</div>
+      </div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+
+  // ── PHASE 2: TERCEIROS ──
+  h+=`<div class="sim-phase">🥉 Melhores 3.ºs (seleciona 8)</div>`;
+  if(!allGroupsDone){
+    h+=`<div class="sim-info">Completa a simulação dos grupos primeiro.</div>`;
+  } else {
+    const thirds=sim.thirds||[];
+    h+=`<div class="sim-info">${thirds.length}/8 selecionados. Clica nos grupos cujo 3.º qualifica.</div>`;
+    h+=`<div class="sim-thirds-grid">`;
+    GRP_NAMES.forEach(g=>{
+      const team=simThirdOf(g);
+      const sel=thirds.includes(g);
+      const maxed=thirds.length>=8&&!sel;
+      h+=`<button class="sim-3rd-btn${sel?' sel':''}${maxed?' disabled':''}" onclick="simToggleThird('${g}')">
+        <div class="sim-3rd-grp">Grupo ${g}</div>
+        <div class="sim-3rd-team">${team}</div>
+      </button>`;
+    });
+    h+=`</div>`;
+    if(thirdsOk){
+      // Show Annex C result
+      const ac=simAnnexC(thirds);
+      if(ac){
+        h+=`<div style="font-size:.7rem;color:var(--sub);margin-bottom:10px;line-height:1.6">`;
+        h+=`<strong style="color:#a78bfa">Alocação Annex C (FIFA):</strong> `;
+        AC_SLOTS.forEach((slot,i)=>{
+          const grpQ=thirds[[...thirds].sort().join('').indexOf(ANNEX_C[[...thirds].sort().join('')][i])];
+          h+=`<span>${slot}: <strong style="color:var(--text)">${ac[slot]}</strong></span>  `;
+        });
+        h+=`</div>`;
+      }
+    }
+  }
+
+  // ── BRACKET VISUAL ──
+  if(thirdsOk){
+    h+=`<div class="sim-phase">🏟️ Eliminatórias</div>`;
+    h+=renderSimBracketVisual();
+  }
+
+  // Reset button
+  h+=`<button class="sim-reset-btn" onclick="simReset()">🔄 Reiniciar simulação</button>`;
+
+  el.innerHTML=h;
+  if(thirdsOk) setTimeout(drawBracketLines,60);
+}
+
+function simMatchHtml(id,round,t1,t2,winner,isLosers){
+  const hasBoth=t1&&t2;
+  const t1cls=winner===t1?'winner':'';
+  const t2cls=winner===t2?'winner':'';
+  const onclick1=hasBoth?`onclick="simSetWinner('${id}','${escHtml(t1)}','${round}')"`:'';
+  const onclick2=hasBoth?`onclick="simSetWinner('${id}','${escHtml(t2)}','${round}')"`:'';
+  return `<div class="sim-match">
+    <div class="sim-match-lbl">${isLosers?'🥉 ':''}${id.replace('_',' ')}</div>
+    <div class="sim-match-t ${t1cls}${hasBoth?'':' sim-tbd-row'}" ${onclick1}>${t1||'<em>A definir...</em>'}</div>
+    <div class="sim-match-t ${t2cls}${hasBoth?'':' sim-tbd-row'}" ${onclick2}>${t2||'<em>A definir...</em>'}</div>
+  </div>`;
+}
+
+function escHtml(s){return (s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+
+function simMoveTeam(g,idx,dir){
+  const arr=S.sim.groups[g];
+  if(!arr)return;
+  const ni=idx+dir;
+  if(ni<0||ni>3)return;
+  [arr[idx],arr[ni]]=[arr[ni],arr[idx]];
+  // Invalidate KO since group changed
+  S.sim.ko={};
+  S.sim.thirds=[];
+  simSave();
+  renderSim();
+}
+
+function simToggleThird(g){
+  if(!S.sim.thirds)S.sim.thirds=[];
+  const thirds=S.sim.thirds;
+  const idx=thirds.indexOf(g);
+  if(idx>=0){
+    thirds.splice(idx,1);
+  } else {
+    if(thirds.length>=8)return;
+    thirds.push(g);
+  }
+  S.sim.ko={};
+  simSave();
+  renderSim();
+}
+
+function simSetWinner(matchId,team,round){
+  if(!S.sim.ko)S.sim.ko={};
+  if(S.sim.ko[matchId]===team){
+    S.sim.ko[matchId]=null;
+    simInvalidateFrom(matchId,round);
+  } else {
+    S.sim.ko[matchId]=team;
+    simInvalidateFrom(matchId,round);
+    S.sim.ko[matchId]=team;
+  }
+  simSave();
+  renderSim();
+  if(S.sim.thirds&&S.sim.thirds.length===8)setTimeout(drawBracketLines,60);
+}
+
+function simInvalidateFrom(matchId,round){
+  const allRounds=[{key:'R32',ids:R32_DEF.map(d=>d.id)},...KO_ROUNDS];
+  allRounds.forEach(r=>{
+    if(r.srcs){
+      r.ids.forEach(mid=>{
+        const srcs=r.srcs[mid];
+        if(srcs&&srcs.includes(matchId)){
+          S.sim.ko[mid]=null;
+          simInvalidateFrom(mid,r.key);
+        }
+      });
+    }
+  });
+}
+
+function renderSimPodium(){
+  const ko=S.sim&&S.sim.ko||{};
+  const champ=ko['FIN_01'];
+  if(!champ)return'';
+  const sf1w=ko['SF_01']||'',sf2w=ko['SF_02']||'';
+  const second=champ===sf1w?sf2w:sf1w;
+  const third=ko['F3_01']||'';
+  function item(team,pos){
+    if(!team)return`<div style="flex:1"></div>`;
+    const flag=getFlagImg(team,32,24);
+    const medals=['','🏆','🥈','🥉'];
+    const lbls=['','Campeão','Vice-Campeão','3.º Lugar'];
+    const pcls=['','pod-gold','pod-silver','pod-bronze'];
+    return`<div class="sim-pod-item ${pcls[pos]}">
+      <span>${medals[pos]}</span>
+      <div style="margin:2px 0">${flag}</div>
+      <div class="sim-pod-name">${team}</div>
+      <div class="sim-pod-plat">${lbls[pos]}</div>
+    </div>`;
+  }
+  return`<div class="sim-podium">${item(second,2)}${item(champ,1)}${item(third,3)}</div>`;
+}
+
+let _simDrag=null;
+function simDragStart(e,g,i){_simDrag={g,i};e.dataTransfer.effectAllowed='move';e.currentTarget.style.opacity='.45';}
+function simDragEnd(e){e.currentTarget.style.opacity='1';}
+function simDragOver(e){e.preventDefault();}
+function simDragDrop(e,g,i){
+  e.preventDefault();
+  if(!_simDrag||_simDrag.g!==g||_simDrag.i===i){_simDrag=null;return;}
+  const arr=S.sim.groups[g];
+  const[moved]=arr.splice(_simDrag.i,1);
+  arr.splice(i,0,moved);
+  _simDrag=null;
+  S.sim.ko={};S.sim.thirds=[];
+  simSave();renderSim();
+}
+
+function renderSimBracketVisual(){
+  // Dynamic sizing — fills the full container width
+  const containerW=(document.getElementById("sim-content")||{}).offsetWidth||520;
+  const availW=Math.max(containerW-4,280);
+  const MH=34; // 2 flag rows × 17px (fixed by CSS)
+  // totalW = 7*STEP + 2*COL_W + GAP → fill availW
+  const R_CW=0.70; // COL_W/STEP ratio
+  const STEP=Math.max(Math.floor((availW-8)/(7+2*R_CW)),36);
+  const COL_W=Math.max(Math.floor(STEP*R_CW),28);
+  const GAP=Math.max(availW-7*STEP-2*COL_W,8);
+  const SLOT=Math.max(STEP-2,MH+4);
+  const LBL=10;
+  const flagW=COL_W>=40?20:COL_W>=32?14:12;
+  const flagH=COL_W>=40?15:COL_W>=32?10:9;
+  const sc=i=>LBL+(i+0.5)*SLOT;
+  const cL={
+    R32_01:sc(0),R32_02:sc(1),R32_03:sc(2),R32_04:sc(3),
+    R32_05:sc(4),R32_06:sc(5),R32_07:sc(6),R32_08:sc(7),
+    R16_01:(sc(0)+sc(1))/2,R16_02:(sc(2)+sc(3))/2,
+    R16_05:(sc(4)+sc(5))/2,R16_06:(sc(6)+sc(7))/2,
+    QF_01:((sc(0)+sc(1))+(sc(2)+sc(3)))/4,
+    QF_02:((sc(4)+sc(5))+(sc(6)+sc(7)))/4,
+    SF_01:(sc(0)+sc(1)+sc(2)+sc(3)+sc(4)+sc(5)+sc(6)+sc(7))/8,
+  };
+  const cR={
+    R32_09:sc(0),R32_10:sc(1),R32_11:sc(2),R32_12:sc(3),
+    R32_13:sc(4),R32_14:sc(5),R32_15:sc(6),R32_16:sc(7),
+    R16_03:(sc(0)+sc(1))/2,R16_04:(sc(2)+sc(3))/2,
+    R16_07:(sc(4)+sc(5))/2,R16_08:(sc(6)+sc(7))/2,
+    QF_03:((sc(0)+sc(1))+(sc(2)+sc(3)))/4,
+    QF_04:((sc(4)+sc(5))+(sc(6)+sc(7)))/4,
+    SF_02:(sc(0)+sc(1)+sc(2)+sc(3)+sc(4)+sc(5)+sc(6)+sc(7))/8,
+  };
+  const colL=[0,0,0,0,0,0,0,0,1,1,1,1,2,2,3];
+  const colR=[0,0,0,0,0,0,0,0,1,1,1,1,2,2,3];
+  const leftIds=['R32_01','R32_02','R32_03','R32_04','R32_05','R32_06','R32_07','R32_08',
+    'R16_01','R16_02','R16_05','R16_06','QF_01','QF_02','SF_01'];
+  const rightIds=['R32_09','R32_10','R32_11','R32_12','R32_13','R32_14','R32_15','R32_16',
+    'R16_03','R16_04','R16_07','R16_08','QF_03','QF_04','SF_02'];
+  const colXL=col=>col*STEP;
+  const colXR=col=>4*STEP+COL_W+GAP+(3-col)*STEP;
+  const centerX=4*STEP;
+  const sfCy=(sc(0)+sc(1)+sc(2)+sc(3)+sc(4)+sc(5)+sc(6)+sc(7))/8;
+  const finTop=Math.round(sfCy-MH/2);
+  const f3Top=finTop+MH+26;
+  const r32Bottom=LBL+8*SLOT+Math.ceil(MH/2)+18;
+  const totalW=colXR(0)+COL_W;
+  const totalH=Math.max(r32Bottom,f3Top+MH+18);
+  function getTeams(mid){
+    if(mid.startsWith('R32'))return simR32Teams(mid);
+    for(const rnd of KO_ROUNDS){if(rnd.ids.includes(mid))return simKOTeams(rnd.key,mid);}
+    return{t1:'',t2:''};
+  }
+  function flagRow(team,isWin,can,oc){
+    const flag=team?getFlagImg(team,flagW,flagH):'';
+    const wc=isWin?'bkt-win':'';
+    return `<div class="bkt-t ${wc}${can?' bkt-pick':''}" ${oc} title="${team||''}">${flag||'<span style="opacity:.2">·</span>'}</div>`;
+  }
+  function box(mid,x,cy,isFin,isF3){
+    const{t1,t2}=getTeams(mid);
+    const w=S.sim.ko&&S.sim.ko[mid];
+    const can=!!(t1&&t2&&t1.trim()&&t2.trim()&&t1!=='?'&&t2!=='?');
+    const o1=can?`onclick="simPickBK('${mid}','${escHtml(t1)}')"`:'';
+    const o2=can?`onclick="simPickBK('${mid}','${escHtml(t2)}')"`:'';
+    const cls=isFin?' bkt-final':isF3?' bkt-f3':'';
+    const yTop=Math.round(cy-MH/2);
+    return `<div class="bkt-match${cls}" id="bkm-${mid}" style="left:${x}px;top:${yTop}px;width:${COL_W}px">
+      ${isFin?`<div class="bkt-lbl">🏆</div>`:isF3?`<div class="bkt-lbl">🥉</div>`:''}
+      ${flagRow(t1,w===t1,can,o1)}
+      ${flagRow(t2,w===t2,can,o2)}
+    </div>`;
+  }
+  const lbls=[
+    {x:colXL(0),t:'R32'},{x:colXL(1),t:'R16'},{x:colXL(2),t:'QF'},
+    {x:colXL(3),t:'SF'},{x:centerX,t:'🏆'},
+    {x:colXR(3),t:'SF'},{x:colXR(2),t:'QF'},{x:colXR(1),t:'R16'},{x:colXR(0),t:'R32'},
+  ];
+  let h=`<div id="bkt-header-bar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+    <div style="font-size:.6rem;color:#7c3aed">Passa o rato nas bandeiras para ver o nome • Clica para avançar</div>
+    <div style="display:flex;gap:5px"><button class="sim-exp-btn" onclick="exportBracketPNG()">📥 PNG</button><button class="sim-exp-btn" onclick="window.print()">🖨️</button></div>
+  </div>
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px">
+  <div id="bkt-wrap" style="position:relative;width:${totalW}px;height:${totalH}px">
+  <svg id="bkt-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1"></svg>`;
+  lbls.forEach(({x,t})=>{h+=`<div style="position:absolute;left:${x}px;top:2px;width:${COL_W}px;text-align:center;font-size:.5rem;color:#5b21b6;font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:.05em">${t}</div>`;});
+  leftIds.forEach((mid,i)=>{h+=box(mid,colXL(colL[i]),cL[mid]);});
+  rightIds.forEach((mid,i)=>{h+=box(mid,colXR(colR[i]),cR[mid]);});
+  h+=box('FIN_01',centerX,sfCy,true,false);
+  h+=box('F3_01',centerX,f3Top+MH/2,false,true);
+  const champ=S.sim.ko&&S.sim.ko['FIN_01'];
+  if(champ){
+    const cf=getFlagImg(champ,32,24);
+    h+=`<div style="position:absolute;left:${centerX}px;top:${finTop-52}px;width:${COL_W}px;text-align:center;line-height:1.3">
+      <div style="display:flex;justify-content:center;margin-bottom:2px">${cf}</div>
+      <div style="font-size:.56rem;font-weight:700;color:#fbbf24;font-family:'Rajdhani',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${champ}</div>
+    </div>`;
+  }
+  h+=`</div></div>`;
+  return h;
+}
+
+function simPickBK(mid,team){
+  simSetWinner(mid,team,mid.split('_')[0]);
+}
+
+function drawBracketLines(){
+  const svg=document.getElementById('bkt-svg');
+  const wrap=document.getElementById('bkt-wrap');
+  if(!svg||!wrap)return;
+  const wr=wrap.getBoundingClientRect();
+  const connL=[
+    ['R32_01','R16_01'],['R32_02','R16_01'],['R32_03','R16_02'],['R32_04','R16_02'],
+    ['R32_05','R16_05'],['R32_06','R16_05'],['R32_07','R16_06'],['R32_08','R16_06'],
+    ['R16_01','QF_01'],['R16_02','QF_01'],['R16_05','QF_02'],['R16_06','QF_02'],
+    ['QF_01','SF_01'],['QF_02','SF_01'],['SF_01','FIN_01'],
+  ];
+  const connR=[
+    ['R32_09','R16_03'],['R32_10','R16_03'],['R32_11','R16_04'],['R32_12','R16_04'],
+    ['R32_13','R16_07'],['R32_14','R16_07'],['R32_15','R16_08'],['R32_16','R16_08'],
+    ['R16_03','QF_03'],['R16_04','QF_03'],['R16_07','QF_04'],['R16_08','QF_04'],
+    ['QF_03','SF_02'],['QF_04','SF_02'],['SF_02','FIN_01'],
+  ];
+  let d='';
+  const clr='#5b21b6',sw=1.5;
+  function ln(fId,tId,dir){
+    const fe=document.getElementById(`bkm-${fId}`);
+    const te=document.getElementById(`bkm-${tId}`);
+    if(!fe||!te)return;
+    const fr=fe.getBoundingClientRect();
+    const tr=te.getBoundingClientRect();
+    const fy=fr.top+fr.height/2-wr.top;
+    const ty=tr.top+tr.height/2-wr.top;
+    if(dir==='r'){
+      const fx=fr.right-wr.left,tx=tr.left-wr.left,mx=(fx+tx)/2;
+      d+=`<polyline points="${fx},${fy} ${mx},${fy} ${mx},${ty} ${tx},${ty}" fill="none" stroke="${clr}" stroke-width="${sw}" stroke-linejoin="round" opacity=".75"/>`;
+    } else {
+      const fx=fr.left-wr.left,tx=tr.right-wr.left,mx=(fx+tx)/2;
+      d+=`<polyline points="${fx},${fy} ${mx},${fy} ${mx},${ty} ${tx},${ty}" fill="none" stroke="${clr}" stroke-width="${sw}" stroke-linejoin="round" opacity=".75"/>`;
+    }
+  }
+  function lnF3(sfId){
+    const fe=document.getElementById(`bkm-${sfId}`);
+    const te=document.getElementById('bkm-F3_01');
+    if(!fe||!te)return;
+    const fr=fe.getBoundingClientRect(),tr=te.getBoundingClientRect();
+    const isl=sfId==='SF_01';
+    const fx=(isl?fr.right:fr.left)-wr.left;
+    const fy=fr.top+fr.height/2-wr.top;
+    const tx=tr.left+tr.width/2-wr.left;
+    const ty=tr.top-wr.top;
+    d+=`<polyline points="${fx},${fy} ${tx},${fy} ${tx},${ty}" fill="none" stroke="${clr}" stroke-width="${sw}" stroke-dasharray="4,3" stroke-linejoin="round" opacity=".5"/>`;
+  }
+  connL.forEach(([f,t])=>ln(f,t,'r'));
+  connR.forEach(([f,t])=>ln(f,t,'l'));
+  lnF3('SF_01');lnF3('SF_02');
+  svg.innerHTML=d;
+}
+
+function exportBracketPNG(){
+  const wrap=document.getElementById('bkt-wrap');
+  if(!wrap){alert('Abre a fase de eliminat\xf3rias primeiro.');return;}
+  const btns=document.querySelectorAll('.sim-exp-btn');
+  btns.forEach(b=>{if(b.textContent.includes('PNG'))b.textContent='\u23f3 A gerar...';});
+  const run=()=>html2canvas(wrap,{backgroundColor:'#0d0b1e',scale:2,useCORS:true,logging:false}).then(c=>{
+    const a=document.createElement('a');a.download='bracket-mundial2026.png';a.href=c.toDataURL('image/png');a.click();
+    btns.forEach(b=>{if(b.textContent.includes('gerar'))b.textContent='\u{1f4e5} Guardar PNG';});
+  }).catch(()=>{btns.forEach(b=>{if(b.textContent.includes('gerar'))b.textContent='\u{1f4e5} Guardar PNG';});alert('Erro ao exportar. Tenta imprimir.');});
+  if(typeof html2canvas==='undefined'){
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.onload=run;s.onerror=()=>{btns.forEach(b=>{if(b.textContent.includes('gerar'))b.textContent='\u{1f4e5} Guardar PNG';});alert('Erro ao carregar biblioteca de exporta\xe7\xe3o.');};
+    document.head.appendChild(s);
+  } else run();
+}
 </script>
 </body>
-</html>
