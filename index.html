@@ -1001,10 +1001,10 @@
       Classificação
     </div>
     <div id="liga-selector"></div>
-    <div id="lb-content"><div class="loading-center"><div class="spinner"></div></div></div>
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+    <div style="margin-bottom:12px">
       <button class="btn btn-outline btn-full" style="font-size:.78rem" onclick="showLeaguePicker()">🏆 Ver todas as ligas / Entrar numa nova liga</button>
     </div>
+    <div id="lb-content"><div class="loading-center"><div class="spinner"></div></div></div>
   </div>
 
   <!-- ═══════════════ APOSTAS ═══════════════ -->
@@ -2374,7 +2374,7 @@ function renderLB() {
   };
   const reactPickerRow=(code,colspan)=>S.reactFor===code?`<tr><td colspan="${colspan}" style="padding:5px 10px;background:var(--bg2);text-align:center">${REACT_EMOJIS.map(e=>`<button class="react-pick" onclick="event.stopPropagation();sendReact('${code}','${e}')">${e}</button>`).join('')}</td></tr>`:'';
 
-  const noLeagueHint=!S.curLeague?`<div class="alert alert-info" style="font-size:.74rem;margin-bottom:10px">⚔️🔥🗣️ Os <strong>duelos</strong>, <strong>reações</strong> e a <strong>bancada</strong> vivem dentro das ligas — usa o botão <strong>🏆 Ver todas as ligas</strong> em baixo e entra na tua.</div>`:'';
+  const noLeagueHint=!S.curLeague?`<div class="alert alert-info" style="font-size:.74rem;margin-bottom:10px">⚔️🔥🗣️ Os <strong>duelos</strong>, <strong>reações</strong> e a <strong>bancada</strong> vivem dentro das ligas — usa o botão <strong>🏆 Ver todas as ligas</strong> no topo e entra na tua.</div>`:'';
 
   let html = ligaHdr + noLeagueHint + champHtml + duelHtml + mvpHtml;
   // Toggle row
@@ -4573,6 +4573,10 @@ async function loadMyLeagues() {
       updateLeaguePill();
     }
   } catch(e) { S.leagues = []; }
+  // Re-render dos chips após o load (corrige race condition no arranque: o loadData
+  // podia disparar renderLB com S.leagues ainda vazio → barra de ligas vazia).
+  renderLigaSelector();
+  if (S.curView === 'leaderboard') renderLB();
 }
 
 async function renderLeaguePicker(filter) {
