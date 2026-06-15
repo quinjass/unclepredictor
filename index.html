@@ -78,6 +78,25 @@
     tr.rank-1:hover td{background:linear-gradient(90deg,rgba(255,215,0,.14) 0%,rgba(255,215,0,.03) 60%) !important}
     tr.rank-2:hover td{background:linear-gradient(90deg,rgba(192,192,192,.1) 0%,rgba(192,192,192,.02) 60%) !important}
     tr.rank-3:hover td{background:linear-gradient(90deg,rgba(205,127,50,.1) 0%,rgba(205,127,50,.02) 60%) !important}
+    /* ── Classificação detalhada no telemóvel: scroll horizontal + colunas # e Jogador congeladas ──
+       Só ativo em ecrãs estreitos (<=600px); no PC a tabela mantém-se 100% como antes. */
+    @media(max-width:600px){
+      .standings-detailed{min-width:680px}
+      .standings-detailed col:nth-child(1){width:34px!important}
+      .standings-detailed col:nth-child(2){width:138px!important}
+      .standings-detailed .td-pos,
+      .standings-detailed thead tr:first-child th:first-child{position:sticky;left:0;z-index:2;background:var(--card)}
+      .standings-detailed .td-name,
+      .standings-detailed .th-name{position:sticky;left:34px;z-index:2;background:var(--card);box-shadow:4px 0 6px -2px rgba(0,0,0,.45)}
+      .standings-detailed thead tr:first-child th:first-child{background:var(--bg2);z-index:4}
+      .standings-detailed .th-name{background:var(--bg2);z-index:4}
+      /* fundos opacos das células congeladas por estado de linha (senão veem-se as colunas a passar por trás) */
+      .standings-detailed tbody tr.row-me td.td-pos,.standings-detailed tbody tr.row-me td.td-name{background:#282d30}
+      .standings-detailed tbody tr.row-bot td.td-pos,.standings-detailed tbody tr.row-bot td.td-name{background:#15283a}
+      .standings-detailed tbody tr.rank-1 td.td-pos,.standings-detailed tbody tr.rank-1 td.td-name{background:#2b302e}
+      .standings-detailed tbody tr.rank-2 td.td-pos,.standings-detailed tbody tr.rank-2 td.td-name{background:#202a3b}
+      .standings-detailed tbody tr.rank-3 td.td-pos,.standings-detailed tbody tr.rank-3 td.td-name{background:#212632}
+    }
     /* ── BRACKET ROUND COLORS ── */
     /* ── SIMULATOR ── */
     #nav-sim.active{color:#a78bfa !important}
@@ -2423,7 +2442,7 @@ function renderLB() {
     const thS='padding:5px 3px;font-size:.62rem';
     const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 3px;text-align:center';
     const nCols=duelData?14:13;
-    html+=`<div class="standings-wrap"><table class="standings-table" style="table-layout:fixed;width:100%">
+    html+=`<div class="standings-wrap"><table class="standings-table standings-detailed" style="table-layout:fixed;width:100%">
       <colgroup>
         <col style="width:5%">
         <col style="width:${duelData?'16':'21'}%">
@@ -2477,7 +2496,7 @@ function renderLB() {
       if(!bot)html+=reactPickerRow(p.code,nCols);
     });
     html+=`</tbody></table></div>
-    <div class="lb-legend" style="margin-top:8px;flex-wrap:nowrap;font-size:.67rem;gap:12px">
+    <div class="lb-legend" style="margin-top:8px;flex-wrap:wrap;font-size:.67rem;gap:8px 12px">
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
