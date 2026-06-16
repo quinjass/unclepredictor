@@ -2112,6 +2112,34 @@ function showApp() {
   document.getElementById('user-pill').textContent='👤 '+S.user.name;
   updateLeaguePill();
   showView('leaderboard');
+  registerPush();
+}
+
+// ════════════════════════════════════════════════
+//  PUSH NOTIFICATIONS — só corre dentro da app nativa (Capacitor).
+//  No browser normal é totalmente ignorado, não afeta o site.
+// ════════════════════════════════════════════════
+let _pushDone = false;
+async function registerPush(){
+  try{
+    if(_pushDone) return;
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) return; // browser → nada
+    const FM = Cap.Plugins && Cap.Plugins.FirebaseMessaging;
+    if(!FM || !S.user || !S.user.code) return;
+    _pushDone = true;
+    const perm = await FM.requestPermissions();           // Android 13+ mostra o diálogo
+    if(perm.receive !== 'granted'){ _pushDone = false; return; }
+    const res = await FM.getToken();
+    const token = res && res.token;
+    if(!token){ _pushDone = false; return; }
+    await api('savePushToken', { code: S.user.code, token, platform: Cap.getPlatform() });
+    // se o token for renovado mais tarde, volta a guardá-lo
+    FM.addListener('tokenReceived', async (e)=>{
+      const t = e && e.token;
+      if(t && S.user && S.user.code){ try{ await api('savePushToken',{code:S.user.code,token:t,platform:Cap.getPlatform()}); }catch(_){} }
+    });
+  }catch(e){ _pushDone = false; console.warn('push register falhou', e); }
 }
 
 function showLeaguePicker() {
