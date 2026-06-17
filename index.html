@@ -2211,6 +2211,7 @@ async function loadData() {
     if(r.notifs){S.notifs=r.notifs;renderNotifBadge();}
     if(r.allPreds)S.allPreds=r.allPreds;
     if(r.allPrebets)S.allPrebets=r.allPrebets;
+    if(r.blocks)S.blocks=r.blocks;
     if(r.live)S.live=r.live;
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
@@ -2540,15 +2541,28 @@ function renderLB() {
 
   // ── Bancada (#6B) — feed de comentários da liga ──
   if(social){
-    const cms=social.comments.slice(-30);
+    const blk=(S.blocks||[]).map(c=>String(c).toUpperCase());
+    const isLgAdmin=isCurLeagueAdmin();
+    const cms=social.comments.filter(c=>blk.indexOf((c.code||'').toUpperCase())===-1).slice(-30);
     html+=`<div class="card" style="margin-top:14px;padding:12px">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:8px">🗣️ BANCADA · ${escapeHtml(S.curLeague.name).toUpperCase()}</div>
       <div id="bancada-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
-        ${cms.length?cms.map(c=>`<div>
-          <div style="font-size:.62rem;color:var(--sub)">${escapeHtml(c.name)}${c.jornada?` · ${JORNADA_SHORT[c.jornada]||escapeHtml(c.jornada)}`:''}${c.at?` · ${new Date(c.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}</div>
+        ${cms.length?cms.map(c=>{
+          const cc=(c.code||'').toUpperCase();
+          const mine=S.user&&cc===String(S.user.code).toUpperCase();
+          const at=c.at||'';
+          let act='';
+          if(!mine){
+            act+=`<span onclick="reportComment('${cc}','${at}')" title="Denunciar" style="cursor:pointer;margin-left:8px">🚩</span>`;
+            act+=`<span onclick="blockUser('${cc}')" title="Bloquear" style="cursor:pointer;margin-left:4px">🚫</span>`;
+            if(isLgAdmin)act+=`<span onclick="deleteComment('${cc}','${at}')" title="Apagar" style="cursor:pointer;margin-left:4px">🗑️</span>`;
+          }
+          return `<div>
+          <div style="font-size:.62rem;color:var(--sub)">${escapeHtml(c.name)}${c.jornada?` · ${JORNADA_SHORT[c.jornada]||escapeHtml(c.jornada)}`:''}${c.at?` · ${new Date(c.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}${act}</div>
           <div style="font-size:.8rem;line-height:1.4">${highlightMentions(escapeHtml(c.text))}</div>
-        </div>`).join(''):'<div style="font-size:.75rem;color:var(--sub)">Ainda ninguém falou. Sê o primeiro a mandar bitaites! 😏</div>'}
+        </div>`;}).join(''):'<div style="font-size:.75rem;color:var(--sub)">Ainda ninguém falou. Sê o primeiro a mandar bitaites! 😏</div>'}
       </div>
+      ${blk.length?`<div style="font-size:.62rem;color:var(--sub);margin-bottom:8px">🚫 Bloqueados: ${blk.map(c=>{const p=(S.lb||[]).find(x=>(x.code||'').toUpperCase()===c);const nm=p?(p.name||'').split(' ')[0]:c;return `<span style="cursor:pointer;text-decoration:underline" onclick="unblockUser('${c}')" title="Desbloquear">${escapeHtml(nm)} ✕</span>`;}).join(' · ')}</div>`:''}
       <div id="bancada-sugg" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
       <div style="display:flex;gap:8px">
         <input class="form-input" id="bancada-input" maxlength="200" autocomplete="off" placeholder="Escreve na bancada… (@nome para mencionar)" style="flex:1" oninput="bancadaSuggest(this.value)" onkeydown="if(event.key==='Enter')sendBancada()">
@@ -2642,6 +2656,45 @@ async function sendBancada(){
   renderLB();
   try{await api('addComment',{league_id:S.curLeague.id,jornada:j,code:S.user.code,text});}
   catch(e){showToast('Erro ao comentar','error');loadSocial();}
+}
+
+// ── Moderação de comentários: denunciar / bloquear / apagar ──
+function isCurLeagueAdmin(){
+  return !!(S.curLeague&&S.curLeague.admin&&S.user&&String(S.curLeague.admin).toUpperCase()===String(S.user.code).toUpperCase());
+}
+async function reportComment(code,at){
+  if(!S.curLeague||!S.user)return;
+  if(!confirm('Denunciar este comentário ao administrador da liga?'))return;
+  try{await api('reportComment',{league_id:S.curLeague.id,reporter_code:S.user.code,comment_code:code,comment_at:at});
+    showToast('Comentário denunciado. Obrigado.');}
+  catch(e){showToast('Erro ao denunciar','error');}
+}
+async function blockUser(code){
+  if(!S.user)return;
+  const p=(S.lb||[]).find(x=>(x.code||'').toUpperCase()===String(code).toUpperCase());
+  if(!confirm('Bloquear '+(p?p.name:code)+'? Deixas de ver os comentários desta pessoa.'))return;
+  S.blocks=S.blocks||[];
+  const cc=String(code).toUpperCase();
+  if(S.blocks.indexOf(cc)===-1)S.blocks.push(cc);
+  renderLB();
+  try{await api('blockUser',{code:S.user.code,target_code:code,block:true});}
+  catch(e){showToast('Erro ao bloquear','error');}
+}
+async function unblockUser(code){
+  S.blocks=(S.blocks||[]).filter(c=>c!==String(code).toUpperCase());
+  renderLB();
+  try{await api('blockUser',{code:S.user.code,target_code:code,block:false});}catch(e){}
+}
+async function deleteComment(code,at){
+  if(!S.curLeague||!S.user)return;
+  if(!confirm('Apagar este comentário?'))return;
+  try{
+    const r=await api('deleteComment',{league_id:S.curLeague.id,code:S.user.code,comment_code:code,comment_at:at});
+    if(r&&r.success){
+      if(S.social)S.social.comments=S.social.comments.filter(c=>!((c.code||'').toUpperCase()===String(code).toUpperCase()&&String(c.at)===String(at)));
+      renderLB();showToast('Comentário apagado.');
+    }else showToast((r&&r.error)||'Erro ao apagar','error');
+  }catch(e){showToast('Erro ao apagar','error');}
 }
 
 // ════════════════════════════════════════════════
