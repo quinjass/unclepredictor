@@ -4603,6 +4603,31 @@ setInterval(async()=>{
   }catch(e){}
   _livePollBusy=false;
 },15000);
+
+// ════════════════════════════════════════════════
+//  AUTO-REFRESH dos dados (classificação, resultados, pontos)
+//  Resolve o "preso" na app (modo server.url): a página não recarrega sozinha.
+//  (a) volta a primeiro plano → refresca (equivale a "atualizar a página" no site)
+//  (b) periodicamente enquanto a app está aberta e visível
+// ════════════════════════════════════════════════
+let _dataRefreshLast=0;
+async function autoRefreshData(){
+  if(!S.user||S.demoMode)return;
+  if(typeof document==='undefined'||document.visibilityState!=='visible')return;
+  // não interromper enquanto o utilizador está a escrever (aposta, comentário, login...)
+  const ae=document.activeElement;
+  if(ae&&(ae.tagName==='INPUT'||ae.tagName==='SELECT'||ae.tagName==='TEXTAREA'))return;
+  if(Date.now()-_dataRefreshLast<8000)return; // anti-duplicação (visibility + focus disparam juntos)
+  _dataRefreshLast=Date.now();
+  try{await loadData();}catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')autoRefreshData(); });
+window.addEventListener('focus',autoRefreshData);
+setInterval(()=>{
+  if(liveWindowActive())return; // durante os jogos, o polling live já trata disto
+  autoRefreshData();
+},90000);
+
 function showToast(msg,type){
   const el=document.getElementById('toast');
   el.textContent=msg; el.className='toast show'+(type?' '+type:'');
