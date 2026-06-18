@@ -612,6 +612,8 @@
     <div class="liga-pill" id="league-pill" style="display:none" onclick="showLeagueSwitcher()">🏆 —</div>
   </div>
 </header>
+<!-- Faixa "Ao Vivo / Próximo jogo" — clicável, leva à aposta -->
+<div id="live-banner" style="display:none" onclick="jumpFromBanner()"></div>
 <!-- Notificações sheet -->
 <div class="switcher-overlay" id="notif-overlay" onclick="closeNotifs()">
   <div class="switcher-box" onclick="event.stopPropagation()">
@@ -1054,6 +1056,7 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <span id="unsaved-badge" style="display:none" class="autosave-pill unsaved-pill">⚠ Não guardado</span>
+        <button class="btn" style="font-size:.78rem;padding:6px 12px;background:var(--bg2);border:1px solid var(--border);color:var(--text)" onclick="jumpToCurrentGame()" title="Ir para o jogo em curso ou próximo">🔴 Jogo atual</button>
         <button id="save-bets-btn" class="btn btn-primary" style="font-size:.78rem;padding:6px 14px" onclick="saveAllCards()">💾 Guardar todos</button>
       </div>
     </div>
@@ -2179,10 +2182,19 @@ function showView(v) {
   const nb=document.getElementById('nav-'+v); if(nb)nb.classList.add('active');
   S.curView=v;
   if(v==='leaderboard')renderLB();
-  if(v==='bets')renderBets();
+  if(v==='bets'){
+    // Auto-navegar para a jornada do jogo em curso/próximo sempre que se abre a tab,
+    // exceto se houver edição pendente (não "salta" enquanto o user está a editar).
+    if(!S.pending){
+      const md=currentOrNextMD();
+      if(md!=null && md!==S.curMD){ S.curMD=md; syncMDButtons(md); }
+    }
+    renderBets();
+  }
   if(v==='prebets')renderPrebets();
   if(v==='mundial')renderMundial();
   if(v==='sim'){renderSim();showSimToast();}
+  renderLiveBanner();
 }
 
 // ════════════════════════════════════════════════
@@ -2193,14 +2205,26 @@ async function loadData() {
     const r=await api('getData',{code:S.user.code});
     S.lbReady=true;
     if(r.preds){
-      S.preds=r.preds;
-      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-      // Marcar como saved tudo o que veio do servidor (já está guardado)
-      Object.keys(r.preds).forEach(id=>{
-        const p=r.preds[id];
-        if(p&&p.t1!==undefined&&p.t2!==undefined) S.savedCards[id]=true;
-      });
-      localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+      const serverEmpty=Object.keys(r.preds).length===0;
+      const localSavedIds=Object.keys(S.preds||{}).filter(id=>{const p=S.preds[id];return p&&p.t1!==undefined&&p.t2!==undefined&&S.savedCards&&S.savedCards[id];});
+      if(serverEmpty && localSavedIds.length>0){
+        // GUARDA ANTI-PERDA: o servidor diz que não há apostas mas o cliente tem
+        // apostas marcadas como guardadas. Não destruir o local — re-sincronizar.
+        console.warn('Servidor devolveu apostas vazias com apostas locais guardadas — a preservar e re-sincronizar');
+        resyncLocalPreds();
+      } else {
+        S.preds=r.preds;
+        localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+        // Reconstruir savedCards a partir da VERDADE do servidor (mata o estado
+        // "fantasma": cartão a "–" mas com botão Limpar ativo).
+        const fresh={};
+        Object.keys(r.preds).forEach(id=>{
+          const p=r.preds[id];
+          if(p&&p.t1!==undefined&&p.t2!==undefined) fresh[id]=true;
+        });
+        S.savedCards=fresh;
+        localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+      }
     }
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
@@ -2216,7 +2240,20 @@ async function loadData() {
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
+    renderLiveBanner();
   } catch(e){console.warn('loadData failed, using cache');}
+}
+
+// Re-envia as apostas locais quando o servidor aparece vazio mas o cliente tem
+// apostas guardadas (auto-cura contra perdas). O backend ignora jogos fechados.
+async function resyncLocalPreds(){
+  try{
+    const r=await api('savePreds',{code:S.user.code,preds:S.preds});
+    if(r&&r.success){
+      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+      showToast('✓ Apostas re-sincronizadas com o servidor','success');
+    }
+  }catch(e){/* mantém o local; nova tentativa no próximo loadData */}
 }
 
 // ════════════════════════════════════════════════
@@ -2848,9 +2885,92 @@ async function shareJornadaCard(){
 // ════════════════════════════════════════════════
 function switchMD(md) {
   S.curMD=md;
+  syncMDButtons(md);
+  renderBets();
+}
+function syncMDButtons(md){
   [1,2,3].forEach(m=>{const el=document.getElementById('md-'+m);if(el)el.classList.toggle('active',m===md);});
   KO_MDS.forEach(m=>{const el=document.getElementById('md-'+m);if(el)el.classList.toggle('active',m===md);});
-  renderBets();
+}
+
+// Devolve a jornada (md) do jogo em curso ou, na falta, do próximo jogo a começar.
+function currentOrNextMD(){
+  const now=Date.now();
+  for(const g of GAMES){ if(liveOf(g.id)) return g.md; } // 1) jogo a decorrer
+  let best=null,bestT=Infinity;                            // 2) próximo não terminado
+  for(const g of GAMES){
+    const res=S.results[g.id];
+    if(res&&res.t1!==undefined) continue;
+    const t=new Date(g.date).getTime();
+    if(t>=now-3*3600000 && t<bestT){ best=g; bestT=t; }   // margem 3h p/ jogos a decorrer
+  }
+  return best?best.md:S.curMD;                            // 3) tudo terminado: fica onde está
+}
+
+// Salta para a jornada do jogo em curso/próximo e faz scroll até ao cartão.
+function jumpToCurrentGame(){
+  const md=currentOrNextMD();
+  if(md!=null && md!==S.curMD) switchMD(md);
+  setTimeout(()=>{
+    const now=Date.now();
+    const md=S.curMD;
+    let live=null,next=null,nextT=Infinity;
+    GAMES.filter(g=>g.md===md).forEach(g=>{
+      if(liveOf(g.id)){live=g.id;return;}
+      const res=S.results[g.id];
+      if(res&&res.t1!==undefined)return;
+      const t=new Date(g.date).getTime();
+      if(t>=now-3*3600000&&t<nextT){nextT=t;next=g.id;}
+    });
+    const target=live||next;
+    if(target){const el=document.querySelector(`[data-game-id="${target}"]`);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});}
+  },120);
+}
+
+// ── Faixa "Ao Vivo / Próximo" ───────────────────────────────────────────────
+function lbTeam(g,k){ return (typeof g.md==='string')?getKOTeamName(g.id,k):g[k]; }
+function fmtCountdown(ms){
+  const s=Math.max(0,Math.floor(ms/1000));
+  const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60),ss=s%60;
+  if(d>0)return `${d}d ${h}h`;
+  if(h>0)return `${h}h ${String(m).padStart(2,'0')}m`;
+  return `${m}m ${String(ss).padStart(2,'0')}s`;
+}
+function renderLiveBanner(){
+  const el=document.getElementById('live-banner');
+  if(!el)return;
+  const hdr=document.getElementById('header');
+  if(!S.user||!hdr||hdr.style.display==='none'){el.style.display='none';return;}
+  // Estilo base (1x)
+  el.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:.78rem;cursor:pointer;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden';
+  const sub='color:var(--sub);font-weight:400;font-size:.72rem';
+  const cta='color:var(--gold);font-weight:700;margin-left:auto;flex-shrink:0';
+  const now=Date.now();
+
+  // 1) Jogos a decorrer
+  const lives=GAMES.filter(g=>liveOf(g.id));
+  if(lives.length){
+    const g=lives[0], lv=liveOf(g.id), my=S.preds[g.id];
+    const myTxt=(my&&my.t1!==undefined)?`tua aposta ${my.t1}–${my.t2}`:'sem aposta tua';
+    const extra=lives.length>1?` · +${lives.length-1} a decorrer`:'';
+    el.style.background='linear-gradient(90deg, rgba(220,40,40,.20), rgba(220,40,40,.04))';
+    el.innerHTML=`<span class="live-dot">🔴</span><span style="overflow:hidden;text-overflow:ellipsis"><b>AO VIVO</b> · ${lbTeam(g,'t1')} <b>${lv.t1}–${lv.t2}</b> ${lbTeam(g,'t2')} <span style="${sub}">(${myTxt}${extra})</span></span><span style="${cta}">ver ›</span>`;
+    el.style.display='';return;
+  }
+
+  // 2) Próximo jogo não terminado
+  let next=null,nextT=Infinity;
+  GAMES.forEach(g=>{const res=S.results[g.id];if(res&&res.t1!==undefined)return;const t=new Date(g.date).getTime();if(t>=now&&t<nextT){nextT=t;next=g;}});
+  if(!next){el.style.display='none';return;}
+  const my=S.preds[next.id];
+  const betTxt=(my&&my.t1!==undefined)?`✅ apostado ${my.t1}–${my.t2}`:'⚠️ falta apostar';
+  el.style.background='linear-gradient(90deg, rgba(245,197,24,.16), rgba(245,197,24,.03))';
+  el.innerHTML=`<span>⏳</span><span style="overflow:hidden;text-overflow:ellipsis"><b>Próximo</b> · ${lbTeam(next,'t1')} vs ${lbTeam(next,'t2')} <span style="${sub}">em ${fmtCountdown(nextT-now)} · ${betTxt}</span></span><span style="${cta}">apostar ›</span>`;
+  el.style.display='';
+}
+function jumpFromBanner(){
+  if(S.curView!=='bets')showView('bets');
+  jumpToCurrentGame();
 }
 
 function renderBetsKO() {
@@ -2898,7 +3018,7 @@ function renderBetsKO() {
     const t1ph = isKOPlaceholder(t1) ? ' placeholder' : '';
     const t2ph = isKOPlaceholder(t2) ? ' placeholder' : '';
 
-    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}" ${(isFinished||(locked&&knownTeams))?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
+    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}" data-game-id="${g.id}" ${(isFinished||(locked&&knownTeams))?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
       <div class="game-meta">
         <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</span>
         <span>${dlWarn}${ptsHtml}</span>
@@ -3084,7 +3204,14 @@ async function saveCard(id){
   const btn=card?card.querySelector('.card-save-btn'):null;
   if(btn){btn.disabled=true;btn.textContent='A guardar...';}
   try{
-    await api('savePreds',{code:S.user.code,preds:S.preds});
+    // Grava SÓ esta aposta (não o S.preds inteiro). jokerScope = jogos que partilham
+    // o joker desta ronda, para o backend garantir 1 só joker.
+    const g=GAMES.find(x=>x.id===id);
+    const md=g?g.md:null;
+    const scopeMDs=(md==='F3'||md==='FIN')?['F3','FIN']:[md];
+    const jokerScope=GAMES.filter(x=>scopeMDs.includes(x.md)&&x.id!==id).map(x=>x.id);
+    const r=await api('savePred',{code:S.user.code,gameId:id,pred:S.preds[id],jokerScope});
+    if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     S.savedCards[id]=true;
     localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
@@ -3098,17 +3225,39 @@ async function saveCard(id){
     showSaveSuccess();
   }catch(e){
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-    showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro — guardado offline','error');
-    if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
+    showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro ao guardar — tenta de novo','error');
+    if(btn){btn.disabled=false;btn.textContent='💾 Guardar aposta';}
   }
 }
-function clearCard(id){
+async function clearCard(id){
+  const card=document.querySelector(`[data-game-id="${id}"]`);
+  const clearBtn=card?card.querySelector('.card-clear-btn'):null;
+  if(clearBtn){clearBtn.disabled=true;clearBtn.textContent='A limpar...';}
+  // Guarda o estado anterior para rollback se a limpeza falhar
+  const prev=S.preds[id]?{...S.preds[id]}:null;
   if(S.preds[id]){S.preds[id].t1=undefined;S.preds[id].t2=undefined;S.preds[id].joker=false;}
   delete S.savedCards[id];
-  localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
-  S.pending=true;
-  updateUnsavedBadge();
-  renderBets();
+  try{
+    // Limpa JÁ no backend (deixou de ficar pendente de um "Guardar todos")
+    if(!S.demoMode){
+      const r=await api('clearPred',{code:S.user.code,gameId:id});
+      if(r&&r.success===false)throw new Error(r.error||'Falha ao limpar');
+    }
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    S.pending=false;
+    updateUnsavedBadge();
+    renderBets();
+  }catch(e){
+    // Rollback: repõe a aposta para não dar a falsa ideia de que foi limpa
+    if(prev){S.preds[id]=prev; if(prev.t1!==undefined&&prev.t2!==undefined)S.savedCards[id]=true;}
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    showToast('⚠ Erro ao limpar — tenta de novo','error');
+    renderBets();
+  }finally{
+    if(clearBtn){clearBtn.disabled=false;clearBtn.textContent='✕ Limpar aposta';}
+  }
 }
 function scheduleAutoSave(){
   S.pending=true;
@@ -3130,13 +3279,14 @@ async function saveBets(){
   const btn=document.getElementById('save-bets-btn');
   if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
   try {
-    await api('savePreds',{code:S.user.code,preds:S.preds});
+    const r=await api('savePreds',{code:S.user.code,preds:S.preds});
+    if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     S.pending=false;
     showSaveSuccess();
   } catch(e){
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-    showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro — guardado offline','error');
+    showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro ao guardar — tenta de novo','error');
   }
   if(btn){btn.disabled=false;btn.textContent='💾 Guardar todos';}
 }
@@ -3144,7 +3294,8 @@ async function saveAllCards(){
   const btn=document.getElementById('save-bets-btn');
   if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
   try {
-    await api('savePreds',{code:S.user.code,preds:S.preds});
+    const r=await api('savePreds',{code:S.user.code,preds:S.preds});
+    if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     // Marcar todos os cartões com pred preenchida como guardados
     const isKO=typeof S.curMD==='string';
@@ -4452,7 +4603,9 @@ async function api(action,data){
   const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action,...data})});
   if(!r.ok)throw new Error('HTTP '+r.status);
   const text=await r.text();
-  try{return JSON.parse(text);}catch(e){return{success:true};}
+  // NUNCA inventar sucesso: se a resposta não for JSON (página de erro, timeout,
+  // quota), é uma FALHA. Antes devolvia {success:true} e mascarava perda de dados.
+  try{return JSON.parse(text);}catch(e){throw new Error('Resposta inválida do servidor');}
 }
 
 function mockApi(action,data){
@@ -4651,11 +4804,19 @@ setInterval(async()=>{
       if(S.curView==='bets')renderBets();
       else if(S.curView==='mundial')renderMundial();
       else if(S.curView==='leaderboard')renderLB();
+      renderLiveBanner();
       if(hadLive&&!Object.keys(nw).length)loadData(); // todos os jogos acabaram → buscar finais
     }
   }catch(e){}
   _livePollBusy=false;
 },15000);
+
+// Atualiza o countdown da faixa "Ao Vivo / Próximo" a cada segundo (só se visível).
+setInterval(()=>{
+  if(typeof document==='undefined'||document.visibilityState!=='visible')return;
+  if(!S.user)return;
+  renderLiveBanner();
+},1000);
 
 // ════════════════════════════════════════════════
 //  AUTO-REFRESH dos dados (classificação, resultados, pontos)
