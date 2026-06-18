@@ -2237,6 +2237,10 @@ async function loadData() {
     if(r.allPrebets)S.allPrebets=r.allPrebets;
     if(r.blocks)S.blocks=r.blocks;
     if(r.live)S.live=r.live;
+    // Reimpõe gravações/limpezas recentes (evita reverter por refresh atrasado)
+    applyRecentWrites();
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -2254,6 +2258,29 @@ async function resyncLocalPreds(){
       showToast('✓ Apostas re-sincronizadas com o servidor','success');
     }
   }catch(e){/* mantém o local; nova tentativa no próximo loadData */}
+}
+
+// Proteção contra refresh atrasado: regista a intenção de uma escrita recente.
+// pred = {t1,t2,joker} (guardado) ou null (limpo). Vale ~25s.
+function markRecentWrite(id,pred){
+  S.recentWrites=S.recentWrites||{};
+  S.recentWrites[id]={until:Date.now()+25000,pred:pred};
+}
+// Reimpõe as escritas recentes por cima do que veio do servidor (evita reverter
+// uma gravação/limpeza acabada de fazer enquanto a Sheet ainda não propagou).
+function applyRecentWrites(){
+  const rw=S.recentWrites; if(!rw)return;
+  const tnow=Date.now();
+  Object.keys(rw).forEach(id=>{
+    if(rw[id].until<tnow){delete rw[id];return;}
+    if(rw[id].pred===null){
+      if(S.preds[id]){S.preds[id].t1=undefined;S.preds[id].t2=undefined;S.preds[id].joker=false;}
+      delete S.savedCards[id];
+    }else{
+      S.preds[id]=Object.assign({},S.preds[id]||{},rw[id].pred);
+      S.savedCards[id]=true;
+    }
+  });
 }
 
 // ════════════════════════════════════════════════
@@ -3212,6 +3239,8 @@ async function saveCard(id){
     const jokerScope=GAMES.filter(x=>scopeMDs.includes(x.md)&&x.id!==id).map(x=>x.id);
     const r=await api('savePred',{code:S.user.code,gameId:id,pred:S.preds[id],jokerScope});
     if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
+    // Protege esta gravação de um refresh atrasado a revertê-la (~25s)
+    markRecentWrite(id,{t1:S.preds[id].t1,t2:S.preds[id].t2,joker:!!S.preds[id].joker});
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     S.savedCards[id]=true;
     localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
@@ -3243,6 +3272,8 @@ async function clearCard(id){
       const r=await api('clearPred',{code:S.user.code,gameId:id});
       if(r&&r.success===false)throw new Error(r.error||'Falha ao limpar');
     }
+    // Protege a limpeza de um refresh atrasado a repor a aposta (~25s)
+    markRecentWrite(id,null);
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     S.pending=false;
