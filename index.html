@@ -2205,6 +2205,15 @@ async function loadData() {
     const r=await api('getData',{code:S.user.code});
     S.lbReady=true;
     if(r.preds){
+      // Preserva jogos que estão A SER gravados/limpos agora ou com edição por guardar,
+      // para um refresh atrasado não os atropelar.
+      const keepLocal={};
+      Object.keys(S.preds||{}).forEach(id=>{
+        const p=S.preds[id];
+        const dirty=p&&(p.t1!==undefined||p.t2!==undefined)&&!(S.savedCards&&S.savedCards[id]);
+        if((S.savingGames&&S.savingGames[id])||dirty) keepLocal[id]={pred:p,saved:!!(S.savedCards&&S.savedCards[id])};
+      });
+
       const serverEmpty=Object.keys(r.preds).length===0;
       const localSavedIds=Object.keys(S.preds||{}).filter(id=>{const p=S.preds[id];return p&&p.t1!==undefined&&p.t2!==undefined&&S.savedCards&&S.savedCards[id];});
       if(serverEmpty && localSavedIds.length>0){
@@ -2214,7 +2223,6 @@ async function loadData() {
         resyncLocalPreds();
       } else {
         S.preds=r.preds;
-        localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
         // Reconstruir savedCards a partir da VERDADE do servidor (mata o estado
         // "fantasma": cartão a "–" mas com botão Limpar ativo).
         const fresh={};
@@ -2223,8 +2231,15 @@ async function loadData() {
           if(p&&p.t1!==undefined&&p.t2!==undefined) fresh[id]=true;
         });
         S.savedCards=fresh;
-        localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
       }
+
+      // Reimpõe os jogos preservados por cima do que veio do servidor
+      Object.keys(keepLocal).forEach(id=>{
+        S.preds[id]=keepLocal[id].pred;
+        if(keepLocal[id].saved) S.savedCards[id]=true; else delete S.savedCards[id];
+      });
+      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+      localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     }
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
@@ -2237,10 +2252,6 @@ async function loadData() {
     if(r.allPrebets)S.allPrebets=r.allPrebets;
     if(r.blocks)S.blocks=r.blocks;
     if(r.live)S.live=r.live;
-    // Reimpõe gravações/limpezas recentes (evita reverter por refresh atrasado)
-    applyRecentWrites();
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets')renderBets();
     if(S.curView==='prebets')renderPrebets();
@@ -2260,28 +2271,6 @@ async function resyncLocalPreds(){
   }catch(e){/* mantém o local; nova tentativa no próximo loadData */}
 }
 
-// Proteção contra refresh atrasado: regista a intenção de uma escrita recente.
-// pred = {t1,t2,joker} (guardado) ou null (limpo). Vale ~25s.
-function markRecentWrite(id,pred){
-  S.recentWrites=S.recentWrites||{};
-  S.recentWrites[id]={until:Date.now()+25000,pred:pred};
-}
-// Reimpõe as escritas recentes por cima do que veio do servidor (evita reverter
-// uma gravação/limpeza acabada de fazer enquanto a Sheet ainda não propagou).
-function applyRecentWrites(){
-  const rw=S.recentWrites; if(!rw)return;
-  const tnow=Date.now();
-  Object.keys(rw).forEach(id=>{
-    if(rw[id].until<tnow){delete rw[id];return;}
-    if(rw[id].pred===null){
-      if(S.preds[id]){S.preds[id].t1=undefined;S.preds[id].t2=undefined;S.preds[id].joker=false;}
-      delete S.savedCards[id];
-    }else{
-      S.preds[id]=Object.assign({},S.preds[id]||{},rw[id].pred);
-      S.savedCards[id]=true;
-    }
-  });
-}
 
 // ════════════════════════════════════════════════
 //  CLASSIFICAÇÃO — tabela estilo UEFA
@@ -3230,6 +3219,7 @@ async function saveCard(id){
   const card=document.querySelector(`[data-game-id="${id}"]`);
   const btn=card?card.querySelector('.card-save-btn'):null;
   if(btn){btn.disabled=true;btn.textContent='A guardar...';}
+  S.savingGames=S.savingGames||{}; S.savingGames[id]=1; // protege de um refresh durante a gravação
   try{
     // Grava SÓ esta aposta (não o S.preds inteiro). jokerScope = jogos que partilham
     // o joker desta ronda, para o backend garantir 1 só joker.
@@ -3239,23 +3229,18 @@ async function saveCard(id){
     const jokerScope=GAMES.filter(x=>scopeMDs.includes(x.md)&&x.id!==id).map(x=>x.id);
     const r=await api('savePred',{code:S.user.code,gameId:id,pred:S.preds[id],jokerScope});
     if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
-    // Protege esta gravação de um refresh atrasado a revertê-la (~25s)
-    markRecentWrite(id,{t1:S.preds[id].t1,t2:S.preds[id].t2,joker:!!S.preds[id].joker});
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     S.savedCards[id]=true;
-    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     S.pending=false;
-    if(card){
-      card.classList.add('card-saved');
-      if(btn){btn.style.display='none';}
-      const clearBtn=card.querySelector('.card-clear-btn');
-      if(clearBtn)clearBtn.style.display='';
-    }
+    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    renderBets();        // re-render do estado real — evita botões "presos em A guardar"
     showSaveSuccess();
   }catch(e){
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro ao guardar — tenta de novo','error');
-    if(btn){btn.disabled=false;btn.textContent='💾 Guardar aposta';}
+    renderBets();        // repõe o botão "Guardar aposta" no estado certo
+  }finally{
+    delete S.savingGames[id];
   }
 }
 async function clearCard(id){
@@ -3266,14 +3251,13 @@ async function clearCard(id){
   const prev=S.preds[id]?{...S.preds[id]}:null;
   if(S.preds[id]){S.preds[id].t1=undefined;S.preds[id].t2=undefined;S.preds[id].joker=false;}
   delete S.savedCards[id];
+  S.savingGames=S.savingGames||{}; S.savingGames[id]=1; // protege de um refresh durante a limpeza
   try{
     // Limpa JÁ no backend (deixou de ficar pendente de um "Guardar todos")
     if(!S.demoMode){
       const r=await api('clearPred',{code:S.user.code,gameId:id});
       if(r&&r.success===false)throw new Error(r.error||'Falha ao limpar');
     }
-    // Protege a limpeza de um refresh atrasado a repor a aposta (~25s)
-    markRecentWrite(id,null);
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     S.pending=false;
@@ -3287,6 +3271,7 @@ async function clearCard(id){
     showToast('⚠ Erro ao limpar — tenta de novo','error');
     renderBets();
   }finally{
+    delete S.savingGames[id];
     if(clearBtn){clearBtn.disabled=false;clearBtn.textContent='✕ Limpar aposta';}
   }
 }
