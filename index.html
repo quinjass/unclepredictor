@@ -2371,7 +2371,7 @@ function renderLB() {
   const posSyms=['👑','🥈','🥉'];
   const isBot=p=>p.code==='BOT_IA';
   const playerLabel=p=>isBot(p)?'🤖 IA':p.name;
-  const ligaHdr=S.curLeague?`<div style="font-size:.78rem;color:#00bcd4;margin-bottom:8px">🏆 Liga: <strong>${S.curLeague.name}</strong> · ${data.length} jogadores</div>`:'';
+  const ligaHdr='';
 
   // ── Dados por jornada (jp vem do backend) ──
   const hasJP=data.some(p=>p.jp&&Object.keys(p.jp).length);
@@ -2633,7 +2633,7 @@ function renderDuels(){
   const isBot=p=>p.code==='BOT_IA';
   const humans=data.filter(p=>!isBot(p));
   if(humans.length<2){
-    el.innerHTML=`<div style="font-size:.78rem;color:#00bcd4;margin-bottom:10px">🏆 Liga: <strong>${escapeHtml(S.curLeague.name)}</strong></div><div class="alert alert-info" style="font-size:.82rem">Esta liga precisa de pelo menos <strong>2 jogadores</strong> para haver duelos.</div>`;
+    el.innerHTML=`<div class="alert alert-info" style="font-size:.82rem">Esta liga precisa de pelo menos <strong>2 jogadores</strong> para haver duelos.</div>`;
     return;
   }
 
@@ -2654,7 +2654,7 @@ function renderDuels(){
   const duelOrder=Object.keys(duelData.pts).sort((a,b)=>(duelData.pts[b]||0)-(duelData.pts[a]||0)||((duelData.record[b]||{v:0}).v)-((duelData.record[a]||{v:0}).v)||(rankIdx[a]??99)-(rankIdx[b]??99));
   const dLeader=duelOrder[0];
 
-  let html=`<div style="font-size:.78rem;color:#00bcd4;margin-bottom:12px">🏆 Liga: <strong>${escapeHtml(S.curLeague.name)}</strong> · ${humans.length} jogadores</div>`;
+  let html='';
 
   // Fim do Mundial → Campeão de Duelos
   if(jornadaComplete('FIN')&&dLeader&&(duelData.pts[dLeader]||0)>0){
