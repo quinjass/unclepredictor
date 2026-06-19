@@ -252,16 +252,17 @@
     .game-card.card-result{background:rgba(39,174,96,.07);border-color:rgba(39,174,96,.35)}
     .game-card.card-winner{background:rgba(245,197,24,.07);border-color:rgba(245,197,24,.35)}
     .game-card.card-miss{background:rgba(231,76,60,.07);border-color:rgba(231,76,60,.3)}
-    .card-save-btn{width:100%;margin-top:8px;padding:6px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;letter-spacing:.3px}
+    .card-save-btn{width:118px;margin:8px auto 0;display:block;padding:6px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;letter-spacing:.3px;white-space:nowrap}
     .card-save-btn:hover{opacity:.85}
-    .card-clear-btn{width:100%;margin-top:8px;padding:5px;background:transparent;color:rgba(39,174,96,.8);border:1px solid rgba(39,174,96,.4);border-radius:6px;font-size:.72rem;cursor:pointer}
+    .card-clear-btn{width:118px;margin:8px auto 0;display:block;padding:5px;background:transparent;color:rgba(39,174,96,.8);border:1px solid rgba(39,174,96,.4);border-radius:6px;font-size:.72rem;cursor:pointer;white-space:nowrap}
     .card-clear-btn:hover{border-color:rgba(39,174,96,.7);color:rgba(39,174,96,1)}
     .game-meta{font-size:.69rem;color:var(--sub);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px}
     .game-teams{display:flex;align-items:center;gap:8px}
     .team-name{flex:1;font-weight:600;font-size:.87rem;line-height:1.2}
     .team-name.right{text-align:right}
     .score-inputs{display:flex;align-items:center;gap:4px;flex-shrink:0}
-    .score-input{width:42px;height:36px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:1.05rem;font-weight:700;text-align:center;outline:none}
+    .score-input{width:42px;height:36px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:1.05rem;font-weight:700;text-align:center;outline:none;-moz-appearance:textfield;appearance:textfield;padding:0}
+    .score-input::-webkit-outer-spin-button,.score-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
     .score-input:focus{border-color:var(--gold)}.score-input:disabled{cursor:not-allowed}
     .score-sep{color:var(--sub);font-size:.85rem;font-weight:600}
     .result-badge{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;flex-shrink:0;white-space:nowrap}
@@ -272,7 +273,7 @@
     .pts-3{background:rgba(39,174,96,.18);color:var(--green)}
     .rarity-badge{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.7rem;text-align:center;margin-top:5px;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
     .pts-5{background:rgba(0,188,212,.18);color:#00bcd4}
-    .joker-btn{margin-top:8px;width:100%;padding:5px 8px;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--sub);font-size:.73rem;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
+    .joker-btn{margin:8px auto 0;display:block;width:118px;padding:5px 6px;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--sub);font-size:.7rem;line-height:1.15;white-space:nowrap;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
     .joker-btn.active{background:rgba(245,197,24,.12);border-color:var(--gold);border-style:solid;color:var(--gold);font-weight:600}
     .joker-btn:disabled{cursor:not-allowed;opacity:.4}
     .joker-badge{background:var(--gold);color:var(--bg);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.7rem;padding:1px 6px;border-radius:3px;letter-spacing:.3px;display:inline-block;vertical-align:middle;margin-right:3px}
@@ -3070,7 +3071,7 @@ function renderBetsKO() {
           ? `<div class="ko-pending">⏳ Equipas a apurar após fase de grupos</div>`
           : !locked && !g.noJoker
             ? `<button class="joker-btn ${jokerOn?'active':''}" onclick="toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
-                <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER neste jogo (dobra os pontos obtidos)'}
+                <span class="joker-badge">J</span> ${jokerOn?'Remover JOKER':'Usar JOKER'}
               </button>`
             : `${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
               ${lvKO
@@ -3170,7 +3171,7 @@ function renderBets() {
             </div>
             ${rarityBadgeHtml(g.id,pred,res,jokerOn)}`
           :(!locked?`<button class="joker-btn ${jokerOn?'active':''}" onclick="event.stopPropagation();toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
-              <span class="joker-badge">J</span> ${jokerOn?'JOKER ATIVO — clica para remover':'Usar JOKER'}
+              <span class="joker-badge">J</span> ${jokerOn?'Remover JOKER':'Usar JOKER'}
             </button>
             <button class="card-save-btn" style="${(hasPred&&!isSaved)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
             <button class="card-clear-btn" style="${isSaved?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
