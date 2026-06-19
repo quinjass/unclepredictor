@@ -1868,7 +1868,7 @@ let loginReady = false;
 const S = {
   user:null, isAdmin:false, curView:'login',
   curMD:1, adminMD:1, mundialGrp:'A',
-  preds:{}, prebets:{}, results:{}, lb:[], lbReady:false,
+  preds:{}, prebets:{}, results:{}, lb:[], lbPrev:null, lbReady:false,
   rarityMap:{},
   participants:[], deadlineH:1, pending:false, savedCards:{},
   allLeagues:[],
@@ -2276,6 +2276,7 @@ async function loadData() {
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
     if(r.lb)S.lb=r.lb;
+    S.lbPrev=r.lbPrev||null; // ranking anterior (seta de subida/descida desde o último jogo)
     if(r.rarityMap)S.rarityMap=r.rarityMap;
     if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
     if(r.specials)S.specials=r.specials;
@@ -2307,6 +2308,15 @@ async function resyncLocalPreds(){
 // ════════════════════════════════════════════════
 //  CLASSIFICAÇÃO — tabela estilo UEFA
 // ════════════════════════════════════════════════
+// Comparador oficial: total → joker+raridade → acertos exatos → vencedor/empate
+function lbCompare(a,b){
+  if(b.total!==a.total)return b.total-a.total;
+  const jA=(a.joker_pts||0)+(a.rarity_pts||0), jB=(b.joker_pts||0)+(b.rarity_pts||0);
+  if(jB!==jA)return jB-jA;
+  const wA=(a.wins||0)+(a.ko_wins||0), wB=(b.wins||0)+(b.ko_wins||0);
+  if(wB!==wA)return wB-wA;
+  return ((b.draws||0)+(b.ko_draws||0))-((a.draws||0)+(a.ko_draws||0));
+}
 function renderLB() {
   renderLigaSelector();
   const el = document.getElementById('lb-content');
@@ -2314,36 +2324,24 @@ function renderLB() {
   if(!raw.length){el.innerHTML=S.lbReady?'<div class="alert alert-info">Ainda sem dados de classificação.</div>':'<div class="loading-center"><div class="spinner"></div></div>';return;}
   if(S.curLeague&&S.curLeague.members){const mc=S.curLeague.members.map(m=>(m||'').toUpperCase());raw=raw.filter(p=>mc.includes((p.code||'').toUpperCase()));}
 
-  const data=[...raw].sort((a,b)=>{
-    if(b.total!==a.total)return b.total-a.total;
-    // 1º desempate: pontos de Joker + Raridade combinados
-    const jA=(a.joker_pts||0)+(a.rarity_pts||0), jB=(b.joker_pts||0)+(b.rarity_pts||0);
-    if(jB!==jA)return jB-jA;
-    // 2º desempate: acertos no resultado exato (grupos + KO)
-    const wA=(a.wins||0)+(a.ko_wins||0), wB=(b.wins||0)+(b.ko_wins||0);
-    if(wB!==wA)return wB-wA;
-    // 3º desempate: acertos no vencedor/empate
-    return ((b.draws||0)+(b.ko_draws||0))-((a.draws||0)+(a.ko_draws||0));
-  });
+  const data=[...raw].sort(lbCompare);
   const finishedGames=Object.keys(S.demoMode?DEMO_RESULTS:S.results).length;
 
-  // ── Position change tracking (vs last finished game) ──
-  const posKey='up26_pos_'+(S.user?S.user.code:'x')+'_'+(S.curLeague?S.curLeague.id:'global');
-  let posSnap=null;
-  try{posSnap=JSON.parse(localStorage.getItem(posKey));}catch(e){}
-  const curPosMap={};
-  data.forEach((p,i)=>{curPosMap[p.code]=i+1;});
+  // ── Subida/descida DESDE O ÚLTIMO JOGO TERMINADO (ranking do servidor) ──
+  // S.lbPrev = ranking antes do último jogo, calculado no backend (igual para todos).
+  // Ordena-se a mesma liga com o MESMO comparador para obter as posições anteriores.
   let prevPosMap=null;
-  if(!posSnap||posSnap.curAt<finishedGames){
-    const newSnap={prev:posSnap?posSnap.cur:curPosMap,prevAt:posSnap?posSnap.curAt:finishedGames,cur:curPosMap,curAt:finishedGames};
-    localStorage.setItem(posKey,JSON.stringify(newSnap));
-    prevPosMap=newSnap.prev;
-  }else{prevPosMap=posSnap.prev;}
+  if(S.lbPrev&&S.lbPrev.length){
+    let prevRaw=S.lbPrev;
+    if(S.curLeague&&S.curLeague.members){const mc=S.curLeague.members.map(m=>(m||'').toUpperCase());prevRaw=prevRaw.filter(p=>mc.includes((p.code||'').toUpperCase()));}
+    const prevSorted=[...prevRaw].sort(lbCompare);
+    prevPosMap={};prevSorted.forEach((p,i)=>{prevPosMap[p.code]=i+1;});
+  }
   const posArrow=(code,curRank)=>{
     if(!prevPosMap||prevPosMap[code]===undefined)return '';
     const delta=prevPosMap[code]-curRank;
     if(delta===0)return '';
-    return `<span style="font-size:.6rem;color:${delta>0?'#2ecc71':'#e74c3c'};font-weight:700;font-family:'Rajdhani',sans-serif;margin-left:2px">${delta>0?'↑':'↓'}${Math.abs(delta)}</span>`;
+    return `<span style="font-size:.6rem;color:${delta>0?'#2ecc71':'#e74c3c'};font-weight:700;font-family:'Rajdhani',sans-serif;margin-left:2px" title="Desde o último jogo">${delta>0?'↑':'↓'}${Math.abs(delta)}</span>`;
   };
 
   // ── LIVE: pontos potenciais por jogador nos jogos a decorrer ──
@@ -2459,9 +2457,7 @@ function renderLB() {
   };
   const reactPickerRow=(code,colspan)=>S.reactFor===code?`<tr><td colspan="${colspan}" style="padding:5px 10px;background:var(--bg2);text-align:center">${REACT_EMOJIS.map(e=>`<button class="react-pick" onclick="event.stopPropagation();sendReact('${code}','${e}')">${e}</button>`).join('')}</td></tr>`:'';
 
-  const noLeagueHint=!S.curLeague?`<div class="alert alert-info" style="font-size:.74rem;margin-bottom:10px">🔥🗣️ As <strong>reações</strong> e a <strong>bancada</strong> vivem dentro das ligas — usa o botão <strong>🏆 Ver todas as ligas</strong> no topo e entra na tua. Os <strong>duelos</strong> estão no tab <strong>⚔️ Duelos</strong>.</div>`:'';
-
-  let html = ligaHdr + noLeagueHint + champHtml + mvpHtml;
+  let html = ligaHdr + champHtml + mvpHtml;
   // Toggle row
   html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
     <div style="font-size:.7rem;color:var(--sub)">Clica num jogador para ver apostas</div>
@@ -2571,8 +2567,31 @@ function renderLB() {
   }
   html+=`<div style="display:flex;justify-content:center;align-items:center;gap:14px;font-size:.7rem;color:var(--sub);margin-top:10px">
     <button onclick="loadData()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:.7rem">↻ Atualizar</button>
-    ${S._cardData?`<button onclick="shareJornadaCard()" style="background:none;border:1px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;font-size:.7rem;padding:3px 10px">📤 Card da jornada</button>`:''}
   </div>`;
+
+  // ── Histórico de cards de jornadas (colapsável) — pódio partilhável de cada jornada/eliminatória ──
+  if(compJs.length){
+    html+=`<div class="card" style="margin-top:14px;padding:12px">
+      <div onclick="S.cardHistOpen=!S.cardHistOpen;renderLB()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.84rem">
+        <span>📤 CARDS DAS JORNADAS</span><span style="font-size:.7rem;color:var(--sub)">${S.cardHistOpen?'▲ esconder':'▼ ver'}</span>
+      </div>`;
+    if(S.cardHistOpen){
+      html+=`<div style="font-size:.66rem;color:var(--sub);margin-top:6px">Pódio de cada jornada/eliminatória — toca em <strong>Partilhar</strong> para enviar a imagem.</div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:14px">`;
+      [...compJs].reverse().forEach(j=>{
+        const d=cardDataFor(j);
+        if(!d)return;
+        let url='';
+        try{url=drawCardCanvas(d).toDataURL('image/png');}catch(e){}
+        html+=`<div>
+          ${url?`<img src="${url}" loading="lazy" style="width:100%;display:block;border-radius:10px;border:1px solid var(--border)" alt="Card ${jLabel(j)}">`:''}
+          <button onclick="shareCardFor('${j}')" style="margin-top:6px;width:100%;background:none;border:1px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;font-size:.74rem;padding:6px">📤 Partilhar ${jLabel(j)}</button>
+        </div>`;
+      });
+      html+=`</div>`;
+    }
+    html+=`</div>`;
+  }
 
   // ── Bancada (#6B) — feed de comentários da liga ──
   if(social){
@@ -2698,40 +2717,38 @@ function renderDuels(){
     </div>`;
   }
 
-  // Classificação de duelos (tabela paralela) — colunas individuais, estilo da Classif. detalhada
-  const dThS='padding:5px 3px;font-size:.62rem';
-  const dTdN="font-family:'Rajdhani',sans-serif;font-weight:700;padding:9px 3px;text-align:center";
+  // Classificação de duelos (tabela paralela) — mesmo formato da Classificação (cabe no ecrã)
   html+=`<div class="card" style="padding:12px;margin-bottom:14px">
     <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#e67e22;font-size:.86rem;margin-bottom:8px">⚔️ CLASSIFICAÇÃO DE DUELOS</div>
-    <table class="standings-table standings-detailed" style="table-layout:fixed;width:100%">
-      <colgroup><col style="width:8%"><col><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:14%"></colgroup>
+    <div class="standings-wrap"><table class="standings-table" style="table-layout:fixed;width:100%">
+      <colgroup><col style="width:10%"><col><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:14%"></colgroup>
       <thead><tr>
-        <th style="${dThS}">#</th>
-        <th class="th-name" style="${dThS};padding-left:8px">Jogador</th>
-        <th title="Vitórias" style="${dThS};color:var(--green)">V</th>
-        <th title="Empates" style="${dThS};color:#f39c12">E</th>
-        <th title="Derrotas" style="${dThS};color:#e74c3c">D</th>
-        <th title="Pontos de duelo" style="${dThS};color:#e67e22">Pts</th>
+        <th>#</th>
+        <th class="th-name">Jogador</th>
+        <th title="Vitórias" style="color:var(--green)">V</th>
+        <th title="Empates" style="color:#f39c12">E</th>
+        <th title="Derrotas" style="color:#e74c3c">D</th>
+        <th style="color:#e67e22">Pts</th>
       </tr></thead><tbody>`;
   duelOrder.forEach((c,i)=>{
     const r=duelData.record[c]||{v:0,e:0,d:0};
     const isMe=me&&c===me;
     const lead=i===0&&(duelData.pts[c]||0)>0;
     html+=`<tr class="${isMe?'row-me':''}">
-      <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${lead?'👑':(i+1)}</td>
-      <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${nameOf(c)}${isMe?'<span class="me-tag">(tu)</span>':''}</td>
-      <td style="${dTdN};color:var(--green)">${r.v}</td>
-      <td style="${dTdN};color:#f39c12">${r.e}</td>
-      <td style="${dTdN};color:#e74c3c">${r.d}</td>
-      <td class="td-pts" style="${dTdN};color:#e67e22">${duelData.pts[c]||0}</td>
+      <td class="td-pos">${lead?'👑':(i+1)}</td>
+      <td class="td-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nameOf(c)}${isMe?'<span class="me-tag">(tu)</span>':''}</td>
+      <td style="color:var(--green)">${r.v}</td>
+      <td style="color:#f39c12">${r.e}</td>
+      <td style="color:#e74c3c">${r.d}</td>
+      <td class="td-pts" style="color:#e67e22">${duelData.pts[c]||0}</td>
     </tr>`;
   });
-  html+=`</tbody></table>
+  html+=`</tbody></table></div>
     <div class="lb-legend" style="margin-top:8px;flex-wrap:wrap;font-size:.64rem;gap:6px 12px">
       <span style="white-space:nowrap;color:var(--green)">V = Vitória (2 pts)</span>
       <span style="white-space:nowrap;color:#f39c12">E = Empate (1 pt)</span>
       <span style="white-space:nowrap;color:#e74c3c">D = Derrota (0)</span>
-      <span style="white-space:nowrap;color:var(--sub)">Bye = 1 pt · tabela paralela, não soma ao total</span>
+      <span style="white-space:nowrap;color:var(--sub)">Bye = 1 pt · não soma ao total</span>
     </div>
   </div>`;
 
@@ -3004,9 +3021,17 @@ async function sendBroadcast(){
 // ════════════════════════════════════════════════
 //  CARD PARTILHÁVEL DA JORNADA (#13)
 // ════════════════════════════════════════════════
-async function shareJornadaCard(){
-  const d=S._cardData;
-  if(!d)return;
+// Constrói os dados do card (pódio top-3 + lanterna) de uma jornada, na liga atual
+function cardDataFor(j){
+  let raw=S.lb.length?S.lb:(S.demoMode&&S.user?calcDemoLB():[]);
+  if(S.curLeague&&S.curLeague.members){const mc=S.curLeague.members.map(m=>(m||'').toUpperCase());raw=raw.filter(p=>mc.includes((p.code||'').toUpperCase()));}
+  const humans=raw.filter(p=>p.code!=='BOT_IA');
+  if(!humans.length)return null;
+  const ranked=humans.map(p=>({name:p.name,code:p.code,pts:(p.jp&&p.jp[j])||0})).sort((a,b)=>b.pts-a.pts);
+  return {j,league:S.curLeague?S.curLeague.name:'Geral',top:ranked.slice(0,3),worst:ranked.length>3?ranked[ranked.length-1]:null};
+}
+// Desenha o card num canvas e devolve-o
+function drawCardCanvas(d){
   const W=720,H=760,cv=document.createElement('canvas');
   cv.width=W;cv.height=H;
   const x=cv.getContext('2d');
@@ -3017,7 +3042,6 @@ async function shareJornadaCard(){
   x.fillText('UNCLE PREDICTOR · MUNDIAL 2026',W/2,80);
   x.fillStyle='#ffffff';x.font='700 44px Rajdhani, Arial';
   x.fillText(`${(JORNADA_NAMES[d.j]||d.j)} · ${d.league}`,W/2,140);
-  // Pódio
   const medals=['🥇','🥈','🥉'],cols=['#d4af37','#c0c0c0','#cd7f32'];
   const bw=170,gap=30,baseY=520,hts=[230,160,120];
   const order=[1,0,2]; // 2º · 1º · 3º
@@ -3042,9 +3066,13 @@ async function shareJornadaCard(){
   }
   x.fillStyle='#666672';x.font='20px Arial';
   x.fillText('quinjass.github.io/unclepredictor',W/2,H-50);
-
-  const fname=`unclepredictor_${d.j}.png`;
-  cv.toBlob(async blob=>{
+  return cv;
+}
+// Partilha (ou descarrega) o card de uma jornada
+async function shareCardFor(j){
+  const d=cardDataFor(j); if(!d)return;
+  const fname=`unclepredictor_${j}.png`;
+  drawCardCanvas(d).toBlob(async blob=>{
     if(!blob)return;
     const file=new File([blob],fname,{type:'image/png'});
     if(navigator.canShare&&navigator.canShare({files:[file]})){
