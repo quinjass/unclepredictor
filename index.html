@@ -1586,6 +1586,20 @@ const GAMES = [
   {id:'FIN_01',md:'FIN',ko:true,t1:'V SF_01', t2:'V SF_02', date:'2026-07-19T20:00',venue:'East Rutherford'},
 ];
 
+// ── À prova de fuso horário ────────────────────────────────────────────────
+// As horas dos jogos estão em HORA DE PORTUGAL (UTC+1 durante todo o Mundial —
+// Jun/Jul 2026, sem mudança de DST nesse período). Anexamos o offset +01:00 a
+// cada data para que new Date(g.date) dê o INSTANTE ABSOLUTO correto em qualquer
+// dispositivo: o bloqueio (dlPassed) fica igual ao backend, e a hora mostrada
+// (toLocaleTimeString sem timeZone) passa a ser a hora LOCAL de cada utilizador.
+GAMES.forEach(g=>{
+  if(!g.date) return;
+  if(/[Zz]|[+\-]\d\d:?\d\d$/.test(g.date)) return;   // já tem fuso definido
+  let s=g.date;
+  if(/T\d\d:\d\d$/.test(s)) s+=':00';                 // garante segundos antes do offset
+  g.date=s+'+01:00';
+});
+
 // ── Transmissões em Portugal por jogo ──
 // free: canais em sinal aberto · streaming: LiveModeTV (YouTube, gratuito)
 // SportTV transmite todos os 104 jogos (cabo/satélite)
