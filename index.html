@@ -2479,7 +2479,7 @@ function renderLB() {
       <thead><tr>
         <th>#</th>
         <th class="th-name">Jogador</th>
-        <th title="Jogos com resultado">J</th>
+        <th title="Jogos terminados em que apostou">J</th>
         <th title="Total de pontos" style="color:var(--gold)">Pts</th>
       </tr></thead><tbody>`;
     showData.forEach((p,i)=>{
@@ -2490,7 +2490,7 @@ function renderLB() {
       html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}${S.liveLB?'':posArrow(p.code,rank)}</td>
         <td class="td-name">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}${bot?'':reactHtml(p.code)}</td>
-        <td>${finishedGames}</td>
+        <td>${p.games!==undefined?p.games:finishedGames}</td>
         <td class="td-pts">${S.liveLB?`${p.total+add}${add?` <span class="live-dot" style="animation:none;font-size:.62rem">+${add}</span>`:''}`:p.total}</td>
       </tr>`;
       if(!bot)html+=reactPickerRow(p.code,4);
@@ -2515,7 +2515,7 @@ function renderLB() {
         <tr>
           <th rowspan="2" style="${thS};vertical-align:bottom">#</th>
           <th rowspan="2" class="th-name" style="${thS};vertical-align:bottom;padding-left:8px">Jogador</th>
-          <th rowspan="2" title="Jogos com resultado" style="${thS};color:var(--sub);vertical-align:bottom">J</th>
+          <th rowspan="2" title="Jogos terminados em que apostou" style="${thS};color:var(--sub);vertical-align:bottom">J</th>
           <th colspan="3" style="${thS};color:var(--green);font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">GRUPOS<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th colspan="3" style="${thS};color:#7986cb;font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">KO<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
@@ -2540,7 +2540,7 @@ function renderLB() {
       html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
         <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
-        <td style="${tdN};color:var(--sub)">${finishedGames}</td>
+        <td style="${tdN};color:var(--sub)">${p.games!==undefined?p.games:finishedGames}</td>
         <td style="${tdN};color:var(--green)">${p.wins||0}</td>
         <td style="${tdN};color:#f39c12">${p.draws||0}</td>
         <td style="${tdN};color:var(--green)">${p.group_pts||0}</td>
