@@ -1083,42 +1083,7 @@
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;margin:14px 2px 2px">Olá, <span id="comp-hello" style="color:var(--gold)">—</span> 👋</div>
       <div style="color:var(--sub);font-size:.9rem;margin:0 2px 18px;line-height:1.5">Escolhe a competição em que queres jogar. Cada uma tem a sua própria classificação, ligas e apostas.</div>
 
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:8px 4px 10px">A decorrer</div>
-
-      <div onclick="enterCompetition('mundial')" style="position:relative;background:var(--card);border:1px solid rgba(245,197,24,.5);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer;box-shadow:0 0 0 1px rgba(245,197,24,.15)">
-        <div style="display:flex;align-items:center;gap:14px">
-          <div style="width:58px;height:58px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--border);overflow:hidden">
-            <img src="img/comp-mundial.jpg" alt="Mundial 2026" style="width:84%;height:84%;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:1.9rem">🏆</span>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.22rem;line-height:1.1">Mundial 2026 &nbsp;<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(39,174,96,.16);color:#4ade80;border:1px solid rgba(39,174,96,.4)">● A decorrer</span></div>
-            <div style="color:var(--sub);font-size:.8rem;margin-top:3px">11 Jun – 19 Jul · EUA · Canadá · México</div>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-          <div style="display:flex;gap:16px;font-size:.74rem;color:var(--sub)">
-            <div><b id="comp-inscritos" style="display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">—</b>inscritos</div>
-            <div><b style="display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">48</b>seleções</div>
-            <div><b style="display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">104</b>jogos</div>
-          </div>
-          <button class="btn btn-primary" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();enterCompetition('mundial')">Entrar →</button>
-        </div>
-      </div>
-
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:18px 4px 10px">Em breve</div>
-
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;opacity:.62">
-        <div style="display:flex;align-items:center;gap:14px">
-          <div style="width:58px;height:58px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--border);overflow:hidden">
-            <img src="img/comp-ucl.jpg" alt="UEFA Champions League" style="width:84%;height:84%;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:100%;height:100%;align-items:center;justify-content:center;font-size:1.9rem">⭐</span>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.22rem;line-height:1.1">UEFA Champions League 2026/27 &nbsp;<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(122,155,181,.14);color:var(--sub);border:1px solid var(--border)">Brevemente</span></div>
-            <div style="color:var(--sub);font-size:.8rem;margin-top:3px">A iniciar em setembro de 2026</div>
-          </div>
-        </div>
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:.78rem;color:var(--sub)">🔒 Inscrições abrem mais perto do arranque da competição</div>
-      </div>
+      <div id="competitions-list"></div>
     </div>
   </div>
 
@@ -2005,6 +1970,10 @@ const S = {
   social:null, socialLeague:null, socialLoading:false,
   reactFor:null, duelsOpen:false, mvpJ:null, rankHist:{}, _cardData:null,
   notifs:[], allPreds:{}, allPrebets:{}, notifPrefs:{}, lockedResults:[],
+  competitions:[
+    {id:'mundial2026',name:'Mundial 2026',status:'active',subtitle:'11 Jun – 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
+    {id:'ucl2627',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0}
+  ],
   live:{}, liveLB:false,
 };
 
@@ -2334,6 +2303,8 @@ function showApp() {
 }
 
 // ── Página de seleção de competição (landing pós-login; sempre acessível) ──
+const COMP_EMBLEM={mundial2026:'img/comp-mundial.jpg',ucl2627:'img/comp-ucl.jpg'};
+const COMP_FALLBACK={mundial2026:'🏆',ucl2627:'⭐'};
 function showCompetitions(){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-competitions').classList.add('active');
@@ -2343,18 +2314,70 @@ function showCompetitions(){
   const first=S.user&&S.user.name?S.user.name.split(' ')[0]:'';
   document.getElementById('comp-hello').textContent=first||(S.user?S.user.name:'');
   document.getElementById('comp-user-pill').textContent='👤 '+(S.user?S.user.name:'');
-  updateCompetitionsCount();
+  renderCompetitions(); // render imediato (cache/defaults)
+  // dados frescos do backend (estado de inscrição + nº de inscritos por competição)
+  if(!S.demoMode && S.user && S.user.code){
+    api('getCompetitions',{code:S.user.code}).then(r=>{
+      if(r&&r.competitions){ S.competitions=r.competitions; if(S.curView==='competitions')renderCompetitions(); }
+    }).catch(()=>{});
+  }
   window.scrollTo(0,0);
 }
-function updateCompetitionsCount(){
-  const el=document.getElementById('comp-inscritos'); if(!el)return;
-  const n=(S.lb||[]).filter(p=>p.code!=='BOT_IA').length;
-  el.textContent=n>0?n:'—';
+function compCard(c){
+  const img=COMP_EMBLEM[c.id]||''; const emo=COMP_FALLBACK[c.id]||'🏆';
+  const emblem=`<div style="width:58px;height:58px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--border);overflow:hidden">
+    ${img?`<img src="${img}" alt="${c.name}" style="width:84%;height:84%;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}<span style="display:${img?'none':'flex'};width:100%;height:100%;align-items:center;justify-content:center;font-size:1.9rem">${emo}</span>
+  </div>`;
+  const badge=c.status==='active'
+    ?`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(39,174,96,.16);color:#4ade80;border:1px solid rgba(39,174,96,.4)">● A decorrer</span>`
+    :`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(122,155,181,.14);color:var(--sub);border:1px solid var(--border)">Brevemente</span>`;
+  const head=`<div style="display:flex;align-items:center;gap:14px">${emblem}
+    <div style="flex:1;min-width:0">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.22rem;line-height:1.1">${c.name} &nbsp;${badge}</div>
+      <div style="color:var(--sub);font-size:.8rem;margin-top:3px">${c.subtitle||''}</div>
+    </div></div>`;
+  if(c.status!=='active'){
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;opacity:.62">${head}
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:.78rem;color:var(--sub)">🔒 Inscrições abrem mais perto do arranque da competição</div></div>`;
+  }
+  const st=c.stats||{};
+  const stat=(v,l)=>`<div><b style="display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">${v}</b>${l}</div>`;
+  const stats=`<div style="display:flex;gap:16px;font-size:.74rem;color:var(--sub)">
+    ${stat(c.participants||0,'inscritos')}${st.teams?stat(st.teams,'seleções'):''}${st.games?stat(st.games,'jogos'):''}
+  </div>`;
+  const action=c.registered
+    ?`<button class="btn btn-primary" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();enterCompetition('${c.id}')">Entrar →</button>`
+    :`<button class="btn btn-primary" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();registerToCompetition('${c.id}')">Inscrever-me</button>`;
+  const click=c.registered?`onclick="enterCompetition('${c.id}')" style="cursor:pointer"`:'';
+  return `<div ${click} style="position:relative;background:var(--card);border:1px solid rgba(245,197,24,.5);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 0 1px rgba(245,197,24,.15)${c.registered?';cursor:pointer':''}">${head}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">${stats}${action}</div></div>`;
+}
+function renderCompetitions(){
+  const list=S.competitions||[];
+  const active=list.filter(c=>c.status==='active');
+  const soon=list.filter(c=>c.status!=='active');
+  const label=t=>`<div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:8px 4px 10px">${t}</div>`;
+  let html='';
+  if(active.length){ html+=label('A decorrer'); active.forEach(c=>html+=compCard(c)); }
+  if(soon.length){ html+=label('Em breve'); soon.forEach(c=>html+=compCard(c)); }
+  const el=document.getElementById('competitions-list'); if(el)el.innerHTML=html;
 }
 function enterCompetition(id){
-  // Só o Mundial 2026 está ativo nesta fase; as restantes competições estão bloqueadas
-  if(id&&id!=='mundial')return;
+  const c=(S.competitions||[]).find(x=>x.id===id);
+  if(c && c.status!=='active')return; // competição ainda não disponível
+  S.competition=id||'mundial2026';
   showApp();
+}
+async function registerToCompetition(id){
+  const c=(S.competitions||[]).find(x=>x.id===id);
+  if(c && c.status!=='active'){showToast('As inscrições para esta competição ainda não abriram.','error');return;}
+  try{
+    const r=await api('registerCompetition',{code:S.user.code,competition_id:id});
+    if(r&&r.success===false){showToast(r.error||'Não foi possível inscrever.','error');return;}
+    if(c)c.registered=true;
+    showToast('Inscrição feita! Bem-vindo à competição.','success');
+    enterCompetition(id);
+  }catch(e){showToast('Erro de ligação.','error');}
 }
 
 // ════════════════════════════════════════════════
@@ -2485,7 +2508,6 @@ async function loadData() {
     if(r.results)S.results=r.results;
     S.koTeams=r.koTeams||{}; // equipas KO resolvidas automaticamente pelo backend
     if(r.lb)S.lb=r.lb;
-    if(S.curView==='competitions')updateCompetitionsCount(); // atualiza nº de inscritos quando os dados chegam
     S.lbPrev=r.lbPrev||null; // ranking anterior (seta de subida/descida desde o último jogo)
     if(r.rarityMap)S.rarityMap=r.rarityMap;
     if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
