@@ -650,6 +650,7 @@
         <div style="font-size:.75rem;color:var(--sub);margin-top:2px" id="account-info">—</div>
       </div>
     </div>
+    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
     <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showChangePw()">🔑 Alterar password</button>
@@ -667,6 +668,15 @@
     <div id="notifprefs-msg" class="alert alert-success" style="display:none;margin-top:10px"></div>
     <button class="btn btn-primary btn-full" style="margin-top:14px" onclick="saveNotifPrefs()" id="notifprefs-btn">Guardar</button>
     <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeNotifPrefs()">Fechar</button>
+  </div>
+</div>
+<!-- ── Palmarés / Histórico ── -->
+<div class="switcher-overlay" id="palmares-overlay" onclick="closePalmares()">
+  <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">🏅 Palmarés</div>
+    <div style="font-size:.78rem;color:var(--sub);margin-bottom:16px;line-height:1.5">O teu percurso nas competições em que participaste.</div>
+    <div id="palmares-list"></div>
+    <button class="btn btn-outline btn-full" style="margin-top:12px;font-size:.78rem" onclick="closePalmares()">Fechar</button>
   </div>
 </div>
 <!-- League switcher sheet -->
@@ -2259,6 +2269,57 @@ function showNotifPrefs(){
   document.getElementById('notifprefs-overlay').classList.add('open');
 }
 function closeNotifPrefs(){document.getElementById('notifprefs-overlay').classList.remove('open');}
+
+// ── Palmarés / Histórico ──
+function buildPalmaresStats(){
+  const lb=S.lb||[];
+  const meIdx=lb.findIndex(p=>S.user&&p.code===S.user.code);
+  if(meIdx<0)return null;
+  const me=lb[meIdx];
+  let gold=0,silver=0,bronze=0;
+  try{
+    const hasJP=lb.some(p=>p.jp&&Object.keys(p.jp).length);
+    if(hasJP&&typeof completeJornadas==='function'){
+      const compJs=completeJornadas();
+      const humans=lb.filter(p=>p.code!=='BOT_IA');
+      const mdPts={};
+      compJs.forEach(j=>{mdPts[j]={};humans.forEach(p=>{mdPts[j][p.name]=(p.jp&&p.jp[j])||0;});});
+      const tro=computeMatchdayTrophies(mdPts)[me.name]||[];
+      tro.forEach(t=>{if(t.rank===1)gold++;else if(t.rank===2)silver++;else bronze++;});
+    }
+  }catch(e){}
+  return {rank:meIdx+1,total:lb.length,points:me.total||0,games:me.games!==undefined?me.games:0,gold,silver,bronze};
+}
+function showPalmares(){
+  const list=(S.competitions||[]).filter(c=>c.registered);
+  const stats=buildPalmaresStats();
+  const stat=(v,l)=>`<div style="text-align:center"><div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.4rem;color:var(--gold)">${v}</div><div style="font-size:.7rem;color:var(--sub)">${l}</div></div>`;
+  let html='';
+  list.forEach(c=>{
+    const active=c.status==='active';
+    let body;
+    if(active&&stats){
+      const medals=(stats.gold||stats.silver||stats.bronze)
+        ?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.8rem;color:var(--text)">Troféus de jornada: ${stats.gold?`🥇×${stats.gold} `:''}${stats.silver?`🥈×${stats.silver} `:''}${stats.bronze?`🥉×${stats.bronze}`:''}</div>`
+        :`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.76rem;color:var(--sub)">Ainda sem troféus de jornada.</div>`;
+      body=`<div style="display:flex;justify-content:space-around;gap:8px;margin-top:12px">
+        ${stat('#'+stats.rank,'de '+stats.total)}${stat(stats.points,'pontos')}${stat(stats.games,'jogos')}
+      </div>${medals}`;
+    } else if(active){
+      body=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">Entra na competição para veres o teu histórico aqui.</div>`;
+    } else {
+      body=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">🔒 Competição ainda não iniciada.</div>`;
+    }
+    html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem">${c.name}</div>
+      ${body}</div>`;
+  });
+  if(!list.length) html=`<div class="alert alert-info" style="font-size:.82rem">Ainda não estás inscrito em nenhuma competição.</div>`;
+  html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:4px">As novas competições em que participares aparecem aqui.</div>`;
+  document.getElementById('palmares-list').innerHTML=html;
+  document.getElementById('palmares-overlay').classList.add('open');
+}
+function closePalmares(){document.getElementById('palmares-overlay').classList.remove('open');}
 async function saveNotifPrefs(){
   const prefs={...(S.notifPrefs||{})};
   NOTIF_OPTS.forEach(o=>{
