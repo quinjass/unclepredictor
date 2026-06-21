@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uncle Predictor — Seleção de Competição (mockup)</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1b2a;--bg2:#1a2d42;--card:#162032;
+    --gold:#f5c518;--green:#27ae60;--red:#e74c3c;--orange:#e67e22;
+    --text:#e8e8e8;--sub:#7a9bb5;--border:#253a50;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;
+       display:flex;flex-direction:column;align-items:center;padding:0 16px 40px}
+  .topbar{width:100%;max-width:520px;display:flex;justify-content:space-between;align-items:center;
+          padding:16px 4px 10px}
+  .brand{display:flex;align-items:center;gap:9px;font-family:'Rajdhani',sans-serif;font-weight:700;
+         font-size:1.15rem;letter-spacing:.02em}
+  .brand .dot{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--gold),#e0a800);
+              display:flex;align-items:center;justify-content:center;color:#10202f;font-size:1rem}
+  .user-pill{background:var(--bg2);border:1px solid var(--border);border-radius:20px;
+             padding:6px 13px;font-size:.78rem;color:var(--sub)}
+  .wrap{width:100%;max-width:520px}
+  .hello{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.55rem;margin:14px 2px 2px}
+  .hello span{color:var(--gold)}
+  .sub{color:var(--sub);font-size:.9rem;margin:0 2px 20px;line-height:1.5}
+
+  .sec-label{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.12em;
+             text-transform:uppercase;color:var(--sub);margin:18px 4px 10px;display:flex;align-items:center;gap:8px}
+  .sec-label::after{content:"";flex:1;height:1px;background:var(--border)}
+
+  /* Cartão de competição */
+  .comp{position:relative;background:var(--card);border:1px solid var(--border);border-radius:16px;
+        padding:18px;margin-bottom:14px;overflow:hidden;transition:.18s;cursor:pointer}
+  .comp.active{border-color:rgba(245,197,24,.55);box-shadow:0 0 0 1px rgba(245,197,24,.18),0 8px 26px rgba(0,0,0,.35)}
+  .comp.active:hover{transform:translateY(-2px);box-shadow:0 0 0 1px rgba(245,197,24,.3),0 12px 30px rgba(0,0,0,.45)}
+  .comp.locked{opacity:.62;cursor:default}
+  .comp .glow{position:absolute;inset:0;background:radial-gradient(120% 80% at 100% 0,rgba(245,197,24,.12),transparent 60%);pointer-events:none}
+
+  .comp-top{display:flex;align-items:center;gap:14px}
+  .emblem{width:58px;height:58px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+          font-size:1.9rem;border:1px solid var(--border);overflow:hidden}
+  .emblem.cup{background:#fff}
+  .emblem.ucl{background:#fff}
+  .emblem img{width:84%;height:84%;object-fit:contain}
+  .emblem .emoji-fb{display:none;width:100%;height:100%;align-items:center;justify-content:center}
+  .comp-info{flex:1;min-width:0}
+  .comp-name{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.22rem;line-height:1.1}
+  .comp-meta{color:var(--sub);font-size:.8rem;margin-top:3px}
+  .badge{display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+         padding:3px 8px;border-radius:6px;vertical-align:middle}
+  .badge.live{background:rgba(39,174,96,.16);color:#4ade80;border:1px solid rgba(39,174,96,.4)}
+  .badge.soon{background:rgba(122,155,181,.14);color:var(--sub);border:1px solid var(--border)}
+
+  .comp-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;
+             padding-top:14px;border-top:1px solid var(--border)}
+  .stats{display:flex;gap:16px;font-size:.74rem;color:var(--sub)}
+  .stats b{display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)}
+  .enter{background:linear-gradient(135deg,var(--gold),#e0a800);color:#10202f;border:none;border-radius:10px;
+         font-weight:700;font-size:.86rem;padding:11px 22px;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap}
+  .lock-row{display:flex;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);
+            font-size:.78rem;color:var(--sub)}
+
+  /* Cartão "inscrever / código" */
+  .join{background:linear-gradient(135deg,#16263a,#13202f);border:1px dashed var(--border);border-radius:14px;
+        padding:16px;text-align:center;color:var(--sub);font-size:.84rem;margin-top:6px}
+  .join b{color:var(--text)}
+  .note{margin-top:26px;font-size:.72rem;color:var(--sub);background:var(--bg2);border:1px solid var(--border);
+        border-radius:10px;padding:12px 14px;line-height:1.6}
+  .note b{color:var(--gold)}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="dot">⚽</span> Uncle Predictor</div>
+    <div class="user-pill">👤 HUGO</div>
+  </div>
+
+  <div class="wrap">
+    <div class="hello">Olá, <span>Hugo</span> 👋</div>
+    <div class="sub">Escolhe a competição em que queres jogar. Cada uma tem a sua própria classificação, ligas e apostas.</div>
+
+    <div class="sec-label">A decorrer</div>
+
+    <!-- COMPETIÇÃO ATIVA -->
+    <div class="comp active" onclick="alert('Entrar no Mundial 2026 →');">
+      <div class="glow"></div>
+      <div class="comp-top">
+        <div class="emblem cup">
+          <img src="assets/vecteezy_trophy-fifa-world-cup-logo-mondial-champion-symbol-black-and_8785559.jpg" alt="Mundial 2026" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <span class="emoji-fb">🏆</span>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">Mundial 2026 &nbsp;<span class="badge live">● A decorrer</span></div>
+          <div class="comp-meta">11 Jun – 19 Jul · EUA · Canadá · México</div>
+        </div>
+      </div>
+      <div class="comp-foot">
+        <div class="stats">
+          <div><b id="stat-inscritos">60</b>inscritos</div>
+          <div><b>48</b>seleções</div>
+          <div><b>104</b>jogos</div>
+          <div><b>5</b>ligas tuas</div>
+        </div>
+        <button class="enter">Entrar →</button>
+      </div>
+    </div>
+
+    <div class="sec-label">Em breve</div>
+
+    <!-- COMPETIÇÕES FUTURAS (placeholder) -->
+    <div class="comp locked">
+      <div class="comp-top">
+        <div class="emblem ucl">
+          <img src="assets/vecteezy_champions-league-trophy-black-symbol-logo-abstract-design_25409512.jpg" alt="UEFA Champions League" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <span class="emoji-fb">⭐</span>
+        </div>
+        <div class="comp-info">
+          <div class="comp-name">UEFA Champions League 2026/27 &nbsp;<span class="badge soon">Brevemente</span></div>
+          <div class="comp-meta">A iniciar em setembro de 2026</div>
+        </div>
+      </div>
+      <div class="lock-row">🔒 Inscrições abrem mais perto do arranque da competição</div>
+    </div>
+
+    <div class="note">
+      <b>Como funciona:</b> primeiro inscreves-te no Uncle Predictor (conta única). Depois, nesta página,
+      escolhes a competição em que queres participar — é uma inscrição <b>secundária</b>. Numa competição
+      ainda não inscrita o botão diz <b>"Inscrever-me"</b>; depois de inscrito passa a <b>"Entrar"</b> e tens
+      acesso a tudo o que já está desenvolvido (apostas, ligas, classificação, simulador…). Esta página fica
+      <b>sempre disponível</b> para alternares entre competições.
+    </div>
+  </div>
+
+  <script>
+    // Liga ao backend: nº de inscritos = participantes no leaderboard (exclui o BOT_IA).
+    // Mostra 60 enquanto não chega a resposta; substitui pelo valor real.
+    (async function(){
+      const SCRIPT_URL='https://script.google.com/macros/s/AKfycbwqyvxOT_vRkUALpAmvZuYaNJN7M4xWnAQiX8wrB-eTbK3OCnqq7CJ8h7LkI1BZhAw/exec';
+      try{
+        const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'getData',code:'_preview'})});
+        const d=await r.json();
+        const n=(d.lb||[]).filter(p=>p.code!=='BOT_IA').length;
+        if(n>0) document.getElementById('stat-inscritos').textContent=n;
+      }catch(e){ /* offline/preview → fica o fallback */ }
+    })();
+  </script>
+</body>
+</html>
