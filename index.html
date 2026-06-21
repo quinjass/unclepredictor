@@ -2348,7 +2348,7 @@ function compCard(c){
   const action=c.registered
     ?`<button class="btn btn-primary" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();enterCompetition('${c.id}')">Entrar →</button>`
     :`<button class="btn btn-primary" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();registerToCompetition('${c.id}')">Inscrever-me</button>`;
-  const click=c.registered?`onclick="enterCompetition('${c.id}')" style="cursor:pointer"`:'';
+  const click=c.registered?`onclick="enterCompetition('${c.id}')"`:'';
   return `<div ${click} style="position:relative;background:var(--card);border:1px solid rgba(245,197,24,.5);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 0 1px rgba(245,197,24,.15)${c.registered?';cursor:pointer':''}">${head}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">${stats}${action}</div></div>`;
 }
@@ -3700,7 +3700,11 @@ async function saveCard(id){
     const md=g?g.md:null;
     const scopeMDs=(md==='F3'||md==='FIN')?['F3','FIN']:[md];
     const jokerScope=GAMES.filter(x=>scopeMDs.includes(x.md)&&x.id!==id).map(x=>x.id);
-    const r=await api('savePred',{code:S.user.code,gameId:id,pred:S.preds[id],jokerScope});
+    // savePred é idempotente → 1 retry caso a 1ª resposta venha inválida (race do Apps Script
+    // que às vezes devolve não-JSON apesar de gravar). Evita o falso "erro ao guardar".
+    let r;
+    try{ r=await api('savePred',{code:S.user.code,gameId:id,pred:S.preds[id],jokerScope}); }
+    catch(err){ await new Promise(res=>setTimeout(res,600)); r=await api('savePred',{code:S.user.code,gameId:id,pred:S.preds[id],jokerScope}); }
     if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
     S.savedCards[id]=true;
     S.pending=false;
