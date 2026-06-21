@@ -2274,9 +2274,12 @@ function closeNotifPrefs(){document.getElementById('notifprefs-overlay').classLi
 // ── Palmarés / Histórico ──
 function buildPalmaresStats(){
   const lb=S.lb||[];
-  const meIdx=lb.findIndex(p=>S.user&&p.code===S.user.code);
+  if(!lb.length||!S.user)return null;
+  // Ordenar com o MESMO comparador da classificação (S.lb vem do servidor sem ordenar)
+  const sorted=[...lb].sort(lbCompare);
+  const meIdx=sorted.findIndex(p=>p.code===S.user.code);
   if(meIdx<0)return null;
-  const me=lb[meIdx];
+  const me=sorted[meIdx];
   let gold=0,silver=0,bronze=0;
   try{
     const hasJP=lb.some(p=>p.jp&&Object.keys(p.jp).length);
@@ -2289,7 +2292,8 @@ function buildPalmaresStats(){
       tro.forEach(t=>{if(t.rank===1)gold++;else if(t.rank===2)silver++;else bronze++;});
     }
   }catch(e){}
-  return {rank:meIdx+1,total:lb.length,points:me.total||0,games:me.games!==undefined?me.games:0,gold,silver,bronze};
+  const total=lb.filter(p=>p.code!=='BOT_IA').length; // inscritos (humanos)
+  return {rank:meIdx+1,total,points:me.total||0,games:me.games!==undefined?me.games:0,gold,silver,bronze};
 }
 function showPalmares(){
   const list=(S.competitions||[]).filter(c=>c.registered);
@@ -2304,7 +2308,7 @@ function showPalmares(){
         ?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.8rem;color:var(--text)">Troféus de jornada: ${stats.gold?`🥇×${stats.gold} `:''}${stats.silver?`🥈×${stats.silver} `:''}${stats.bronze?`🥉×${stats.bronze}`:''}</div>`
         :`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.76rem;color:var(--sub)">Ainda sem troféus de jornada.</div>`;
       body=`<div style="display:flex;justify-content:space-around;gap:8px;margin-top:12px">
-        ${stat('#'+stats.rank,'de '+stats.total)}${stat(stats.points,'pontos')}${stat(stats.games,'jogos')}
+        ${stat(stats.rank+'º','de '+stats.total)}${stat(stats.points,'pontos')}${stat(stats.games,'jogos')}
       </div>${medals}`;
     } else if(active){
       body=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">Entra na competição para veres o teu histórico aqui.</div>`;
@@ -2563,6 +2567,14 @@ async function loadData() {
         S.preds[id]=keepLocal[id].pred;
         if(keepLocal[id].saved) S.savedCards[id]=true; else delete S.savedCards[id];
       });
+      // Jogos limpos há pouco: não deixar uma leitura stale ressuscitá-los (janela 12s)
+      if(S.clearedGames){
+        const nowt=Date.now();
+        Object.keys(S.clearedGames).forEach(id=>{
+          if(nowt-S.clearedGames[id]>12000){ delete S.clearedGames[id]; return; }
+          delete S.preds[id]; delete S.savedCards[id];
+        });
+      }
       localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
       localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     }
@@ -3798,6 +3810,10 @@ async function clearCard(id){
       const r=await api('clearPred',{code:S.user.code,gameId:id});
       if(r&&r.success===false)throw new Error(r.error||'Falha ao limpar');
     }
+    // Marca como limpo agora: impede que um refresh atrasado (leitura stale no Apps Script,
+    // ainda com a linha antes do delete propagar) volte a mostrar a aposta. Janela curta.
+    S.clearedGames=S.clearedGames||{}; S.clearedGames[id]=Date.now();
+    delete S.preds[id];
     localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
     localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     S.pending=false;
