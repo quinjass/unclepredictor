@@ -823,6 +823,16 @@
           </div>
 
           <div class="card">
+            <div class="rules-subtitle">🤖 Default Picks</div>
+            <div style="font-size:.78rem;line-height:1.6;color:var(--text)">
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">😴 Esqueceste-te de apostar? Herdas a aposta do <strong style="color:#a78bfa">IA</strong> nesse jogo.</div>
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">🎯 Conta <strong>só a tendência</strong>: IA acerta o vencedor/empate → <strong>1 pt</strong> (grupos) / <strong>2 pts</strong> (KO). IA falha → 0.</div>
+              <div style="padding:4px 0;border-bottom:1px solid var(--border)">🚫 Sem bónus de resultado exato, sem joker e sem raridade.</div>
+              <div style="padding:4px 0">🔢 Máximo <strong>5 por torneio</strong>. Esgotadas, jogos sem aposta valem 0.</div>
+            </div>
+          </div>
+
+          <div class="card">
             <div class="rules-subtitle">🌟 Bónus de Raridade</div>
             <div style="font-size:.75rem;color:var(--sub);margin-bottom:8px;line-height:1.5">
               Acertas no resultado exato? Se poucos apostaram igual, ganhas pontos extra!
@@ -1218,6 +1228,18 @@
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏅 Ganha o duelo quem fizer <strong>mais pontos nessa jornada</strong> (joker e raridade contam). Vitória <strong style="color:#e67e22">2 pts</strong> · Empate <strong>1 pt</strong> · Derrota <strong>0</strong>. Com nº ímpar de membros, quem fica de fora recebe <strong>bye = 1 pt</strong>.</div>
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">📊 Os pontos de duelo vivem na coluna <strong style="color:#e67e22">⚔️</strong> da classificação detalhada — é uma <strong>tabela paralela</strong>, não soma ao Total.</div>
         <div style="padding:5px 0">🏅 No fim do Mundial, quem somar mais pontos de duelo é coroado <strong style="color:#e67e22">⚔️ Campeão de Duelos</strong> da liga — um título próprio, ao lado do campeão geral. Desempate: mais vitórias em duelos → melhor posição na classificação.</div>
+      </div>
+    </div>
+
+    <!-- Default Picks -->
+    <div class="card">
+      <div class="rules-subtitle">🤖 Default Picks <span style="font-size:.78rem;color:#a78bfa;font-weight:400">rede de segurança</span></div>
+      <div style="font-size:.8rem;line-height:1.7;color:var(--text)">
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">😴 Esqueceste-te de apostar num jogo? Em vez de zero, herdas automaticamente a aposta do <strong style="color:#a78bfa">🤖 IA</strong> nesse jogo.</div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🎯 A default pick conta <strong>só a tendência</strong>: se o IA acertar o vencedor/empate ganhas <strong style="color:var(--green)">1 pt</strong> (grupos) ou <strong style="color:#7986cb">2 pts</strong> (mata-mata). Se o IA falhar, ficas a <strong>0</strong> — sem penalização.</div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🚫 O acerto no resultado exato <strong>não</strong> dá pontos extra, e <strong>não há joker nem raridade</strong> nas default picks (o teto é sempre o valor da tendência).</div>
+        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔢 Tens no máximo <strong>5 default picks</strong> em todo o torneio (5% dos jogos). Gastas-as pela ordem dos jogos; esgotadas, os jogos sem aposta voltam a valer 0.</div>
+        <div style="padding:5px 0">📊 Contam para o <strong>Total</strong>, MVP e Duelos, mas aparecem à parte na coluna <strong style="color:#a78bfa">D</strong> da classificação detalhada. A aposta do IA só fica visível depois do fecho do jogo.</div>
       </div>
     </div>
 
@@ -1668,7 +1690,9 @@ function pbFlag(t,w,h){
 
 function getKOTeamName(gameId, side) {
   const res = S.results[gameId];
-  if (res && res[side+'_name']) return res[side+'_name'];
+  if (res && res[side+'_name']) return res[side+'_name'];      // override manual (mantido)
+  const ko = S.koTeams && S.koTeams[gameId];                    // resolução automática (backend)
+  if (ko && ko[side]) return ko[side];
   const game = GAMES.find(g => g.id === gameId);
   return game ? game[side] : '—';
 }
@@ -2275,6 +2299,7 @@ async function loadData() {
     }
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
+    S.koTeams=r.koTeams||{}; // equipas KO resolvidas automaticamente pelo backend
     if(r.lb)S.lb=r.lb;
     S.lbPrev=r.lbPrev||null; // ranking anterior (seta de subida/descida desde o último jogo)
     if(r.rarityMap)S.rarityMap=r.rarityMap;
@@ -2501,11 +2526,12 @@ function renderLB() {
     // % explícitas a somar 100% — sem scroll horizontal, sem col auto
     const thS='padding:5px 3px;font-size:.62rem';
     const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 3px;text-align:center';
-    const nCols=duelData?14:13;
+    const nCols=duelData?15:14;
     html+=`<div class="standings-wrap"><table class="standings-table standings-detailed" style="table-layout:fixed;width:100%">
       <colgroup>
         <col style="width:5%">
-        <col style="width:${duelData?'16':'21'}%">
+        <col style="width:${duelData?'13':'18'}%">
+        <col style="width:5%">
         <col style="width:5%">
         <col style="width:6%"><col style="width:7%"><col style="width:7%">
         <col style="width:6%"><col style="width:7%"><col style="width:7%">
@@ -2516,6 +2542,7 @@ function renderLB() {
           <th rowspan="2" style="${thS};vertical-align:bottom">#</th>
           <th rowspan="2" class="th-name" style="${thS};vertical-align:bottom;padding-left:8px">Jogador</th>
           <th rowspan="2" title="Jogos terminados em que apostou" style="${thS};color:var(--sub);vertical-align:bottom">J</th>
+          <th rowspan="2" title="Default picks usadas — aposta do IA herdada por esquecimento (máx. 5)" style="${thS};color:#a78bfa;vertical-align:bottom;cursor:help">D</th>
           <th colspan="3" style="${thS};color:var(--green);font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">GRUPOS<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th colspan="3" style="${thS};color:#7986cb;font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">KO<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
@@ -2541,6 +2568,7 @@ function renderLB() {
         <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
         <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
         <td style="${tdN};color:var(--sub)">${p.games!==undefined?p.games:finishedGames}</td>
+        <td style="${tdN};color:#a78bfa" title="Default picks usadas">${p.defaults?('🤖'+p.defaults):'—'}</td>
         <td style="${tdN};color:var(--green)">${p.wins||0}</td>
         <td style="${tdN};color:#f39c12">${p.draws||0}</td>
         <td style="${tdN};color:var(--green)">${p.group_pts||0}</td>
@@ -2562,6 +2590,7 @@ function renderLB() {
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
       <span style="white-space:nowrap;color:#f39c12">⭐ = Raridade</span>
       <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Joker</span>
+      <span style="white-space:nowrap;color:#a78bfa">🤖 D = Default picks (IA)</span>
       ${duelData?'<span style="white-space:nowrap;color:#e67e22">⚔️ = Duelos (paralelo)</span>':''}
     </div>`;
   }
@@ -4213,6 +4242,36 @@ function openPlayerModal(playerName) {
 
 // Constrói o perfil de apostas (tabela + stats + evolução + pré-apostas)
 // Reutilizado pelo modal de jogador e pelo modal do Bot IA
+// ── DEFAULT PICKS (espelho da lógica do backend, p/ marcação 🤖 no perfil) ──
+const DEFAULT_PICK_CUTOFF_MS = Date.parse('2026-06-21T00:00:00Z'); // kickoff de E4
+const DEFAULT_PICK_BUDGET = 5;
+function botPickFor(gid){
+  // Aposta do IA neste jogo (só disponível após o fecho, via S.allPreds)
+  const m = S.allPreds && S.allPreds[gid];
+  const bp = m && m['BOT_IA'];
+  if (!bp || bp.t1===undefined || bp.t1==='') return null;
+  return {t1:Number(bp.t1), t2:Number(bp.t2)};
+}
+// Devolve {gid:{t1,t2,pts,isKO,hit}} dos jogos cobertos por default pick deste jogador
+function defaultPicksOf(preds, results){
+  const out = {};
+  const cand = GAMES.filter(g=>{
+    const r = results[g.id];
+    if (!r || r.t1===undefined) return false;                 // sem resultado
+    if (preds[g.id] && preds[g.id].t1!==undefined) return false; // apostou
+    if (!botPickFor(g.id)) return false;                      // IA sem pick
+    return Date.parse(g.date) >= DEFAULT_PICK_CUTOFF_MS;      // só do corte (E4) em diante
+  }).sort((a,b)=> Date.parse(a.date)-Date.parse(b.date) || (a.id<b.id?-1:1));
+  for (let i=0; i<cand.length && i<DEFAULT_PICK_BUDGET; i++){
+    const g=cand[i], r=results[g.id], bp=botPickFor(g.id), isKO=!!g.ko;
+    const pw = bp.t1>bp.t2?1:bp.t1<bp.t2?-1:0;
+    const rw = r.t1>r.t2?1:r.t1<r.t2?-1:0;
+    const hit = pw===rw;
+    out[g.id] = {t1:bp.t1, t2:bp.t2, pts: hit?(isKO?2:1):0, isKO, hit};
+  }
+  return out;
+}
+
 function buildPlayerBetsHtml(playerName) {
   const isMe = S.user && playerName.toLowerCase()===S.user.name.toLowerCase();
 
@@ -4230,6 +4289,10 @@ function buildPlayerBetsHtml(playerName) {
   }
 
   const results = S.demoMode ? DEMO_RESULTS : S.results;
+  // Default picks deste jogador (não para o IA nem em demo)
+  const lbEntry = (S.lb||[]).find(p=>p.name.toLowerCase()===playerName.toLowerCase());
+  const isBotProfile = lbEntry && lbEntry.code==='BOT_IA';
+  const defPicks = (S.demoMode||isBotProfile) ? {} : defaultPicksOf(preds, results);
   // Jogos terminados + jogos fechados (deadline passou) com aposta deste jogador
   const shownGames = GAMES.filter(g =>
     results[g.id]!==undefined ||
@@ -4257,9 +4320,10 @@ function buildPlayerBetsHtml(playerName) {
   shownGames.forEach(g=>{
     const res=results[g.id];
     const isF=res&&res.t1!==undefined;
-    if(isF)finishedCount++;
     const pred=preds[g.id];
     const hasPred=pred&&pred.t1!==undefined;
+    if(isF&&hasPred)finishedCount++;
+    const dpick=(isF&&!hasPred)?defPicks[g.id]:null;
     const isKO=!!(g.ko);
     const lv=!isF?liveOf(g.id):null;
     // Decomposição igual ao modal de jogo: base + raridade + joker
@@ -4280,9 +4344,12 @@ function buildPlayerBetsHtml(playerName) {
       anyLive=true;
       const pot=livePotential(g.id,pred);
       if(pot){base=pot.base;rar=pot.rar;jok=pot.jok;tot=pot.tot;}
+    } else if(dpick){
+      // Default pick: herdou a aposta do IA (só tendência; sem joker/raridade)
+      tot=dpick.pts; total+=dpick.pts;
     }
-    const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:'-';
-    const ptsCls=isF?(!hasPred||base===0?'pred-wrong':base===1||base===2?'pred-partial':'pred-correct'):'';
+    const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:(dpick?`<span style="color:#a78bfa" title="Default pick — aposta do IA por esquecimento">🤖 ${dpick.t1}–${dpick.t2}</span>`:'-');
+    const ptsCls=dpick?'':(isF?(!hasPred||base===0?'pred-wrong':base===1||base===2?'pred-partial':'pred-correct'):'');
     const liveStyle=lv?';opacity:.85;font-style:italic':'';
     html+=`<tr>
       <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
@@ -4291,12 +4358,13 @@ function buildPlayerBetsHtml(playerName) {
       <td style="${nC}${liveStyle}">${base===null?'—':base}</td>
       <td style="${nC};color:${rar?'#f39c12':'var(--sub)'}${liveStyle}">${rar?'+'+rar:'—'}</td>
       <td style="${nC};color:${jok?'#00bcd4':'var(--sub)'}${liveStyle}">${jok?'+'+jok:'—'}</td>
-      <td style="${nC};color:${lv?'var(--red)':'var(--gold)'}${liveStyle}">${tot===null?'—':tot}</td>
+      <td style="${nC};color:${dpick?'#a78bfa':(lv?'var(--red)':'var(--gold)')}${liveStyle}">${tot===null?'—':tot}</td>
     </tr>`;
   });
 
   html+=`</tbody></table>
   ${anyLive?'<div style="font-size:.68rem;color:var(--sub);margin-top:6px">🔴 = jogo a decorrer — pontos potenciais (em itálico), não somam ao total até ao apito final.</div>':''}
+  ${Object.keys(defPicks).length?'<div style="font-size:.68rem;color:#a78bfa;margin-top:6px">🤖 = default pick: aposta do IA herdada por esquecimento (só tendência: 1 grupos / 2 KO; sem joker nem raridade).</div>':''}
   <div style="display:flex;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL JOGOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">RESULTADOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">${wins}</div></div>
@@ -4566,8 +4634,9 @@ function renderAdminResults(){
     </div>`;
     games.forEach((g,idx)=>{
       const r=S.results[g.id]||{};
-      const t1Name=r.t1_name!==undefined?r.t1_name:g.t1;
-      const t2Name=r.t2_name!==undefined?r.t2_name:g.t2;
+      const t1Name=r.t1_name!==undefined?r.t1_name:getKOTeamName(g.id,'t1');
+      const t2Name=r.t2_name!==undefined?r.t2_name:getKOTeamName(g.id,'t2');
+      const tie=r.t1!==undefined&&r.t1===r.t2; // empate no FT → decidir nos penáltis
       html+=`<div style="background:var(--bg2);border:1px solid rgba(99,102,241,.25);border-radius:8px;padding:10px;margin-bottom:8px">
         <div style="font-size:.7rem;color:#7986cb;margin-bottom:7px;font-weight:600">JOGO ${idx+1}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -4578,6 +4647,14 @@ function renderAdminResults(){
           <input class="admin-score" type="number" min="0" max="20" value="${r.t2!==undefined?r.t2:''}" placeholder="–" oninput="setResult('${g.id}','t2',this.value)">
           <input class="form-input" type="text" value="${t2Name}" placeholder="Equipa fora"
             style="flex:1;min-width:110px;padding:6px 8px;font-size:.78rem" oninput="setKOTeam('${g.id}','t2_name',this.value)">
+        </div>
+        <div style="margin-top:7px;font-size:.72rem;color:${tie?'#f39c12':'var(--sub)'};display:flex;align-items:center;gap:6px">
+          <span title="Em caso de empate no fim, quem passou nos penáltis. O auto-fetch preenche isto sozinho.">🥅 Vencedor (penáltis):</span>
+          <select onchange="setPen('${g.id}',this.value)" style="font-size:.74rem;padding:3px 6px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px">
+            <option value="" ${!r.pen?'selected':''}>—</option>
+            <option value="t1" ${r.pen==='t1'?'selected':''}>${t1Name}</option>
+            <option value="t2" ${r.pen==='t2'?'selected':''}>${t2Name}</option>
+          </select>
         </div>
       </div>`;
     });
@@ -4606,6 +4683,7 @@ function renderAdminResults(){
   el.innerHTML=html;
 }
 function setResult(id,field,val){if(!S.results[id])S.results[id]={};S.results[id][field]=val===''?undefined:parseInt(val);}
+function setPen(id,val){if(!S.results[id])S.results[id]={};S.results[id].pen=(val==='t1'||val==='t2')?val:undefined;}
 async function saveResults(){
   try {
     await api('saveResults',{password:document.getElementById('admin-pw').value,results:S.results});
