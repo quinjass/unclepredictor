@@ -1453,7 +1453,7 @@
         </div>
         <div class="card" style="margin-top:12px">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:8px">📣 Mensagem a todos os jogadores</div>
-          <textarea class="form-input" id="broadcast-text" rows="3" maxlength="300" placeholder="Ex: Resultados da Jornada 1 já lançados — vê a classificação!" style="resize:vertical;width:100%;box-sizing:border-box"></textarea>
+          <textarea class="form-input" id="broadcast-text" rows="6" maxlength="4000" placeholder="Escreve a mensagem… (podes usar várias linhas e deixar linhas em branco entre parágrafos)" style="resize:vertical;width:100%;box-sizing:border-box;white-space:pre-wrap"></textarea>
           <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="sendBroadcast()">Enviar notificação 🔔</button>
           <div style="font-size:.7rem;color:var(--sub);margin-top:6px">Aparece no sino 🔔 de todos os jogadores na app.</div>
         </div>
@@ -2979,9 +2979,13 @@ function showNotifs(){
   const list=[...(S.notifs||[])].reverse();
   body.innerHTML=list.length?list.map(n=>{
     const unread=!seen||(n.at&&String(n.at)>seen);
-    return`<div style="padding:9px 4px;border-bottom:1px solid var(--border);${unread?'':'opacity:.55'}">
-      <div style="font-size:.8rem;line-height:1.45">${escapeHtml(n.text)}</div>
-      <div style="font-size:.62rem;color:var(--sub);margin-top:2px">${n.at?new Date(n.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}</div>
+    const date=n.at?new Date(n.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    return`<div onclick="toggleNotif(this)" style="padding:9px 4px;border-bottom:1px solid var(--border);cursor:pointer;${unread?'':'opacity:.55'}">
+      <div style="display:flex;align-items:flex-start;gap:6px">
+        <span class="notif-caret" style="color:var(--sub);font-size:.7rem;margin-top:3px;flex-shrink:0">▸</span>
+        <div class="notif-text" style="font-size:.8rem;line-height:1.45;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(n.text)}</div>
+      </div>
+      <div style="font-size:.62rem;color:var(--sub);margin-top:2px;padding-left:18px">${date}</div>
     </div>`;
   }).join(''):'<div style="font-size:.8rem;color:var(--sub);padding:10px 0">Sem notificações.</div>';
   document.getElementById('notif-overlay').classList.add('open');
@@ -2989,6 +2993,15 @@ function showNotifs(){
   renderNotifBadge();
 }
 function closeNotifs(){document.getElementById('notif-overlay').classList.remove('open');}
+// Expandir/colapsar uma notificação específica (1 linha → texto completo com quebras de linha)
+function toggleNotif(el){
+  const t=el.querySelector('.notif-text'), c=el.querySelector('.notif-caret');
+  const expanded=t.style.whiteSpace==='pre-wrap';
+  t.style.whiteSpace=expanded?'nowrap':'pre-wrap';
+  t.style.overflow=expanded?'hidden':'visible';
+  t.style.wordBreak=expanded?'normal':'break-word';
+  if(c)c.textContent=expanded?'▸':'▾';
+}
 
 // ── Convite de liga (admin da liga, página Gerir) ──
 async function sendLeagueInvite(){
