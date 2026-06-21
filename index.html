@@ -1980,6 +1980,7 @@ const S = {
   social:null, socialLeague:null, socialLoading:false,
   reactFor:null, duelsOpen:false, mvpJ:null, rankHist:{}, _cardData:null,
   notifs:[], allPreds:{}, allPrebets:{}, notifPrefs:{}, lockedResults:[],
+  competition:'mundial2026',
   competitions:[
     {id:'mundial2026',name:'Mundial 2026',status:'active',subtitle:'11 Jun – 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
     {id:'ucl2627',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0}
@@ -5259,7 +5260,7 @@ function rarityBadgeHtml(gameId, pred, res, jokerOn) {
 // ════════════════════════════════════════════════
 async function api(action,data){
   if(S.demoMode)return mockApi(action,data);
-  const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action,...data})});
+  const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action,competition_id:(S.competition||'mundial2026'),...data})});
   if(!r.ok)throw new Error('HTTP '+r.status);
   const text=await r.text();
   // NUNCA inventar sucesso: se a resposta não for JSON (página de erro, timeout,
