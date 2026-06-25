@@ -327,6 +327,8 @@
     .pb-team-row{display:flex;align-items:center;padding:3px 4px;gap:6px;border-radius:6px;margin-bottom:2px}
     .pb-team-row.counts{background:rgba(245,197,24,.07)}
     .pb-team-row.dim{opacity:.45}
+    .pb-team-row.pb-team-hit{background:rgba(34,197,94,.2)!important;opacity:1}
+    .pb-team-row.pb-team-miss{background:rgba(239,68,68,.28)!important;opacity:1}
     .pb-pos{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;width:15px;text-align:center;flex-shrink:0}
     .pb-pos.p1{color:var(--gold)}.pb-pos.p2{color:#60a5fa}.pb-pos.p3,.pb-pos.p4{color:#6b7280}
     .pb-row-flag{flex-shrink:0;display:inline-flex;align-items:center}
@@ -846,7 +848,7 @@
               <div class="scoring-cell" style="background:rgba(0,188,212,.08);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
                 <div class="scoring-pts" style="color:#00bcd4">+1</div>
                 <div class="scoring-label" style="color:#00bcd4">🎯 Aproximação</div>
-                <div class="scoring-sub">Falhas o exato mas erras só por <strong>1 golo no total</strong> da aposta → <strong>+1</strong>. Acumula com a tendência.</div>
+                <div class="scoring-sub">Falhas o exato mas ficas a <strong>1 golo</strong> dele: acertas numa equipa e falhas a outra por um golo → <strong>+1</strong>. Acumula com a tendência.</div>
               </div>
             </div>
             <div style="padding:7px 11px;background:rgba(0,188,212,.06);border-radius:8px;font-size:.72rem;color:var(--sub);line-height:1.6;margin-top:8px">
@@ -1162,13 +1164,7 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
       Pré-Apostas
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px">
-      <div id="prebets-status" class="alert alert-info" style="font-size:.78rem;margin:0;flex:1">Carregando...</div>
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <span id="prebet-unsaved-badge" style="display:none" class="autosave-pill unsaved-pill">⚠ Não guardado</span>
-        <button id="save-prebets-btn" class="btn btn-primary" style="font-size:.78rem;padding:6px 14px" onclick="savePrebetsAuto()">💾 Guardar</button>
-      </div>
-    </div>
+    <div id="prebets-status" style="display:none"></div>
     <div id="prebets-content"><div class="loading-center"><div class="spinner"></div></div></div>
   </div>
 
@@ -1237,12 +1233,13 @@
         <div class="scoring-cell" style="background:rgba(0,188,212,.08);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
           <div class="scoring-pts" style="color:#00bcd4">+1</div>
           <div class="scoring-label" style="color:#00bcd4">🎯 Aproximação <span style="font-size:.7rem;color:var(--sub);font-weight:400">(só fase a eliminar)</span></div>
-          <div class="scoring-sub">Falhaste o resultado exato mas erraste só por <strong>1 golo no total</strong> da aposta → <strong>+1 pt</strong>. Acumula com a tendência e vale mesmo que falhes a tendência.</div>
+          <div class="scoring-sub">Falhaste o resultado exato mas ficaste a <strong>1 golo</strong> dele: acertas numa equipa e falhas a outra por um golo → <strong>+1 pt</strong>. Acumula com a tendência e vale mesmo que falhes a tendência.</div>
         </div>
       </div>
       <div style="padding:8px 12px;background:rgba(0,188,212,.06);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:8px">
         <div>📌 Exemplos: apostas <strong style="color:var(--text)">2-1</strong> e sai <strong style="color:var(--text)">2-0</strong> → <strong style="color:var(--text)">3 pts</strong> (2 tendência + 1 aproximação)</div>
         <div>📌 Apostas <strong style="color:var(--text)">2-1</strong> e sai <strong style="color:var(--text)">1-1</strong> → <strong style="color:var(--text)">1 pt</strong> (0 tendência + 1 aproximação)</div>
+        <div>📌 Apostas <strong style="color:var(--text)">7-0</strong> e sai <strong style="color:var(--text)">4-2</strong> → <strong style="color:var(--text)">0 pts</strong> (longe em ambas as equipas; não conta a soma de golos)</div>
         <div><span class="joker-badge">J</span> O <strong style="color:var(--text)">JOKER</strong> também duplica a aproximação</div>
       </div>
     </div>
@@ -3064,7 +3061,7 @@ function renderDuels(){
     </div>
   </div>`;
 
-  // Confrontos da próxima jornada (todos)
+  // Confrontos da jornada atual (todos) — com pontos acumulados, sem coloração de líder
   if(nj){
     const pairs=duelPairs(S.curLeague.id,nj,rosterOf(nj));
     html+=`<div class="card" style="padding:12px;margin-bottom:14px">
@@ -3074,7 +3071,16 @@ function renderDuels(){
           const mineRow=me&&(pr[0]===me||pr[1]===me);
           const bg=mineRow?'rgba(230,126,34,.12)':'var(--bg2)';
           if(pr[1]===null)return `<div style="display:flex;justify-content:space-between;padding:7px 10px;background:${bg};border-radius:8px;font-size:.8rem"><span>${nameOf(pr[0])}</span><span style="color:var(--sub)">bye (+1)</span></div>`;
-          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:${bg};border-radius:8px;font-size:.8rem"><span style="flex:1">${nameOf(pr[0])}</span><span style="color:#e67e22;flex-shrink:0">vs</span><span style="flex:1;text-align:right">${nameOf(pr[1])}</span></div>`;
+          const pa=jpOf(pr[0],nj), pb=jpOf(pr[1],nj);
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${bg};border-radius:8px;font-size:.8rem">
+            <span style="flex:1">${nameOf(pr[0])}</span>
+            <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-variant-numeric:tabular-nums">
+              <span style="color:var(--sub);min-width:20px;text-align:right;font-weight:700">${pa}</span>
+              <span style="color:#e67e22;font-size:.7rem">vs</span>
+              <span style="color:var(--sub);min-width:20px;text-align:left;font-weight:700">${pb}</span>
+            </span>
+            <span style="flex:1;text-align:right">${nameOf(pr[1])}</span>
+          </div>`;
         }).join('')}
       </div>
     </div>`;
@@ -3100,10 +3106,14 @@ function renderDuels(){
               const aWin=pa>pb,bWin=pb>pa,draw=pa===pb;
               const mineRow=me&&(pr[0]===me||pr[1]===me);
               const st=w=>w?'font-weight:700;color:var(--green)':'color:var(--text)';
-              return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px;font-size:.76rem;${mineRow?'background:rgba(230,126,34,.1);border-radius:6px':''}">
-                <span style="flex:1;${st(aWin)}">${nameOf(pr[0])} <span style="color:var(--sub)">${pa}</span></span>
-                <span style="color:var(--sub);font-size:.64rem;flex-shrink:0">${draw?'empate':'vs'}</span>
-                <span style="flex:1;text-align:right;${st(bWin)}"><span style="color:var(--sub)">${pb}</span> ${nameOf(pr[1])}</span>
+              return `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:.76rem;${mineRow?'background:rgba(230,126,34,.1);border-radius:6px':''}">
+                <span style="flex:1;${st(aWin)}">${nameOf(pr[0])}</span>
+                <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-variant-numeric:tabular-nums">
+                  <span style="${st(aWin)};min-width:20px;text-align:right;font-weight:700">${pa}</span>
+                  <span style="color:var(--sub);font-size:.64rem;padding:0 2px">${draw?'empate':'vs'}</span>
+                  <span style="${st(bWin)};min-width:20px;text-align:left;font-weight:700">${pb}</span>
+                </span>
+                <span style="flex:1;text-align:right;${st(bWin)}">${nameOf(pr[1])}</span>
               </div>`;
             }).join('')}
           </div>
@@ -3908,32 +3918,20 @@ async function saveAllCards(){
 // ════════════════════════════════════════════════
 function renderPrebets(){
   const closed=dlPassed('2026-06-11T20:00'); // A1 às 20:00 PT — fecha deadlineH antes (19:00)
-  const msg=document.getElementById('prebets-status');
-  msg.className=closed?'alert alert-error':'alert alert-info';
-  msg.textContent=closed
-    ?'🔒 Pré-apostas fechadas — o torneio já começou.'
-    :'⏰ Fecham às 19h00 de dia 11 Jun (1h antes do 1º jogo). Clica num grupo para ver as apostas de todos.';
-
-  // Botão Guardar: bloqueado e transparente após o fecho
-  const saveBtn=document.getElementById('save-prebets-btn');
-  if(saveBtn){
-    saveBtn.disabled=closed;
-    saveBtn.style.opacity=closed?'.35':'';
-    saveBtn.style.cursor=closed?'not-allowed':'';
-    saveBtn.textContent=closed?'🔒 Fechado':'💾 Guardar';
-  }
-  if(closed){
-    const ub=document.getElementById('prebet-unsaved-badge');
-    if(ub)ub.style.display='none';
-    S.prebetPending=false;
-  }
+  if(closed)S.prebetPending=false;
 
   let html='';
 
-  // Banner de estado
+  // Banner — inclui botão Guardar ou badge FECHADAS no lado direito
+  const bannerRight=closed
+    ?`<div class="pb-badge">🔒 FECHADAS</div>`
+    :`<div style="display:flex;align-items:center;gap:8px">
+        <span id="prebet-unsaved-badge" class="autosave-pill unsaved-pill" style="display:none">⚠ Não guardado</span>
+        <button id="save-prebets-btn" class="btn btn-primary" style="font-size:.78rem;padding:4px 12px" onclick="savePrebetsAuto()">💾 Guardar</button>
+      </div>`;
   html+=`<div class="pb-banner">
     <div class="pb-banner-title">🔮 AS MINHAS PRÉ-APOSTAS</div>
-    <div class="pb-badge">${closed?'🔒 FECHADAS':'✏️ EDITÁVEL ATÉ AO ARRANQUE'}</div>
+    ${bannerRight}
   </div>`;
 
   // ── FASE DE GRUPOS ──
@@ -3945,14 +3943,37 @@ function renderPrebets(){
   html+=`<div class="pb-groups-grid">`;
   GRP_NAMES.forEach(gr=>{
     const order=prebetGroupOrder(gr);
-    html+=`<div class="pb-grp-card ${closed?'clickable':''}" ${closed?`onclick="openGroupModal('${gr}')"`:''}>
-      <div class="pb-grp-title"><span>Grupo ${gr}</span>${closed?`<span class="pb-grp-hint">👆 ver todos</span>`:''}</div>`;
+    // Resultado do grupo: coloração e pontos
+    let grpDone=false, grpPts=0, grpBg='', grpPtsHtml='';
+    if(closed){
+      grpDone=simGroupDone(gr);
+      if(grpDone){
+        const actual=simAutoStandings(gr);
+        const p1bet=S.prebets['g'+gr+'_1']||'';
+        const p2bet=S.prebets['g'+gr+'_2']||'';
+        if(p1bet===actual[0])grpPts+=2;
+        if(p2bet===actual[1])grpPts+=2;
+        grpBg='';
+        const ptsCol=grpPts>0?'color:var(--green)':'color:#ef4444';
+        grpPtsHtml=`<span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.95rem;${ptsCol}">${grpPts>0?'+':''}${grpPts}pts</span>`;
+      }
+    }
+    html+=`<div class="pb-grp-card ${closed?'clickable':''}" style="${grpBg}" ${closed?`onclick="openGroupModal('${gr}')"`:''}>
+      <div class="pb-grp-title"><span>Grupo ${gr}</span><span style="display:flex;align-items:center;gap:6px">${grpPtsHtml}${closed?`<span class="pb-grp-hint">👆 ver todos</span>`:''}</span></div>`;
     order.forEach((team,i)=>{
       const counts=i<2;
       const posCls=['p1','p2','p3','p4'][i]||'p4';
       const flag=`<span class="pb-row-flag">${pbFlag(team,18,13)}</span>`;
       if(closed){
-        html+=`<div class="pb-team-row ${counts?'counts':'dim'}">
+        // Coloração por equipa se grupo terminado
+        let teamHit='';
+        if(grpDone){
+          const actual=simAutoStandings(gr);
+          if(i===0&&team===actual[0])teamHit='hit';
+          else if(i===1&&team===actual[1])teamHit='hit';
+          else if(i<2)teamHit='miss';
+        }
+        html+=`<div class="pb-team-row ${counts?'counts':'dim'}${teamHit?' pb-team-'+teamHit:''}">
           <div class="pb-pos ${posCls}">${i+1}</div>${flag}
           <div class="pb-tname" title="${team}">${team}</div>
         </div>`;
@@ -3978,27 +3999,57 @@ function renderPrebets(){
   html+=`<div class="pb-phase">🏆 Pódio Final <small>${closed?'as tuas escolhas':'toca em cada lugar para escolher'}</small></div>`;
   html+=renderPrebetPodium(closed);
 
-  // ── MELHOR MARCADOR (mantido como estava) ──
+  // ── MELHOR MARCADOR ──
   buildSquads();
   const selTeam=S.prebets['top_scorer_team']||'';
   const players=selTeam&&SQUADS[selTeam]?SQUADS[selTeam]:[];
   const scVal=S.prebets['top_scorer']||'';
-  html+=`<div class="pb-phase">⚽ Melhor Marcador <small>+5 pts</small></div>
-  <div class="card">
+  const actualScorer=S.specials&&S.specials.top_scorer;
+  const scorerHit=closed&&actualScorer&&scVal===actualScorer;
+  const scorerMiss=closed&&actualScorer&&!!scVal&&scVal!==actualScorer;
+  const scorerBg=scorerHit?'background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4)':scorerMiss?'background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.3)':'';
+  html+=`<div class="pb-phase">⚽ Melhor Marcador <small>${closed&&actualScorer?(scorerHit?'✓ +5 pts':'✗ 0 pts'):'+5 pts'}</small></div>
+  <div class="card" style="${scorerBg}">
     <div class="form-group" style="margin:0">
-      <select class="form-select" style="margin-bottom:6px" onchange="onScorerTeamChange(this.value)" ${closed?'disabled':''}>
-        <option value="">— 1º Selecionar equipa —</option>
-        ${ALL_TEAMS.map(t=>`<option value="${t}" ${selTeam===t?'selected':''}>${t}</option>`).join('')}
-      </select>
-      <select class="form-select" id="scorer-player-sel" onchange="setPrebet('top_scorer',this.value)" ${closed||!selTeam?'disabled':''}>
-        <option value="">— 2º Selecionar jogador —</option>
-        ${players.map(p=>`<option value="${p}" ${scVal===p?'selected':''}>${p}</option>`).join('')}
-      </select>
-      ${!selTeam&&!closed?'<div style="font-size:.71rem;color:var(--sub);margin-top:4px">Seleciona primeiro a equipa para ver a lista de jogadores.</div>':''}
+      ${closed&&scVal
+        ?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div>
+              <div style="font-size:.7rem;color:var(--sub);margin-bottom:2px">A tua aposta</div>
+              <div style="font-weight:700;font-size:.9rem;${scorerHit?'color:var(--green)':scorerMiss?'color:#ef4444':''}">${scVal}${scorerHit?' ✓':scorerMiss?' ✗':''}</div>
+              ${scorerMiss?`<div style="font-size:.7rem;color:var(--sub);margin-top:3px">Vencedor: <strong style="color:var(--text)">${actualScorer}</strong></div>`:''}
+            </div>
+            ${actualScorer?`<span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;${scorerHit?'color:var(--green)':'color:#ef4444'}">${scorerHit?'+5':'0'}pts</span>`:''}
+          </div>`
+        :`<select class="form-select" style="margin-bottom:6px" onchange="onScorerTeamChange(this.value)" ${closed?'disabled':''}>
+            <option value="">— 1º Selecionar equipa —</option>
+            ${ALL_TEAMS.map(t=>`<option value="${t}" ${selTeam===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+          <select class="form-select" id="scorer-player-sel" onchange="setPrebet('top_scorer',this.value)" ${closed||!selTeam?'disabled':''}>
+            <option value="">— 2º Selecionar jogador —</option>
+            ${players.map(p=>`<option value="${p}" ${scVal===p?'selected':''}>${p}</option>`).join('')}
+          </select>
+          ${!selTeam&&!closed?'<div style="font-size:.71rem;color:var(--sub);margin-top:4px">Seleciona primeiro a equipa para ver a lista de jogadores.</div>':''}
+        `}
     </div>
   </div>`;
 
+  // ── RESUMO TOTAL DE PONTOS (só quando fechado e LB disponível) ──
+  if(closed&&S.lb&&S.lb.length&&S.user){
+    const me=S.lb.find(p=>p.code===S.user.code);
+    if(me&&me.prebets_pts!==undefined){
+      html+=`<div class="card" style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:linear-gradient(135deg,rgba(245,197,24,.09),rgba(96,165,250,.05));border:1px solid rgba(245,197,24,.25)">
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem;color:var(--sub);letter-spacing:.05em">TOTAL PRÉ-APOSTAS</div>
+          <div style="font-size:.72rem;color:var(--sub);margin-top:1px">máx. 69 pts · inclui grupos, pódio e marcador</div>
+        </div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.6rem;color:var(--gold)">${me.prebets_pts} pts</div>
+      </div>`;
+    }
+  }
+
   document.getElementById('prebets-content').innerHTML=html;
+  // Sincronizar badge "Não guardado" após renderização (botão agora vive no banner dinâmico)
+  if(!closed)updateUnsavedPrebetBadge();
 }
 
 // Ordem das 4 equipas de um grupo: 1º e 2º vêm das pré-apostas guardadas (g{gr}_1/_2),
@@ -4052,15 +4103,36 @@ function renderPrebetPodium(closed){
   let h=`<div class="pb-podium">`;
   slots.forEach(s=>{
     const team=S.prebets[s.k]||'';
+    const actual=S.specials&&S.specials[s.k];
+    const hasResult=closed&&!!actual;
+    const hit=hasResult&&team===actual;
+    const miss=hasResult&&!!team&&team!==actual;
+    const earnedPts=hit?s.pts:0;
+
+    // Borda colorida quando resultado conhecido
+    let extraStyle='';
+    if(hit)extraStyle='outline:2px solid rgba(34,197,94,.7);border-radius:10px';
+    else if(miss)extraStyle='outline:2px solid rgba(239,68,68,.5);border-radius:10px;opacity:.85';
+
     const flag=team?`<div class="pb-pod-flag">${pbFlag(team,32,24)}</div>`:'';
+    const nameColor=hit?'color:var(--green)':miss?'color:#ef4444':'';
     const name=team
-      ?`<div class="pb-pod-name" title="${team}">${team}</div>`
+      ?`<div class="pb-pod-name" title="${team}" style="${nameColor}">${team}</div>`
       :`<div class="pb-pod-empty">${closed?'—':'+ escolher'}</div>`;
-    h+=`<div class="pb-pod-item ${s.cls}${closed?' ro':''}" ${closed?'':`onclick="openPodiumPicker('${s.k}')"`}>
+
+    // Plataforma: se resultado conhecido, mostra pts ganhos; caso contrário pts possíveis
+    const ptsLine=hasResult
+      ?`<div class="pb-pod-pts" style="${hit?'color:var(--green)':'color:#ef4444'}">${hit?`✓ +${earnedPts}pts`:`✗ 0pts`}</div>`
+      :`<div class="pb-pod-pts">+${s.pts}</div>`;
+    // Mostrar equipa real abaixo se erramos
+    const actualHint=miss&&actual?`<div style="font-size:.5rem;color:var(--sub);margin-top:1px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${actual}</div>`:'';
+
+    h+=`<div class="pb-pod-item ${s.cls}${closed?' ro':''}" style="${extraStyle}" ${closed?'':`onclick="openPodiumPicker('${s.k}')"`}>
       <div class="pb-pod-medal">${s.medal}</div>
       ${flag}
       ${name}
-      <div class="pb-pod-plat">${s.lbl.toUpperCase()}<div class="pb-pod-pts">+${s.pts}</div></div>
+      ${actualHint}
+      <div class="pb-pod-plat">${s.lbl.toUpperCase()}${ptsLine}</div>
     </div>`;
   });
   h+=`</div>`;
@@ -4912,20 +4984,56 @@ function calcGroupStandingsLocal() {
 // ════════════════════════════════════════════════
 function openGroupModal(grp) {
   document.getElementById('modal-title').textContent = `Pré-Apostas — Grupo ${grp}`;
-  document.getElementById('modal-subtitle').textContent = `${GROUPS[grp].join(' · ')}`;
 
-  const users = S.demoMode ? DEMO_USERS : (S.lb.length ? S.lb : S.participants);
+  const grpDone = simGroupDone(grp);
+  const actual = grpDone ? simAutoStandings(grp) : null;
+  const act1 = actual ? actual[0] : null;
+  const act2 = actual ? actual[1] : null;
 
+  document.getElementById('modal-subtitle').textContent = grpDone && act1
+    ? `Resultado: 1º ${act1} · 2º ${act2}`
+    : GROUPS[grp].join(' · ');
+
+  const rawUsers = S.demoMode ? DEMO_USERS : (S.lb.length ? S.lb : S.participants);
+
+  // Pré-calcular pts por user para poder ordenar
+  function grpPtsFor(u){
+    if(!grpDone||!act1)return -1;
+    let upb;
+    if(S.demoMode){
+      const seed=u.code.split('').reduce((a,c)=>a+c.charCodeAt(0)*17,3);
+      const rnd=seededRng(seed+grp.charCodeAt(0)*100);
+      const teams=[...GROUPS[grp]];
+      const i1=Math.floor(rnd()*teams.length);
+      let i2=Math.floor(rnd()*(teams.length-1));if(i2>=i1)i2++;
+      upb={'g'+grp+'_1':teams[i1],'g'+grp+'_2':teams[i2]};
+    }else{
+      upb=(S.allPrebets&&S.allPrebets[u.code])||(S.user&&u.code===S.user.code?S.prebets:{});
+    }
+    let p=0;
+    if(upb['g'+grp+'_1']===act1)p+=2;
+    if(upb['g'+grp+'_2']===act2)p+=2;
+    return p;
+  }
+
+  // Ordenar: 1º por pts do grupo (desc), 2º por posição geral no LB (asc = índice no rawUsers)
+  const users=[...rawUsers].sort((a,b)=>{
+    const pa=grpDone?grpPtsFor(a):-1, pb=grpDone?grpPtsFor(b):-1;
+    if(pa!==pb)return pb-pa;
+    return rawUsers.indexOf(a)-rawUsers.indexOf(b);
+  });
+
+  // cabeçalho: coluna Pts só quando grupo terminado
   let html=`<table class="modal-table"><thead><tr>
     <th class="th-left">Jogador</th>
     <th>1º Lugar</th>
     <th>2º Lugar</th>
+    ${grpDone?'<th style="color:var(--gold)">Pts</th>':''}
   </tr></thead><tbody>`;
 
   users.forEach(u=>{
     let pb1, pb2;
     if (S.demoMode) {
-      // Generate stable prebet for demo: pick teams based on seeded random
       const seed=u.code.split('').reduce((a,c)=>a+c.charCodeAt(0)*17,3);
       const rnd=seededRng(seed+grp.charCodeAt(0)*100);
       const teams=[...GROUPS[grp]];
@@ -4933,23 +5041,38 @@ function openGroupModal(grp) {
       let idx2=Math.floor(rnd()*(teams.length-1)); if(idx2>=idx1)idx2++;
       pb1=teams[idx1]; pb2=teams[idx2];
     } else {
-      // Pré-apostas de cada jogador (visíveis após o fecho); as próprias vêm sempre de S.prebets
       const upb=(S.allPrebets&&S.allPrebets[u.code])||(S.user&&u.code===S.user.code?S.prebets:{});
       pb1=upb['g'+grp+'_1']||'—';
       pb2=upb['g'+grp+'_2']||'—';
     }
     const isMe=S.user&&u.name===S.user.name;
+
+    // Acerto/falha e pontos por user
+    let hit1=false,hit2=false,uPts=0;
+    if(grpDone&&act1){
+      hit1=pb1===act1; hit2=pb2===act2;
+      if(hit1)uPts+=2; if(hit2)uPts+=2;
+    }
+    const cellStyle=(hit,val)=>{
+      if(!grpDone||val==='—')return`font-weight:600;font-size:.82rem`;
+      return`font-weight:700;font-size:.82rem;${hit?'color:var(--green)':'color:#ef4444'}`;
+    };
+    const ptsBadge=grpDone?`<td style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;${uPts>0?'color:var(--green)':'color:#ef4444'}">${uPts>0?'+':''}${uPts}</td>`:'';
+
     html+=`<tr class="${isMe?'row-me':''}">
       <td class="td-left">${u.name}${isMe?' <span class="me-tag">(tu)</span>':''}</td>
-      <td style="font-weight:600;font-size:.82rem">${pb1||'—'}</td>
-      <td style="font-weight:600;font-size:.82rem">${pb2||'—'}</td>
+      <td style="${cellStyle(hit1,pb1)}">${pb1||'—'}</td>
+      <td style="${cellStyle(hit2,pb2)}">${pb2||'—'}</td>
+      ${ptsBadge}
     </tr>`;
   });
 
-  html+=`</tbody></table>
-  <div class="alert alert-info" style="font-size:.76rem;margin-top:14px">
-    🏆 Pontuações das pré-apostas de grupo serão calculadas após o fim da fase de grupos.
-  </div>`;
+  html+=`</tbody></table>`;
+  if(!grpDone){
+    html+=`<div class="alert alert-info" style="font-size:.76rem;margin-top:14px">
+      🏆 Pontuações calculadas após o grupo terminar.
+    </div>`;
+  }
   document.getElementById('modal-body').innerHTML=html;
   openModal();
 }
