@@ -3605,7 +3605,7 @@ function renderBetsKO() {
         <span>${dlWarn}${ptsHtml}</span>
       </div>
       <div class="game-teams">
-        <div class="team-name${t1ph}">${t1}</div>
+        <div class="team-name${t1ph}">${flag(t1)}${t1}</div>
         ${isFinished
           ? `<div class="result-badge">${res.t1} – ${res.t2}</div>`
           : lvKO
@@ -3620,7 +3620,7 @@ function renderBetsKO() {
               </div>`
             : `<div class="result-badge" style="color:var(--sub);font-size:.7rem;min-width:60px;text-align:center">A definir</div>`
         }
-        <div class="team-name right${t2ph}">${t2}</div>
+        <div class="team-name right${t2ph}">${flag(t2)}${t2}</div>
       </div>
       ${isFinished
         ? `<div class="bet-inline">
