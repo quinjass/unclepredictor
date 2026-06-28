@@ -4260,10 +4260,12 @@ function renderBracket() {
   let html = `<div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:#7986cb;margin-top:18px;margin-bottom:10px">🏟️ Fase a Eliminar — Bracket</div>`;
 
   rounds.forEach(round => {
-    const games = GAMES.filter(g => g.md === round.md);
+    const games = GAMES.filter(g => g.md === round.md)
+      .map((g, idx) => ({ g, n: idx + 1 }))
+      .sort((a, b) => new Date(a.g.date) - new Date(b.g.date));
     html += `<div class="bracket-round-title" style="color:${round.titleColor}">${round.icon} ${round.label}</div>`;
 
-    games.forEach((g, idx) => {
+    games.forEach(({ g, n }) => {
       const t1 = getKOTeamName(g.id, 't1');
       const t2 = getKOTeamName(g.id, 't2');
       const res = (S.demoMode ? DEMO_RESULTS : S.results)[g.id];
@@ -4284,7 +4286,7 @@ function renderBracket() {
         : 'background:rgba(255,255,255,.06);color:var(--sub);border:1px solid var(--border)';
 
       html += `<div class="bracket-match ${round.cls}">
-        <span class="bracket-match-n">J${idx+1}</span>
+        <span class="bracket-match-n">J${n}</span>
         <span class="bracket-team${t1ph?' placeholder':''}${t1wins?' bracket-winner':''}">${f1}${t1}</span>
         <span class="bracket-score-badge">${hasScore?`${res.t1}–${res.t2}`:'·'}</span>
         <span class="bracket-team${t2ph?' placeholder':''}${t2wins?' bracket-winner':''}" style="text-align:right">${f2}${t2}</span>
