@@ -2806,7 +2806,7 @@ function renderLB() {
     // % explícitas a somar 100% — sem scroll horizontal, sem col auto
     const thS='padding:5px 3px;font-size:.62rem';
     const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 3px;text-align:center';
-    const nCols=duelData?15:14;
+    const nCols=duelData?16:15;
     html+=`<div class="standings-wrap"><table class="standings-table standings-detailed" style="table-layout:fixed;width:100%">
       <colgroup>
         <col style="width:5%">
@@ -2826,6 +2826,7 @@ function renderLB() {
           <th colspan="3" style="${thS};color:var(--green);font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">GRUPOS<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th colspan="3" style="${thS};color:#7986cb;font-size:.55rem;padding-bottom:2px;border-bottom:none;line-height:1.3">KO<br><span style="color:var(--sub);font-size:.48rem;font-weight:400">sem joker ou raridade</span></th>
           <th rowspan="2" title="Pré-apostas" style="${thS};color:var(--sub);font-size:.6rem;vertical-align:bottom">Pré</th>
+          <th rowspan="2" title="Aproximação (só KO): +1 por errar só 1 golo no total. Faz parte da base do KO, aqui destacada." style="${thS};vertical-align:bottom;color:#1abc9c;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem;cursor:help">Apr</th>
           <th rowspan="2" title="Bónus de raridade (acertos exatos pouco comuns)" style="${thS};vertical-align:bottom;color:#f39c12;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">⭐</th>
           <th rowspan="2" title="Bónus do joker — duplica a base e a raridade do jogo onde foi usado" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">J</th>
           ${duelData?`<th rowspan="2" title="Duelos head-to-head — tabela paralela, não soma ao Total" style="${thS};color:#e67e22;vertical-align:bottom;cursor:help">⚔️</th>`:''}
@@ -2854,8 +2855,9 @@ function renderLB() {
         <td style="${tdN};color:var(--green)">${p.group_pts||0}</td>
         <td style="${tdN};color:#7986cb">${p.ko_wins||0}</td>
         <td style="${tdN};color:#9fa8da">${p.ko_draws||0}</td>
-        <td style="${tdN};color:#7986cb">${p.ko_pts||0}</td>
+        <td style="${tdN};color:#7986cb">${(p.ko_pts||0)-(p.approx_pts||0)}</td>
         <td style="${tdN};color:var(--sub)">${p.prebets_pts||0}</td>
+        <td style="${tdN};color:#1abc9c">${p.approx_pts||0}</td>
         <td style="${tdN};color:#f39c12">${p.rarity_pts||0}</td>
         <td style="${tdN};color:#00bcd4">${p.joker_pts||0}</td>
         ${duelData?`<td style="${tdN};color:#e67e22">${bot?'—':(duelData.pts[p.code]||0)}</td>`:''}
@@ -2868,6 +2870,7 @@ function renderLB() {
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
       <span style="white-space:nowrap;color:var(--sub)">● Pré = Pré-apostas</span>
+      <span style="white-space:nowrap;color:#1abc9c">Apr = Aproximação (KO)</span>
       <span style="white-space:nowrap;color:#f39c12">⭐ = Raridade</span>
       <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Joker</span>
       <span style="white-space:nowrap;color:#a78bfa">🤖 D = Default picks (IA)</span>
@@ -4599,15 +4602,17 @@ function openGameModal(gameId) {
     if (S.demoMode) pred = genDemoPreds(u.code)[gameId];
     else pred = gamePreds[u.code] || (S.user&&u.code===S.user.code ? S.preds[gameId] : undefined);
     const hasPred = pred && pred.t1!==undefined;
-    let base=null, rar=0, jok=0, tot=null;
+    let base=null, apr=0, rar=0, jok=0, tot=null;
     if (showPts && hasPred) {
-      base = calcPts({...pred, joker:false}, resEff, isKO);           // pontos do jogo, sem joker
+      const gross = calcPts({...pred, joker:false}, resEff, isKO);    // base bruta (inclui aproximação)
+      apr = koApprox(pred, resEff, isKO);                             // aproximação isolada (só KO)
+      base = gross - apr;                                             // base sem aproximação
       const exact = pred.t1===resEff.t1 && pred.t2===resEff.t2;
       rar = exact ? rarBonus : 0;                                     // bónus de raridade (base)
-      jok = pred.joker ? (base + rar) : 0;                            // joker duplica base E raridade
-      tot = base + rar + jok;
+      jok = pred.joker ? (gross + rar) : 0;                           // joker duplica base+aprox E raridade
+      tot = base + apr + rar + jok;
     }
-    return {name:u.name, code:u.code, pred, base, rar, jok, tot, isMe: S.user && u.name===S.user.name};
+    return {name:u.name, code:u.code, pred, base, apr, rar, jok, tot, isMe: S.user && u.name===S.user.name};
   }).sort((a,b)=>(b.tot||0)-(a.tot||0));
 
   let html='';
@@ -4615,7 +4620,8 @@ function openGameModal(gameId) {
   html+=`<table class="modal-table"><thead><tr>
     <th class="th-left">Jogador</th>
     <th>Aposta</th>
-    ${showPts?`<th title="Pontos do jogo (sem joker/raridade)">Base</th>
+    ${showPts?`<th title="Pontos do jogo: resultado/tendência (sem aproximação, joker ou raridade)">Base</th>
+    <th title="Aproximação (só KO): +1 por errar só 1 golo no total" style="color:#1abc9c">Apr</th>
     <th title="Bónus de raridade${lv?' (estimado com o resultado atual)':''}" style="color:#f39c12">⭐</th>
     <th title="Bónus do joker — duplica a base e a raridade" style="color:#00bcd4">J</th>
     <th title="${lv?'Total potencial':'Total deste jogo'}" style="color:${lv?'var(--red)':'var(--gold)'}">${lv?'Pot.':'Total'}</th>`:''}
@@ -4625,12 +4631,14 @@ function openGameModal(gameId) {
   rows.forEach(r=>{
     const hasPred = r.pred && r.pred.t1!==undefined;
     const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : '—';
-    const ptsCls = showPts ? (!hasPred||r.base===0?'pred-wrong':r.base===1||r.base===2?'pred-partial':'pred-correct') : '';
+    const gross = (r.base||0)+(r.apr||0);
+    const ptsCls = showPts ? (!hasPred||gross===0?'pred-wrong':gross===1||gross===2?'pred-partial':'pred-correct') : '';
     html+=`<tr class="${r.isMe?'row-me':''}">
       <td class="td-left">${r.code==='BOT_IA'?'🤖 IA':r.name}${r.isMe?' <span class="me-tag">(tu)</span>':''}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
       ${showPts?`
       <td style="${nCell}">${r.base===null?'—':r.base}</td>
+      <td style="${nCell};color:${r.apr?'#1abc9c':'var(--sub)'}">${r.apr?'+'+r.apr:'—'}</td>
       <td style="${nCell};color:${r.rar?'#f39c12':'var(--sub)'}">${r.rar?'+'+r.rar:'—'}</td>
       <td style="${nCell};color:${r.jok?'#00bcd4':'var(--sub)'}">${r.jok?'+'+r.jok:'—'}</td>
       <td style="${nCell};color:${lv?'var(--red)':'var(--gold)'};font-size:.95rem">${r.tot===null?'—':r.tot}</td>`:''}
@@ -4640,7 +4648,7 @@ function openGameModal(gameId) {
   html+=`</tbody></table>`;
   if(showPts){
     html+=`<div style="font-size:.68rem;color:var(--sub);margin-top:8px;line-height:1.6">
-      <strong style="color:var(--text)">Base</strong> = pontos do jogo · <strong style="color:#f39c12">⭐</strong> = bónus de raridade${rarBonus?` (${lv?'com o resultado atual':'neste jogo'}: +${rarBonus} por acerto exato)`:' (sem bónus neste jogo)'} · <strong style="color:#00bcd4">J</strong> = bónus do joker (duplica a base e a raridade)<br>
+      <strong style="color:var(--text)">Base</strong> = resultado/tendência · <strong style="color:#1abc9c">Apr</strong> = aproximação (só KO: +1 por errar só 1 golo) · <strong style="color:#f39c12">⭐</strong> = bónus de raridade${rarBonus?` (${lv?'com o resultado atual':'neste jogo'}: +${rarBonus} por acerto exato)`:' (sem bónus neste jogo)'} · <strong style="color:#00bcd4">J</strong> = bónus do joker (duplica base, aproximação e raridade)<br>
       ${lv?'🔴 Valores provisórios — a raridade pode mudar com cada golo.':'⭐ e J são as colunas homónimas da classificação detalhada — somadas, formam o 1º critério de desempate.'}
     </div>`;
   }
@@ -4751,7 +4759,8 @@ function buildPlayerBetsHtml(playerName) {
     <th class="th-left" style="min-width:110px;${thP}">Jogo</th>
     <th style="${thP}">Aposta</th>
     <th style="${thP}">Res.</th>
-    <th style="${thP}" title="Pontos do jogo (sem joker/raridade)">Base</th>
+    <th style="${thP}" title="Resultado/tendência (sem aproximação, joker ou raridade)">Base</th>
+    <th style="${thP};color:#1abc9c" title="Aproximação (só KO): +1 por errar só 1 golo no total">Apr</th>
     <th style="${thP};color:#f39c12" title="Bónus de raridade">⭐</th>
     <th style="${thP};color:#00bcd4" title="Bónus do joker (duplica base e raridade)">J</th>
     <th style="${thP};color:var(--gold)" title="Total deste jogo">Tot</th>
@@ -4769,13 +4778,15 @@ function buildPlayerBetsHtml(playerName) {
     const isKO=!!(g.ko);
     const lv=!isF?liveOf(g.id):null;
     // Decomposição igual ao modal de jogo: base + raridade + joker
-    let base=null,rar=0,jok=0,tot=null;
+    let base=null,apr=0,rar=0,jok=0,tot=null;
     if(isF&&hasPred){
-      base=calcPts({...pred,joker:false},res,isKO);
+      const gross=calcPts({...pred,joker:false},res,isKO); // base bruta (inclui aproximação)
+      apr=koApprox(pred,res,isKO);
+      base=gross-apr;                                       // base sem aproximação
       const exact=pred.t1===res.t1&&pred.t2===res.t2;
       rar=exact?((S.rarityMap&&S.rarityMap[g.id])?S.rarityMap[g.id].bonus:0):0;
-      jok=pred.joker?(base+rar):0;
-      tot=base+rar+jok;
+      jok=pred.joker?(gross+rar):0;
+      tot=base+apr+rar+jok;
       total+=tot;
       const pw=pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
       const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
@@ -4785,19 +4796,21 @@ function buildPlayerBetsHtml(playerName) {
       // Jogo a decorrer: pontuação POTENCIAL (não soma ao total oficial)
       anyLive=true;
       const pot=livePotential(g.id,pred);
-      if(pot){base=pot.base;rar=pot.rar;jok=pot.jok;tot=pot.tot;}
+      if(pot){apr=koApprox(pred,{t1:lv.t1,t2:lv.t2},isKO);base=pot.base-apr;rar=pot.rar;jok=pot.jok;tot=pot.tot;}
     } else if(dpick){
       // Default pick: herdou a aposta do IA (só tendência; sem joker/raridade)
       tot=dpick.pts; total+=dpick.pts;
     }
     const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:(dpick?`<span style="color:#a78bfa" title="Default pick — aposta do IA por esquecimento">🤖 ${dpick.t1}–${dpick.t2}</span>`:'-');
-    const ptsCls=dpick?'':(isF?(!hasPred||base===0?'pred-wrong':base===1||base===2?'pred-partial':'pred-correct'):'');
+    const grossC=(base||0)+(apr||0);
+    const ptsCls=dpick?'':(isF?(!hasPred||grossC===0?'pred-wrong':grossC===1||grossC===2?'pred-partial':'pred-correct'):'');
     const liveStyle=lv?';opacity:.85;font-style:italic':'';
     html+=`<tr>
       <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
       <td style="${nC}">${isF?`${res.t1}–${res.t2}`:(lv?`<span class="live-dot" style="font-size:.72rem">🔴 ${lv.t1}–${lv.t2}</span>`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>')}</td>
       <td style="${nC}${liveStyle}">${base===null?'—':base}</td>
+      <td style="${nC};color:${apr?'#1abc9c':'var(--sub)'}${liveStyle}">${apr?'+'+apr:'—'}</td>
       <td style="${nC};color:${rar?'#f39c12':'var(--sub)'}${liveStyle}">${rar?'+'+rar:'—'}</td>
       <td style="${nC};color:${jok?'#00bcd4':'var(--sub)'}${liveStyle}">${jok?'+'+jok:'—'}</td>
       <td style="${nC};color:${dpick?'#a78bfa':(lv?'var(--red)':'var(--gold)')}${liveStyle}">${tot===null?'—':tot}</td>
@@ -5361,6 +5374,15 @@ function calcPts(pred, res, isKO=false) {
     if(isKO && (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1) pts += 1;
   }
   return pred.joker ? pts*2 : pts;
+}
+
+// Aproximação (SÓ KO): +1 quando falha o exato mas erra só 1 golo no total da aposta.
+// Devolve o valor PURO (sem joker) — usado para isolar a coluna "Apr" da base.
+function koApprox(pred, res, isKO){
+  if(!isKO || !pred || !res) return 0;
+  if(pred.t1===undefined || pred.t2===undefined || res.t1===undefined || res.t2===undefined) return 0;
+  if(pred.t1===res.t1 && pred.t2===res.t2) return 0;
+  return (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1 ? 1 : 0;
 }
 
 function ptsBadgeHtml(pts) {
