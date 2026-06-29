@@ -3586,6 +3586,8 @@ function renderBetsKO() {
     const res = S.results[g.id] || null;
     const locked = !knownTeams || dlPassed(g.date);
     const isFinished = res && res.t1 !== undefined;
+    const isSaved = !!S.savedCards[g.id];
+    const hasPred = pred.t1 !== undefined && pred.t2 !== undefined;
     // F3+FIN: joker partilhado — verificar em ambas as fases
     const jokerPoolGames = isF3FIN ? f3finGames : games;
     const jokerGameKO = jokerPoolGames.find(gg => S.preds[gg.id] && S.preds[gg.id].joker);
@@ -3645,6 +3647,8 @@ function renderBetsKO() {
                 ?`<div style="text-align:center;font-size:.72rem;margin-top:5px">${pred.t1!==undefined?`A tua aposta: <strong>${pred.t1}–${pred.t2}</strong>${potKO?` · <span class="live-dot" style="animation:none">potencial +${potKO.tot}</span>${potKO.rar?` <span style="color:#f39c12">⭐+${potKO.rar}</span>`:''}${potKO.jok?` <span style="color:#00bcd4">J+${potKO.jok}</span>`:''}`:''}`:'<span style="color:var(--sub)">Sem aposta neste jogo</span>'} <span style="color:var(--sub)">· 👆 ver todos</span></div>`
                 :(locked&&knownTeams?'<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>':'')}`
       }
+      <button class="card-save-btn" style="${(hasPred&&!isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
+      <button class="card-clear-btn" style="${isSaved?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
     </div>`;
     });
     html += `</div>`;
