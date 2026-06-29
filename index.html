@@ -3648,7 +3648,7 @@ function renderBetsKO() {
                 :(locked&&knownTeams?'<div style="text-align:center;font-size:.7rem;color:var(--sub);margin-top:5px">🔒 Fechado · 👆 toca para ver as apostas de todos</div>':'')}`
       }
       <button class="card-save-btn" style="${(hasPred&&!isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
-      <button class="card-clear-btn" style="${isSaved?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
+      <button class="card-clear-btn" style="${(isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
     </div>`;
     });
     html += `</div>`;
@@ -3747,8 +3747,8 @@ function renderBets() {
           :(!locked?`<button class="joker-btn ${jokerOn?'active':''}" onclick="event.stopPropagation();toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
               <span class="joker-badge">J</span> ${jokerOn?'Remover JOKER':'Usar JOKER'}
             </button>
-            <button class="card-save-btn" style="${(hasPred&&!isSaved)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
-            <button class="card-clear-btn" style="${isSaved?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
+            <button class="card-save-btn" style="${(hasPred&&!isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();saveCard('${g.id}')">💾 Guardar aposta</button>
+            <button class="card-clear-btn" style="${(isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
             `:`${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
             ${lv
               ?`<div style="text-align:center;font-size:.72rem;margin-top:5px">${hasPred?`A tua aposta: <strong>${pred.t1}–${pred.t2}</strong>${pot?` · <span class="live-dot" style="animation:none">potencial +${pot.tot}</span>${pot.rar?` <span style="color:#f39c12">⭐+${pot.rar}</span>`:''}${pot.jok?` <span style="color:#00bcd4">J+${pot.jok}</span>`:''}`:''}`:'<span style="color:var(--sub)">Sem aposta neste jogo</span>'} <span style="color:var(--sub)">· 👆 ver todos</span></div>`
