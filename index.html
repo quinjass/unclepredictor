@@ -528,6 +528,10 @@
     .game-card-ko{background:rgba(63,81,181,.04);border:1px solid rgba(99,102,241,.25);border-radius:10px;padding:12px;margin-bottom:8px;transition:border-color .2s}
     .game-card-ko.finished{cursor:pointer}.game-card-ko.finished:hover{border-color:#7986cb}
     .game-card-ko.locked{opacity:.7}
+    .game-card-ko.card-saved{background:rgba(180,180,180,.07);border-color:rgba(180,180,180,.3)}
+    .game-card-ko.card-result{background:rgba(39,174,96,.07);border-color:rgba(39,174,96,.35)}
+    .game-card-ko.card-winner{background:rgba(245,197,24,.07);border-color:rgba(245,197,24,.35)}
+    .game-card-ko.card-miss{background:rgba(231,76,60,.07);border-color:rgba(231,76,60,.3)}
     .ko-badge{font-size:.7rem;font-weight:700;color:#9fa8da;background:rgba(63,81,181,.15);padding:2px 7px;border-radius:4px;margin-right:5px}
     .pen-star{color:var(--gold);font-size:.75rem;margin:0 3px;vertical-align:middle}
     .ko-pending{text-align:center;font-size:.74rem;color:#7986cb;padding:7px 0;font-style:italic;opacity:.8}
@@ -1527,9 +1531,16 @@
         </div>
         <div class="card" style="margin-top:12px">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:8px">📣 Mensagem a todos os jogadores</div>
+          <input class="form-input" id="broadcast-subject" type="text" maxlength="200" placeholder="Assunto (só usado no email)" style="width:100%;box-sizing:border-box;margin-bottom:8px">
           <textarea class="form-input" id="broadcast-text" rows="6" maxlength="4000" placeholder="Escreve a mensagem… (podes usar várias linhas e deixar linhas em branco entre parágrafos)" style="resize:vertical;width:100%;box-sizing:border-box;white-space:pre-wrap"></textarea>
-          <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="sendBroadcast()">Enviar notificação 🔔</button>
-          <div style="font-size:.7rem;color:var(--sub);margin-top:6px">Aparece no sino 🔔 de todos os jogadores na app.</div>
+          <div style="margin-top:10px;font-size:.78rem;color:var(--sub)">Enviar via:</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 4px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer"><input type="radio" name="bcast-channel" value="notif" checked> 🔔 Só notificação app/web <span style="color:var(--sub);font-size:.72rem">(gera notificação no telemóvel)</span></label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer"><input type="radio" name="bcast-channel" value="email"> ✉️ Só email</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer"><input type="radio" name="bcast-channel" value="both"> 🔔 + ✉️ Notificação + email</label>
+          </div>
+          <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="sendBroadcast()">Enviar 📤</button>
+          <div style="font-size:.7rem;color:var(--sub);margin-top:6px">A notificação aparece no sino 🔔 de todos na app. O email é enviado em BCC para os endereços registados na base de dados (ninguém vê os emails dos outros).</div>
         </div>
         <div class="card" style="margin-top:12px">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:10px">🤖 Bot IA</div>
@@ -3356,13 +3367,29 @@ async function loadPendingReport(){
 async function sendBroadcast(){
   const ta=document.getElementById('broadcast-text');
   const text=(ta.value||'').trim();
+  const subjEl=document.getElementById('broadcast-subject');
+  const subject=(subjEl&&subjEl.value||'').trim();
+  const channel=(document.querySelector('input[name="bcast-channel"]:checked')||{}).value||'notif';
   if(!text){showToast('Escreve a mensagem primeiro','error');return;}
-  if(!confirm('Enviar esta mensagem a TODOS os jogadores?\n\n"'+text+'"'))return;
+  if((channel==='email'||channel==='both')&&!subject){
+    if(!confirm('Não escreveste assunto para o email. Continuar com o assunto por defeito?'))return;
+  }
+  const via=channel==='email'?'por EMAIL':channel==='both'?'por NOTIFICAÇÃO + EMAIL':'por NOTIFICAÇÃO';
+  if(!confirm('Enviar esta mensagem a TODOS os jogadores '+via+'?\n\n"'+text+'"'))return;
+  const btn=event&&event.target;if(btn){btn.disabled=true;btn.textContent='A enviar…';}
   try{
-    const r=await api('broadcast',{password:document.getElementById('admin-pw').value,text});
-    if(r.success){showToast('Mensagem enviada a todos! 🔔','success');ta.value='';}
-    else showToast(r.error||'Erro ao enviar','error');
+    const r=await api('broadcast',{password:document.getElementById('admin-pw').value,text,subject,channel});
+    if(r.success){
+      let msg='Mensagem enviada!';
+      if(channel==='email')msg='✉️ Email enviado a '+(r.emailed||0)+' jogadores.';
+      else if(channel==='both')msg='🔔 Notificação enviada + ✉️ email a '+(r.emailed||0)+' jogadores.';
+      else msg='🔔 Notificação enviada a todos!';
+      showToast(msg,'success');
+      if(r.emailError)showToast('Aviso email: '+r.emailError,'error');
+      ta.value='';if(subjEl)subjEl.value='';
+    } else showToast(r.error||'Erro ao enviar','error');
   }catch(e){showToast('Erro de ligação','error');}
+  finally{if(btn){btn.disabled=false;btn.textContent='Enviar 📤';}}
 }
 
 // ════════════════════════════════════════════════
@@ -3546,10 +3573,10 @@ function gameStatsHtml(gid,res){
   if(!bettors)return '';
   const totalPlayers=(S.lb||[]).filter(p=>p.code!=='BOT_IA').length||bettors;
   const pp=Math.min(100,Math.round(bettors/totalPlayers*100)), pc=n=>Math.round(n/bettors*100);
-  return `<div style="display:flex;flex-wrap:wrap;gap:3px 9px;justify-content:center;margin-top:7px;padding-top:6px;border-top:1px solid var(--border);font-size:.65rem;color:var(--sub)">
-    <span title="${bettors} de ${totalPlayers} jogadores apostaram neste jogo">📊 ${pp}% apostaram</span>
+  return `<div style="display:flex;flex-wrap:nowrap;gap:0 6px;justify-content:space-between;align-items:center;margin-top:7px;padding-top:6px;border-top:1px solid var(--border);font-size:.6rem;color:var(--sub);white-space:nowrap">
+    <span title="${bettors} de ${totalPlayers} jogadores apostaram neste jogo">📊 ${pp}% apost</span>
     <span style="color:var(--green)" title="${exact} acertaram o resultado exato">🎯 ${pc(exact)}% exato</span>
-    <span style="color:var(--gold)" title="${tend} acertaram só o vencedor/empate">↗ ${pc(tend)}% tend.</span>
+    <span style="color:var(--gold)" title="${tend} acertaram só o vencedor/empate">↗ ${pc(tend)}% tend</span>
     <span style="color:var(--red)" title="${err} falharam">✗ ${pc(err)}% erro</span>
   </div>`;
 }
@@ -3613,7 +3640,17 @@ function renderBetsKO() {
     const t1ph = isKOPlaceholder(t1) ? ' placeholder' : '';
     const t2ph = isKOPlaceholder(t2) ? ' placeholder' : '';
 
-    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''}" data-game-id="${g.id}" ${(isFinished||(locked&&knownTeams))?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
+    // Cor do cartão (igual à fase de grupos): verde=resultado exato, amarelo=vencedor, vermelho=erro, cinza=guardado
+    let colorClass='';
+    if(isFinished && pts!==null){
+      if(pts>=5) colorClass='card-result';        // KO: resultado exato (5+ pts) → verde
+      else if(pts>=2) colorClass='card-winner';   // KO: vencedor/empate (2 pts) → amarelo
+      else colorClass='card-miss';                // erro → vermelho
+    } else if(isSaved){
+      colorClass='card-saved';                    // guardado sem resultado → cinza
+    }
+
+    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||(locked&&knownTeams))?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
       <div class="game-meta">
         <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</span>
         <span>${dlWarn}${ptsHtml}</span>
