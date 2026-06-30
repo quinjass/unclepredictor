@@ -529,6 +529,7 @@
     .game-card-ko.finished{cursor:pointer}.game-card-ko.finished:hover{border-color:#7986cb}
     .game-card-ko.locked{opacity:.7}
     .ko-badge{font-size:.7rem;font-weight:700;color:#9fa8da;background:rgba(63,81,181,.15);padding:2px 7px;border-radius:4px;margin-right:5px}
+    .pen-star{color:var(--gold);font-size:.75rem;margin:0 3px;vertical-align:middle}
     .ko-pending{text-align:center;font-size:.74rem;color:#7986cb;padding:7px 0;font-style:italic;opacity:.8}
     .team-name.placeholder{color:var(--sub);font-style:italic;font-weight:400}
     /* ── BRACKET MUNDIAL ── */
@@ -3610,7 +3611,7 @@ function renderBetsKO() {
         <span>${dlWarn}${ptsHtml}</span>
       </div>
       <div class="game-teams">
-        <div class="team-name${t1ph}">${flag(t1)}${t1}</div>
+        <div class="team-name${t1ph}">${flag(t1)}${t1}${isFinished&&res.pen==='t1'?'<span class="pen-star" title="Passou por penáltis">★</span>':''}</div>
         ${isFinished
           ? `<div class="result-badge">${res.t1} – ${res.t2}</div>`
           : lvKO
@@ -3625,7 +3626,7 @@ function renderBetsKO() {
               </div>`
             : `<div class="result-badge" style="color:var(--sub);font-size:.7rem;min-width:60px;text-align:center">A definir</div>`
         }
-        <div class="team-name right${t2ph}">${flag(t2)}${t2}</div>
+        <div class="team-name right${t2ph}">${isFinished&&res.pen==='t2'?'<span class="pen-star" title="Passou por penáltis">★</span>':''}${flag(t2)}${t2}</div>
       </div>
       ${isFinished
         ? `<div class="bet-inline">
@@ -4583,8 +4584,9 @@ function openGameModal(gameId) {
   const t1 = game.ko ? getKOTeamName(gameId,'t1') : game.t1;
   const t2 = game.ko ? getKOTeamName(gameId,'t2') : game.t2;
   document.getElementById('modal-title').textContent = resEff ? `${t1} ${resEff.t1}–${resEff.t2} ${t2}` : `${t1} vs ${t2}`;
+  const penNote = isFinished && res.pen ? ` · ★ ${res.pen==='t1'?t1:t2} passou por penáltis` : '';
   document.getElementById('modal-subtitle').textContent =
-    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?'':(lv?` · 🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'} — pontuação potencial`:' · 🔒 Apostas fechadas — jogo por disputar')}`;
+    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?penNote:(lv?` · 🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'} — pontuação potencial`:' · 🔒 Apostas fechadas — jogo por disputar')}`;
 
   // Apostas de todos: S.allPreds (backend só envia jogos já fechados)
   const isKO = !!game.ko;
@@ -4617,7 +4619,17 @@ function openGameModal(gameId) {
       tot = base + apr + rar + jok;
     }
     return {name:u.name, code:u.code, pred, base, apr, rar, jok, tot, isMe: S.user && u.name===S.user.name};
-  }).sort((a,b)=>(b.tot||0)-(a.tot||0));
+  }).sort((a,b) => {
+    const hasPredA = !!(a.pred && a.pred.t1 !== undefined);
+    const hasPredB = !!(b.pred && b.pred.t1 !== undefined);
+    // Com resultado: 1) pontos>0 (desc), 2) apostou mas errou (0 pts), 3) não apostou
+    if (showPts) {
+      const aGrp = !hasPredA ? 2 : (a.tot||0) > 0 ? 0 : 1;
+      const bGrp = !hasPredB ? 2 : (b.tot||0) > 0 ? 0 : 1;
+      if (aGrp !== bGrp) return aGrp - bGrp;
+    }
+    return (b.tot||0) - (a.tot||0);
+  });
 
   let html='';
   if(lv) html+=`<div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.35);border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:.72rem;text-align:center"><span class="live-dot">🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'}</span> — pontuação <strong>potencial</strong> com o resultado atual. Só conta no apito final.</div>`;
@@ -4750,7 +4762,8 @@ function buildPlayerBetsHtml(playerName) {
   // Jogos terminados + jogos fechados (deadline passou) com aposta deste jogador
   const shownGames = GAMES.filter(g =>
     results[g.id]!==undefined ||
-    (dlPassed(g.date) && preds[g.id] && preds[g.id].t1!==undefined));
+    (dlPassed(g.date) && preds[g.id] && preds[g.id].t1!==undefined)
+  ).sort((a,b) => new Date(a.date) - new Date(b.date));
 
   if (!shownGames.length) {
     return '<div class="alert alert-info">Ainda não há jogos terminados nem apostas fechadas.</div>';
@@ -4812,7 +4825,7 @@ function buildPlayerBetsHtml(playerName) {
     html+=`<tr>
       <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
-      <td style="${nC}">${isF?`${res.t1}–${res.t2}`:(lv?`<span class="live-dot" style="font-size:.72rem">🔴 ${lv.t1}–${lv.t2}</span>`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>')}</td>
+      <td style="${nC}">${isF?`${res.t1}–${res.t2}${res.pen?'<span class="pen-star" title="'+(res.pen==='t1'?getKOTeamName(g.id,'t1'):getKOTeamName(g.id,'t2'))+' passou por penáltis">★</span>':''}`:(lv?`<span class="live-dot" style="font-size:.72rem">🔴 ${lv.t1}–${lv.t2}</span>`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>')}</td>
       <td style="${nC}${liveStyle}">${base===null?'—':base}</td>
       <td style="${nC};color:${apr?'#1abc9c':'var(--sub)'}${liveStyle}">${apr?'+'+apr:'—'}</td>
       <td style="${nC};color:${rar?'#f39c12':'var(--sub)'}${liveStyle}">${rar?'+'+rar:'—'}</td>
