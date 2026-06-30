@@ -2042,7 +2042,12 @@ async function init() {
     // (antes: 2 chamadas sequenciais ao Apps Script bloqueavam o ecrã de login)
     const sl = localStorage.getItem('up26_league_'+S.user.code);
     setGaUser(S.user.code); track('login',{method:'auto'});
-    showCompetitions(); loadData();
+    // Se só há uma competição activa em que está inscrito, entrar directamente
+    // (evita o selector obrigatório quando o utilizador só tem uma opção)
+    const _activeReg = S.competitions.filter(c=>c.status==='active'&&c.registered);
+    if(_activeReg.length===1){ S.competition=_activeReg[0].id; showApp(); }
+    else showCompetitions();
+    loadData();
     // Fetch sim state from backend (non-blocking)
     if(!S.demoMode && S.user && S.user.code){
       api('getSimState',{code:S.user.code}).then(r=>{
@@ -2095,7 +2100,10 @@ async function login() {
       localStorage.setItem('up26_user', JSON.stringify(S.user));
       const sc = localStorage.getItem('up26_saved_'+S.user.code);
       if (sc) S.savedCards = JSON.parse(sc); else S.savedCards = {};
-      showCompetitions(); // landing: escolher competição
+      // Se só há uma competição activa inscrita, entrar directamente
+      const _ar = S.competitions.filter(c=>c.status==='active'&&c.registered);
+      if(_ar.length===1){ S.competition=_ar[0].id; showApp(); }
+      else showCompetitions();
       loadData();         // buscar em paralelo (atualiza o nº de inscritos)
       loadMyLeagues();
     } else {
