@@ -411,7 +411,9 @@
     .pred-cell{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.95rem}
     .pred-correct{color:var(--green)}
     .pred-partial{color:#f39c12}
+    .pred-close{color:#b4d422} /* KO: tendência+aproximação — verde-limão, entre amarelo e verde */
     .pred-wrong{color:var(--red)}
+    .pts-close{background:rgba(180,212,34,.18);color:#b4d422} /* badge KO tend+aprox */
 
     /* ── FORMS ── */
     .form-group{margin-bottom:14px}
@@ -530,6 +532,7 @@
     .game-card-ko.locked{opacity:.7}
     .game-card-ko.card-saved{background:rgba(180,180,180,.07);border-color:rgba(180,180,180,.3)}
     .game-card-ko.card-result{background:rgba(39,174,96,.07);border-color:rgba(39,174,96,.35)}
+    .game-card-ko.card-close{background:rgba(180,212,34,.07);border-color:rgba(180,212,34,.35)} /* tend+aprox — verde-limão */
     .game-card-ko.card-winner{background:rgba(245,197,24,.07);border-color:rgba(245,197,24,.35)}
     .game-card-ko.card-miss{background:rgba(231,76,60,.07);border-color:rgba(231,76,60,.3)}
     .ko-badge{font-size:.7rem;font-weight:700;color:#9fa8da;background:rgba(63,81,181,.15);padding:2px 7px;border-radius:4px;margin-right:5px}
@@ -3640,12 +3643,16 @@ function renderBetsKO() {
     const t1ph = isKOPlaceholder(t1) ? ' placeholder' : '';
     const t2ph = isKOPlaceholder(t2) ? ' placeholder' : '';
 
-    // Cor do cartão (igual à fase de grupos): verde=resultado exato, amarelo=vencedor, vermelho=erro, cinza=guardado
+    // Cor do cartão: verde=resultado exato, verde-limão=tendência+aproximação, amarelo=tendência OU aproximação, vermelho=erro, cinza=guardado
+    // Baseado na COMPOSIÇÃO do acerto (não nos pontos totais) — antes, tend+aprox com joker (6 pts) ficava verde como o exato
     let colorClass='';
     if(isFinished && pts!==null){
-      if(pts>=5) colorClass='card-result';        // KO: resultado exato (5+ pts) → verde
-      else if(pts>=2) colorClass='card-winner';   // KO: vencedor/empate (2 pts) → amarelo
-      else colorClass='card-miss';                // erro → vermelho
+      const exactHit = pred.t1===res.t1 && pred.t2===res.t2;
+      const basePts = calcPts({...pred, joker:false}, res, true); // 0..3 sem exato: tend(2)+aprox(1)
+      if(exactHit) colorClass='card-result';           // resultado exato → verde
+      else if(basePts===3) colorClass='card-close';    // tendência+aproximação → verde-limão
+      else if(basePts>=1) colorClass='card-winner';    // tendência OU aproximação → amarelo
+      else colorClass='card-miss';                     // erro → vermelho
     } else if(isSaved){
       colorClass='card-saved';                    // guardado sem resultado → cinza
     }
@@ -4641,8 +4648,8 @@ function openGameModal(gameId) {
   let rarBonus = (isFinished&&S.rarityMap&&S.rarityMap[gameId])?S.rarityMap[gameId].bonus:0;
   if (lv) {
     let bets=0, ex=0;
-    Object.values(gamePreds).forEach(p=>{
-      if(p.t1===undefined)return;
+    Object.entries(gamePreds).forEach(([code,p])=>{
+      if(code==='BOT_IA'||p.t1===undefined)return; // bot fora da raridade (igual ao backend)
       bets++;
       if(p.t1===resEff.t1&&p.t2===resEff.t2)ex++;
     });
@@ -4693,7 +4700,8 @@ function openGameModal(gameId) {
     const hasPred = r.pred && r.pred.t1!==undefined;
     const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : '—';
     const gross = (r.base||0)+(r.apr||0);
-    const ptsCls = showPts ? (!hasPred||gross===0?'pred-wrong':gross===1||gross===2?'pred-partial':'pred-correct') : '';
+    // KO gross===3 = tendência+aproximação (sem exato) → verde-limão; grupos gross===3 = exato → verde
+    const ptsCls = showPts ? (!hasPred||gross===0?'pred-wrong':(isKO&&gross===3)?'pred-close':gross===1||gross===2?'pred-partial':'pred-correct') : '';
     html+=`<tr class="${r.isMe?'row-me':''}">
       <td class="td-left">${r.code==='BOT_IA'?'🤖 IA':r.name}${r.isMe?' <span class="me-tag">(tu)</span>':''}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
@@ -4865,7 +4873,8 @@ function buildPlayerBetsHtml(playerName) {
     }
     const predStr=hasPred?`${pred.t1}–${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:(dpick?`<span style="color:#a78bfa" title="Default pick — aposta do IA por esquecimento">🤖 ${dpick.t1}–${dpick.t2}</span>`:'-');
     const grossC=(base||0)+(apr||0);
-    const ptsCls=dpick?'':(isF?(!hasPred||grossC===0?'pred-wrong':grossC===1||grossC===2?'pred-partial':'pred-correct'):'');
+    // KO grossC===3 = tendência+aproximação → verde-limão (grupos: 3 = exato → verde)
+    const ptsCls=dpick?'':(isF?(!hasPred||grossC===0?'pred-wrong':(isKO&&grossC===3)?'pred-close':grossC===1||grossC===2?'pred-partial':'pred-correct'):'');
     const liveStyle=lv?';opacity:.85;font-style:italic':'';
     html+=`<tr>
       <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
@@ -5478,7 +5487,9 @@ function koPtsBadgeHtml(pred, res) {
   }
   const tot = jokerOn ? base*2 : base;
   if(tot===0) return `<span class="pts-badge pts-0">ERROU</span>`;
-  return `<span class="pts-badge pts-${tot}">${lbl}${jokerOn?'+J':''} +${tot}</span>`;
+  // tend+aprox tem classe própria (verde-limão) — pts-3/pts-6 são partilhadas com acertos exatos e ficavam verdes
+  const cls = (trend&&approx) ? 'pts-close' : `pts-${tot}`;
+  return `<span class="pts-badge ${cls}">${lbl}${jokerOn?'+J':''} +${tot}</span>`;
 }
 
 function rarityBadgeHtml(gameId, pred, res, jokerOn) {
@@ -5663,8 +5674,8 @@ function livePotential(gameId,pred){
     const gp=S.allPreds&&S.allPreds[gameId];
     if(gp){
       let bets=0,ex=0;
-      Object.values(gp).forEach(p=>{
-        if(p.t1===undefined)return;
+      Object.entries(gp).forEach(([code,p])=>{
+        if(code==='BOT_IA'||p.t1===undefined)return; // bot fora da raridade (igual ao backend)
         bets++;
         if(p.t1===res.t1&&p.t2===res.t2)ex++;
       });
