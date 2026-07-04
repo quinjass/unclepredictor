@@ -1237,6 +1237,33 @@
   chkAdminNav();
 })();
 </script>
+<script>
+/* Auto-deteção de NOVA VERSÃO (4 Jul): compara o ETag/Last-Modified do
+   index.html no servidor com o desta sessão — ao ganhar foco e a cada 10 min.
+   Se mudou, mostra barra para atualizar (não força reload, para não perder
+   apostas a meio). Apanha tabs esquecidas abertas há horas/dias. */
+(function(){
+  var v0 = null, shown = false;
+  function check(){
+    fetch(location.pathname + '?uv=' + Date.now(), { method: 'HEAD', cache: 'no-store' }).then(function(r){
+      var v = r.headers.get('etag') || r.headers.get('last-modified');
+      if (!v) return;
+      if (v0 === null) { v0 = v; return; }
+      if (v !== v0 && !shown) {
+        shown = true;
+        var b = document.createElement('div');
+        b.textContent = '🔄 Nova versão disponível — toca aqui para atualizar';
+        b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#e67e22;color:#fff;font:700 13px Inter,sans-serif;text-align:center;padding:9px;cursor:pointer';
+        b.onclick = function(){ location.reload(); };
+        document.body.appendChild(b);
+      }
+    }).catch(function(){});
+  }
+  check();
+  setInterval(check, 10 * 60000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) check(); });
+})();
+</script>
 
 <main class="main">
 
@@ -2486,7 +2513,15 @@ async function init() {
   const _rem = urlParams.get('email');
   if (_rtk && _rem) { setTimeout(() => showResetPw(_rem, _rtk), 400); }
 
-  const saved = localStorage.getItem('up26_user');
+  let saved = localStorage.getItem('up26_user');
+  // MIGRAÇÃO (4 Jul): sessões do sistema antigo (GS) deixadas no localStorage
+  // faziam auto-login SEM sessão Auth do Supabase → user "logado" mas sem JWT,
+  // RLS esconde as próprias apostas ("apostas vazias"). Se não há sessão Auth
+  // válida no adapter, limpar e obrigar a um login limpo (dispara o JIT).
+  if (saved && window.UPSB && !window.UPSB.session()) {
+    localStorage.removeItem('up26_user');
+    saved = null;
+  }
   if (saved) {
     loginReady = true; // sessão restaurada automaticamente — flag não é necessária
     S.user = JSON.parse(saved);
