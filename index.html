@@ -942,8 +942,15 @@
   }
   async function savePreds(data) {
     const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada — entra de novo.' };
+    // FILTRAR jogos FECHADOS (fix 4 Jul, "Guardar todos"): o GS ignorava-os no
+    // servidor; aqui a RLS rejeitaria o LOTE inteiro por causa de um único
+    // jogo fechado no batch. Só enviamos os que ainda estão abertos.
+    const db = await loadDB();
+    const dh = Number(db.config.deadline_hours || 2);
+    const open = (g) => !isGameLocked(g, dh, db.gameDatesUTC);
     const preds = data.preds || {}; const ups = [], dels = [];
     Object.entries(preds).forEach(([g, p]) => {
+      if (!open(g)) return; // fechado → intocável (nem grava nem apaga)
       if (p && p.t1 != null && p.t1 !== '' && p.t2 != null && p.t2 !== '') ups.push({ competition_id: COMP, code, game_id: g, t1: +p.t1, t2: +p.t2, joker: p.joker === true || p.joker === 'TRUE' });
       else dels.push(g);
     });
