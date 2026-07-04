@@ -621,6 +621,444 @@
       border-color: rgba(37,58,80,0.5);
     }
   </style>
+<script>
+/* up-supabase-adapter.js (embutido) */
+// ============================================================================
+// Uncle Predictor — ADAPTADOR Supabase para o frontend de teste
+// ----------------------------------------------------------------------------
+// Substitui a camada de dados (Apps Script -> Supabase) SEM tocar no resto do
+// index.html. A função api() do frontend desvia para UPSB.dispatch().
+//
+// FASE 3 (escrita + Auth):
+//  - LOGIN REAL via Supabase Auth (password). Sessão JWT persistida + refresh.
+//  - ESCRITA real do loop de apostas: savePred/savePreds/clearPred/savePrebets
+//    e saveSimState, protegidas por RLS (ownership + membership + prazo).
+//  - Trabalha na competição SANDBOX (WC2026_test). O WC2026 real fica intocável
+//    (o user de teste não é membro -> RLS bloqueia).
+//  - Restantes escritas (ligas, social, admin) ainda no-op (próximos passos).
+//
+// Lógica de pontuação = porta fiel do apps-script.gs (igual ao parity.mjs).
+// ============================================================================
+(function () {
+  // RealDate ANTES do freeze: a autenticação usa sempre o tempo real (o token
+  // do Supabase é validado no servidor pelo relógio real).
+  const RealDate = Date;
+  const realNowMs = () => RealDate.now();
+
+  // PRODUÇÃO: sem relógio de sandbox — usa o tempo real do dispositivo.
+
+  const SB_URL = 'https://pzvwzqynxsaelyyakqes.supabase.co';
+  const SB_KEY = 'sb_publishable_5aiD7taF5eYKvfDBsGbklQ_XoBoFPyN';
+  const COMP = 'WC2026';                 // competição real (produção)
+  const SS_KEY = 'upsb_session';
+  const CF = 'competition_id=eq.' + COMP; // filtro de competição p/ leituras
+
+  // ---- sessão (persistida em localStorage, com refresh) ----
+  let SESSION = null;
+  try { SESSION = JSON.parse(localStorage.getItem(SS_KEY) || 'null'); } catch (e) { SESSION = null; }
+  function saveSession(s) {
+    SESSION = s;
+    try { s ? localStorage.setItem(SS_KEY, JSON.stringify(s)) : localStorage.removeItem(SS_KEY); } catch (e) {}
+  }
+  async function ensureToken() {
+    if (!SESSION) return null;
+    if (SESSION.expires_at && realNowMs() < (SESSION.expires_at - 60) * 1000) return SESSION.access_token;
+    if (!SESSION.refresh_token) return SESSION.access_token || null;
+    try {
+      const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: SESSION.refresh_token }),
+      });
+      const j = await r.json();
+      if (r.ok && j.access_token) {
+        SESSION = { ...SESSION, access_token: j.access_token, refresh_token: j.refresh_token || SESSION.refresh_token,
+                    expires_at: Math.floor(realNowMs() / 1000) + (j.expires_in || 3600) };
+        saveSession(SESSION);
+        return SESSION.access_token;
+      }
+    } catch (e) { console.warn('[Supabase] refresh falhou', e.message); }
+    return SESSION.access_token || null;
+  }
+  const anonH = () => ({ apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY });
+  async function authH() { const t = await ensureToken(); return { apikey: SB_KEY, Authorization: 'Bearer ' + (t || SB_KEY) }; }
+
+  // ---- leitura ----
+  // Por omissão usa a chave pública (anon): tabelas públicas (results, games,
+  // ligas, ...). Para predictions/prebets passa-se useAuth=true: a RLS (006)
+  // esconde apostas por-fechar e, com o JWT, devolve também as DO PRÓPRIO.
+  async function rest(table, select, filter, useAuth) {
+    const PAGE = 1000; let off = 0, out = [];
+    const H = useAuth ? await authH() : anonH();
+    for (;;) {
+      const u = `${SB_URL}/rest/v1/${table}?select=${select}${filter ? '&' + filter : ''}&limit=${PAGE}&offset=${off}`;
+      const r = await fetch(u, { cache: 'no-store', headers: H });
+      if (!r.ok) throw new Error(`${table} [${r.status}] ${await r.text()}`);
+      const rows = await r.json();
+      out = out.concat(rows);
+      if (rows.length < PAGE) break;
+      off += PAGE;
+    }
+    return out;
+  }
+  async function rpc(fn, args, useAuth) {
+    const H = useAuth ? await authH() : anonH();
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: 'POST', cache: 'no-store',
+      headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(args || {}) });
+    if (!r.ok) throw new Error(`rpc ${fn} [${r.status}] ${await r.text()}`);
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;   // funções 'void' devolvem corpo vazio
+  }
+  // ---- escrita (com o JWT do user; RLS valida ownership/membership/prazo) ----
+  async function writeRest(method, path, body, prefer) {
+    const r = await fetch(`${SB_URL}/rest/v1/${path}`, {
+      method, headers: { ...(await authH()), 'Content-Type': 'application/json', Prefer: prefer || 'return=minimal' },
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+    if (!r.ok) throw new Error(`${method} ${path} [${r.status}] ${await r.text()}`);
+    return r;
+  }
+  const myCode = () => (SESSION && SESSION.code) || null;
+  const enc = encodeURIComponent;
+
+  // ---- pontuação (porta fiel do apps-script.gs) ----
+  const BOT_CODE = 'BOT_IA', DEFAULT_PICK_BUDGET = 5, DEFAULT_PICK_CUTOFF_UTC = '2026-06-21T00:00:00Z';
+  function jornadaKeyOf(g) { const m = String(g).match(/^(R32|R16|QF|SF|F3|FIN)_/); if (m) return m[1]; const n = parseInt(String(g).slice(1), 10); if (!n) return null; return String(Math.min(3, Math.ceil(n / 2))); }
+  function getRarityBonus(e, t) { if (!t || !e) return 0; const p = e / t; if (p < 0.05) return 6; if (p < 0.15) return 4; if (p <= 0.30) return 2; return 0; }
+  function calcPoints(pred, res, isKO) {
+    if (pred.t1 == null || res.t1 == null) return 0;
+    const pw = pred.t1 > pred.t2 ? 1 : pred.t1 < pred.t2 ? -1 : 0;
+    const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0;
+    const eB = isKO ? 5 : 3, wB = isKO ? 2 : 1; let pts = 0;
+    if (pred.t1 === res.t1 && pred.t2 === res.t2) pts = eB;
+    else { if (pw === rw) pts = wB; if (isKO && (Math.abs(pred.t1 - res.t1) + Math.abs(pred.t2 - res.t2)) === 1) pts += 1; }
+    return pred.joker ? pts * 2 : pts;
+  }
+  function calcPrebetPoints(userPrebets, specials, gs) {
+    let pts = 0; const pb = {}; userPrebets.forEach(r => { pb[r.key] = r.value; });
+    if (specials.champion && pb.champion === specials.champion) pts += 8;
+    if (specials.runner_up && pb.runner_up === specials.runner_up) pts += 5;
+    if (specials.third && pb.third === specials.third) pts += 3;
+    if (specials.top_scorer && pb.top_scorer === specials.top_scorer) pts += 5;
+    ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(g => { const s = gs[g]; if (!s) return; if (s.first && pb['g'+g+'_1'] === s.first) pts += 2; if (s.second && pb['g'+g+'_2'] === s.second) pts += 2; });
+    return pts;
+  }
+  function calcGroupStandings(results, groupGames) {
+    const st = {}, done = {}, tot = {};
+    groupGames.forEach(game => {
+      const grp = game.id[0]; st[grp] = st[grp] || {}; tot[grp] = tot[grp] || 0; done[grp] = done[grp] || 0; tot[grp]++;
+      if (!st[grp][game.t1]) st[grp][game.t1] = { pts:0, gf:0, ga:0 };
+      if (!st[grp][game.t2]) st[grp][game.t2] = { pts:0, gf:0, ga:0 };
+      const res = results[game.id]; if (!res || res.t1 == null) return;
+      done[grp]++; const s1 = st[grp][game.t1], s2 = st[grp][game.t2];
+      s1.gf += res.t1; s1.ga += res.t2; s2.gf += res.t2; s2.ga += res.t1;
+      if (res.t1 > res.t2) s1.pts += 3; else if (res.t1 < res.t2) s2.pts += 3; else { s1.pts++; s2.pts++; }
+    });
+    const out = {};
+    Object.entries(st).forEach(([grp, teams]) => {
+      if ((done[grp] || 0) < (tot[grp] || 6)) { out[grp] = { first:null, second:null }; return; }
+      const sorted = Object.entries(teams).map(([name, s]) => ({ name, pts:s.pts, gd:s.gf-s.ga, gf:s.gf })).sort((a,b) => b.pts-a.pts || b.gd-a.gd || b.gf-a.gf);
+      out[grp] = { first: sorted[0] ? sorted[0].name : null, second: sorted[1] ? sorted[1].name : null };
+    });
+    return out;
+  }
+  function buildLeaderboard(results, db) {
+    const allPreds = db.allPreds;
+    const botPredMap = {}; allPreds.forEach(r => { if (r.code === BOT_CODE && r.t1 != null) botPredMap[r.game_id] = { t1:+r.t1, t2:+r.t2 }; });
+    const cutoffMs = new Date(DEFAULT_PICK_CUTOFF_UTC).getTime();
+    const exactCountMap = {}, betCountMap = {};
+    // Bot EXCLUÍDO da contagem da raridade (2 Jul) — igual ao apps-script.gs; bot continua a poder receber o bónus
+    Object.keys(results).forEach(gid => { const res = results[gid]; let ex = 0, b = 0; allPreds.forEach(r => { if (r.game_id !== gid || r.t1 == null || r.code === BOT_CODE) return; b++; if (+r.t1 === res.t1 && +r.t2 === res.t2) ex++; }); exactCountMap[gid] = ex; betCountMap[gid] = b; });
+    const rarityMap = {};
+    Object.keys(exactCountMap).forEach(gid => { const bonus = getRarityBonus(exactCountMap[gid], betCountMap[gid]); if (bonus > 0) rarityMap[gid] = { exactCount:exactCountMap[gid], totalPlayers:betCountMap[gid], bonus, label: bonus===6?'Ultra Raro':bonus===4?'Muito Raro':'Raro' }; });
+    const specials = db.specials, gs = calcGroupStandings(results, db.groupGames);
+    const players = db.participants.map(p => {
+      const userPreds = allPreds.filter(r => r.code === p.code);
+      const userPrebets = db.prebets.filter(r => r.code === p.code);
+      let wins=0, draws=0, ko_wins=0, ko_draws=0, gamesBet=0, joker_pts=0, groupPts=0, koPts=0, rarity_pts=0, approx_pts=0; const jp = {};
+      userPreds.forEach(pred => {
+        const res = results[pred.game_id]; if (!res || pred.t1 == null) return; gamesBet++;
+        const isKO = /^(R32|R16|QF|SF|F3|FIN)_/.test(pred.game_id); const jk = jornadaKeyOf(pred.game_id);
+        const jokerVal = pred.joker === true; const po = { t1:+pred.t1, t2:+pred.t2, joker:jokerVal };
+        const ptsBase = calcPoints({ ...po, joker:false }, res, isKO); const ptsFull = jokerVal ? calcPoints(po, res, isKO) : ptsBase;
+        if (isKO) koPts += ptsBase; else groupPts += ptsBase;
+        if (isKO && !(po.t1 === res.t1 && po.t2 === res.t2) && (Math.abs(po.t1 - res.t1) + Math.abs(po.t2 - res.t2)) === 1) approx_pts += 1;
+        if (jokerVal && ptsFull > ptsBase) joker_pts += ptsFull - ptsBase;
+        if (jk) jp[jk] = (jp[jk] || 0) + ptsFull;
+        const pw = po.t1 > po.t2 ? 1 : po.t1 < po.t2 ? -1 : 0; const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0;
+        if (po.t1 === res.t1 && po.t2 === res.t2) { if (isKO) ko_wins++; else wins++; const bb = getRarityBonus(exactCountMap[pred.game_id] || 0, betCountMap[pred.game_id] || 0); if (bb > 0) { rarity_pts += bb; if (jokerVal) joker_pts += bb; if (jk) jp[jk] = (jp[jk] || 0) + (jokerVal ? bb*2 : bb); } }
+        else if (pw === rw) { if (isKO) ko_draws++; else draws++; }
+      });
+      let default_pts = 0, default_used = 0;
+      if (p.code !== BOT_CODE) {
+        const bg = {}; userPreds.forEach(r => { if (r.t1 != null) bg[r.game_id] = true; });
+        const cand = Object.keys(results).filter(gid => { if (bg[gid]) return false; if (!botPredMap[gid]) return false; const k = db.gameDatesUTC[gid] ? new Date(db.gameDatesUTC[gid]).getTime() : 0; return k >= cutoffMs; });
+        cand.sort((a, b) => { const ka = db.gameDatesUTC[a] ? new Date(db.gameDatesUTC[a]).getTime() : 0; const kb = db.gameDatesUTC[b] ? new Date(db.gameDatesUTC[b]).getTime() : 0; return ka - kb || (a < b ? -1 : a > b ? 1 : 0); });
+        for (let i = 0; i < cand.length && default_used < DEFAULT_PICK_BUDGET; i++) { const gid = cand[i]; default_used++; const res = results[gid], bp = botPredMap[gid]; const isKO = /^(R32|R16|QF|SF|F3|FIN)_/.test(gid); const pw = bp.t1 > bp.t2 ? 1 : bp.t1 < bp.t2 ? -1 : 0; const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0; if (pw === rw) { const pts = isKO ? 2 : 1; default_pts += pts; const jk = jornadaKeyOf(gid); if (jk) jp[jk] = (jp[jk] || 0) + pts; } }
+      }
+      const prebets_pts = calcPrebetPoints(userPrebets, specials, gs);
+      const total = groupPts + koPts + joker_pts + rarity_pts + prebets_pts + default_pts;
+      return { name:p.name, code:p.code, total, wins, draws, ko_wins, ko_draws, group_pts:groupPts, ko_pts:koPts, approx_pts, joker_pts, prebets_pts, rarity_pts, jp, games:gamesBet, default_pts, defaults:default_used };
+    });
+    return { players, rarityMap };
+  }
+  function buildPrevLeaderboard(results, db) {
+    const ids = Object.keys(results); if (ids.length < 2) return null;
+    let maxK = -1; ids.forEach(id => { const t = db.gameDatesUTC[id] ? new Date(db.gameDatesUTC[id]).getTime() : 0; if (t > maxK) maxK = t; });
+    const prev = {}; ids.forEach(id => { const t = db.gameDatesUTC[id] ? new Date(db.gameDatesUTC[id]).getTime() : 0; if (t < maxK) prev[id] = results[id]; });
+    if (!Object.keys(prev).length) return null;
+    return buildLeaderboard(prev, db).players.map(p => ({ code:p.code, total:p.total, joker_pts:p.joker_pts, rarity_pts:p.rarity_pts, wins:p.wins, ko_wins:p.ko_wins, draws:p.draws, ko_draws:p.ko_draws }));
+  }
+  function isGameLocked(gid, deadlineH, gd) { const k = gd[gid]; if (!k) return false; return Date.now() >= new Date(k).getTime() - deadlineH * 3600000; }
+
+  // ---- carregamento (cache em memória; filtrado pela competição sandbox) ----
+  let DB = null;
+  async function loadDB() {
+    if (DB) return DB;
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, duels, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
+      rest('v_participants', 'code,name,is_bot', ''),
+      rest('predictions', 'code,game_id,t1,t2,joker', CF, true),  // useAuth: RLS revela as próprias + jogos fechados
+      rest('prebets', 'code,key,value', CF, true),                // useAuth: RLS revela as próprias + pós-A1
+      rest('results', 'game_id,t1,t2,pen', CF),
+      rest('specials', 'key,value', CF),
+      rest('games', 'game_id,stage,group_label,t1_team,t2_team,kickoff_utc', CF),
+      rest('leagues', 'id,name,admin_code,invite_code', CF),
+      rest('league_members', 'league_id,user_code'),
+      rest('reactions', 'league_id,from_code,target_code,emoji', '', true),   // RLS 008: membros da liga (JWT)
+      rest('comments', 'league_id,jornada,code,name,text,created_at', '', true),
+      rest('duel_rosters', 'league_id,jornada,codes', '', true),
+      rest('notifications', 'id,to_code,type,text,created_at', '', true),     // RLS 008: próprio/broadcast (JWT)
+      rest('blocks', 'code,blocked_code', '', true),
+      rest('notif_prefs', 'code,prefs', '', true),
+      rest('config', 'key,value', ''),
+      rest('competition_members', 'code', CF),
+    ]);
+    const pm = {}; predsRaw.forEach(r => { pm[r.code + '|' + r.game_id] = r; }); const allPreds = Object.values(pm);
+    const results = {}; resultsRaw.forEach(r => { if (r.t1 != null && r.t2 != null) results[r.game_id] = { t1:+r.t1, t2:+r.t2, pen:r.pen || '' }; });
+    const gameDatesUTC = {}, groupGames = [], koTeams = {};
+    games.forEach(g => {
+      if (g.kickoff_utc) gameDatesUTC[g.game_id] = g.kickoff_utc;
+      if (g.stage === 'group') groupGames.push({ id:g.game_id, t1:g.t1_team, t2:g.t2_team });
+      else if (g.t1_team && g.t2_team) koTeams[g.game_id] = { t1:g.t1_team, t2:g.t2_team }; // KO já resolvido (preenchido pelo auto-fetch)
+    });
+    const specials = {}; specialsRaw.forEach(r => { if (r.key) specials[r.key] = r.value; });
+    const config = {}; configRows.forEach(r => { config[r.key] = r.value; });
+    const prefsMap = {}; prefs.forEach(r => { try { prefsMap[(r.code || '').toUpperCase()] = JSON.parse(r.prefs || '{}'); } catch (e) { prefsMap[(r.code || '').toUpperCase()] = {}; } });
+    // leagues desta competição -> restringe membros/social a essas ligas
+    const lset = new Set(leagues.map(l => l.id));
+    const fmembers = members.filter(m => lset.has(m.league_id));
+    const freacts = reactions.filter(r => lset.has(r.league_id));
+    const fcomments = comments.filter(c => lset.has(c.league_id));
+    const fduels = duels.filter(d => lset.has(d.league_id));
+    // Leaderboard só com os MEMBROS desta competição (não todos os participantes globais)
+    const cmSet = new Set((compMembers || []).map(m => m.code));
+    const participantsM = participants.filter(p => cmSet.has(p.code));
+    DB = { participants: participantsM, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, duels: fduels, notifs, blocks, prefsMap };
+    return DB;
+  }
+  function shapeLeague(l, db) {
+    const members = db.members.filter(m => m.league_id === l.id).map(m => (m.user_code || '').toUpperCase());
+    return { id: l.id, name: l.name, invite: l.invite_code, admin: (l.admin_code || '').toUpperCase(), members };
+  }
+
+  async function getData(data) {
+    const db = await loadDB();
+    const code = (data.code || myCode() || '').toUpperCase();
+    const deadlineH = Number(db.config.deadline_hours || 2);
+    const preds = {};
+    db.allPreds.filter(r => (r.code || '').toUpperCase() === code).forEach(r => { preds[r.game_id] = { t1: r.t1 != null ? +r.t1 : undefined, t2: r.t2 != null ? +r.t2 : undefined, joker: r.joker === true }; });
+    const prebets = {}; db.prebets.filter(r => (r.code || '').toUpperCase() === code).forEach(r => { prebets[r.key] = r.value; });
+    const built = buildLeaderboard(db.results, db);
+    const lbPrev = buildPrevLeaderboard(db.results, db);
+    const allPreds = {};
+    // Revela apostas de jogos FECHADOS (prazo) OU que já têm resultado (sandbox: relógio congelado nunca "fecha").
+    db.allPreds.forEach(r => { if (r.t1 == null) return; if (!isGameLocked(r.game_id, deadlineH, db.gameDatesUTC) && !db.results[r.game_id]) return; (allPreds[r.game_id] = allPreds[r.game_id] || {})[(r.code || '').toUpperCase()] = { t1:+r.t1, t2:+r.t2, joker: r.joker === true }; });
+    const allPrebets = {};
+    if (isGameLocked('A1', deadlineH, db.gameDatesUTC) || db.results['A1']) db.prebets.forEach(r => { const c = (r.code || '').toUpperCase(); (allPrebets[c] = allPrebets[c] || {})[r.key] = r.value; });
+    const notifs = db.notifs.filter(n => n.to_code === '*' || (n.to_code || '').toUpperCase() === code).slice(-30).map(n => ({ id:n.id, type:n.type, text:n.text, at:n.created_at }));
+    const blocks = db.blocks.filter(b => (b.code || '').toUpperCase() === code).map(b => (b.blocked_code || '').toUpperCase());
+    const notifPrefs = db.prefsMap[code] || {};
+    let lockedResults = []; try { lockedResults = JSON.parse(db.config['locked_results_' + COMP] || '[]'); } catch (e) {}
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, live: {}, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC };
+  }
+
+  // ---- AUTH ----
+  // NOTA: o sandbox usa login Auth normal (os testers já têm conta Auth). A
+  // migração JIT (migrate-login) é uma preocupação SÓ de produção e é injetada
+  // na geração do frontend de produção por `_build_prod.py` (T5) — fonte única.
+  // Password grant: devolve o JSON do token, ou null se falhar.
+  async function passwordGrant(email, password) {
+    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const j = await r.json().catch(() => ({}));
+    return (r.ok && j.access_token) ? j : null;
+  }
+
+  async function login(data) {
+    const email = (data.email || '').toLowerCase();
+    const password = data.password || '';
+    let j = await passwordGrant(email, password);
+    // JIT — migração de password no 1.º login (participantes importados da Sheet).
+    if (!j) {
+      try {
+        const mr = await fetch(`${SB_URL}/functions/v1/migrate-login`, {
+          method: 'POST',
+          headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const mj = await mr.json().catch(() => ({}));
+        if (mj && mj.ok) j = await passwordGrant(email, password);
+      } catch (e) { /* sem rede / função indisponível -> falha de login normal */ }
+    }
+    if (!j || !j.access_token) return { success: false };
+    const sess = { access_token: j.access_token, refresh_token: j.refresh_token,
+                   expires_at: Math.floor(realNowMs() / 1000) + (j.expires_in || 3600) };
+    const who = await fetch(`${SB_URL}/rest/v1/rpc/me`, { method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + sess.access_token, 'Content-Type': 'application/json' }, body: '{}' });
+    const rows = await who.json();
+    if (!Array.isArray(rows) || !rows.length) return { success: false, error: 'Conta sem participante associado.' };
+    sess.code = rows[0].code; sess.name = rows[0].name; sess.email = data.email;
+    saveSession(sess); DB = null;
+    return { success: true, code: sess.code, name: sess.name, email: data.email };
+  }
+
+  // ---- ESCRITAS do loop de apostas (RLS valida ownership/membership/prazo) ----
+  async function savePred(data) {
+    const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada — entra de novo.' };
+    const g = data.gameId, p = data.pred || {};
+    if (p.t1 == null || p.t1 === '' || p.t2 == null || p.t2 === '') return { success: false, error: 'Aposta incompleta' };
+    const joker = p.joker === true || p.joker === 'TRUE';
+    await writeRest('POST', 'predictions?on_conflict=competition_id,code,game_id',
+      [{ competition_id: COMP, code, game_id: g, t1: +p.t1, t2: +p.t2, joker }], 'resolution=merge-duplicates,return=minimal');
+    if (joker && Array.isArray(data.jokerScope)) {
+      const sibs = data.jokerScope.filter(x => x !== g);
+      if (sibs.length) {
+        try { await writeRest('PATCH', `predictions?competition_id=eq.${COMP}&code=eq.${enc(code)}&game_id=in.(${sibs.map(enc).join(',')})`, { joker: false }); }
+        catch (e) { console.warn('[Supabase] limpar joker irmãos:', e.message); }
+      }
+    }
+    DB = null; return { success: true };
+  }
+  async function savePreds(data) {
+    const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada — entra de novo.' };
+    const preds = data.preds || {}; const ups = [], dels = [];
+    Object.entries(preds).forEach(([g, p]) => {
+      if (p && p.t1 != null && p.t1 !== '' && p.t2 != null && p.t2 !== '') ups.push({ competition_id: COMP, code, game_id: g, t1: +p.t1, t2: +p.t2, joker: p.joker === true || p.joker === 'TRUE' });
+      else dels.push(g);
+    });
+    if (ups.length) await writeRest('POST', 'predictions?on_conflict=competition_id,code,game_id', ups, 'resolution=merge-duplicates,return=minimal');
+    if (dels.length) { try { await writeRest('DELETE', `predictions?competition_id=eq.${COMP}&code=eq.${enc(code)}&game_id=in.(${dels.map(enc).join(',')})`); } catch (e) { console.warn('[Supabase] apagar vazias:', e.message); } }
+    DB = null; return { success: true };
+  }
+  async function clearPred(data) {
+    const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada — entra de novo.' };
+    await writeRest('DELETE', `predictions?competition_id=eq.${COMP}&code=eq.${enc(code)}&game_id=eq.${enc(data.gameId)}`);
+    DB = null; return { success: true };
+  }
+  async function savePrebets(data) {
+    const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada — entra de novo.' };
+    const pb = data.prebets || {};
+    await writeRest('DELETE', `prebets?competition_id=eq.${COMP}&code=eq.${enc(code)}`);
+    const rows = Object.entries(pb).filter(([k, v]) => v != null && v !== '').map(([k, v]) => ({ competition_id: COMP, code, key: k, value: String(v) }));
+    if (rows.length) await writeRest('POST', 'prebets', rows, 'return=minimal');
+    DB = null; return { success: true };
+  }
+  async function saveSimState(data) {
+    const code = myCode(); if (!code) return { success: false };
+    await writeRest('POST', 'sim_states?on_conflict=competition_id,code', [{ competition_id: COMP, code, state: data.state }], 'resolution=merge-duplicates,return=minimal');
+    return { success: true };
+  }
+
+  async function dispatch(action, data) {
+    data = data || {};
+    try {
+      if (action === 'login') return await login(data);
+      if (action === 'logout') { saveSession(null); DB = null; return { success: true }; }
+      if (action === 'adminLogin') { const ok = await rpc('rpc_admin_login', { p_password: data.password || '' }, true); DB = null; return { success: ok === true }; }
+      if (action === 'getData') return await getData(data);
+      if (action === 'savePred') return await savePred(data);
+      if (action === 'savePreds') return await savePreds(data);
+      if (action === 'clearPred') return await clearPred(data);
+      if (action === 'savePrebets') return await savePrebets(data);
+      if (action === 'saveSimState') return await saveSimState(data);
+      if (action === 'getMyLeagues') { const db = await loadDB(); const c = (data.code || myCode() || '').toUpperCase(); return { leagues: db.leagues.filter(l => db.members.some(m => m.league_id === l.id && (m.user_code || '').toUpperCase() === c)).map(l => shapeLeague(l, db)) }; }
+      if (action === 'getLeagues') { const db = await loadDB(); return { leagues: db.leagues.map(l => shapeLeague(l, db)) }; }
+      if (action === 'getAllLeagues') {
+        const db = await loadDB();
+        const meu = (data.code || myCode() || '').toUpperCase();
+        const reqs = await rest('league_requests', 'league_id,status', 'user_code=eq.' + enc(meu));
+        const reqMap = {}; reqs.forEach(r => { reqMap[r.league_id] = r.status; });
+        const leagues = db.leagues.map(l => {
+          const mem = db.members.filter(m => m.league_id === l.id);
+          return {
+            id: l.id, name: l.name, invite: l.invite_code, admin: (l.admin_code || '').toUpperCase(),
+            memberCount: mem.length,
+            members: mem.map(m => ({ code: (m.user_code || '').toUpperCase(), name: (db.participants.find(p => p.code === m.user_code) || {}).name || m.user_code })),
+            isMember: mem.some(m => (m.user_code || '').toUpperCase() === meu),
+            requestStatus: reqMap[l.id] || null,
+          };
+        });
+        return { leagues };
+      }
+      if (action === 'getSocial') { const db = await loadDB(); const lid = data.league_id; const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji })); const comments = db.comments.filter(c => c.league_id === lid).map(c => ({ jornada:String(c.jornada||''), code:(c.code||'').toUpperCase(), name:c.name, text:c.text, at:c.created_at })); const duelRosters = {}; db.duels.filter(d => d.league_id === lid).forEach(d => { duelRosters[String(d.jornada)] = String(d.codes||'').split(',').map(s => s.trim()).filter(Boolean); }); return { reactions, comments, duelRosters }; }
+      if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:p.name })) }; }
+      if (action === 'getLive') {
+        // Lê o store escrito pela Edge Function live-fetch (migration 009).
+        // Falha silenciosa → app segue sem live (igual ao comportamento antigo).
+        try {
+          const rows = await rest('live_scores', 'scores', `competition_id=eq.${COMP}`);
+          return { live: (rows && rows[0] && rows[0].scores) || {} };
+        } catch (e) { console.warn('[Supabase] getLive:', e.message); return { live: {} }; }
+      }
+      if (action === 'getSimState') { const db = await loadDB(); return { state: null }; }
+      if (action === 'getJoinRequests') { const requests = await rpc('rpc_join_requests', { p_comp: COMP }, true); DB = null; return { requests: requests || [] }; }
+      if (action === 'getLeagueInvites') return { invites: [] };
+      if (action === 'getCompetitions') return { success: true }; // sem chave 'competitions' -> frontend mantém a sua lista default
+
+      // ---- LIGAS ----
+      if (action === 'createLeague') { const league = await rpc('rpc_create_league', { p_comp: COMP, p_name: data.name }, true); DB = null; return { success: true, league }; }
+      if (action === 'joinLeague') { const league = await rpc('rpc_join_league', { p_comp: COMP, p_invite: data.invite_code }, true); DB = null; return { success: true, league }; }
+      if (action === 'leaveLeague') { await rpc('rpc_leave_league', { p_lid: data.league_id }, true); DB = null; return { success: true }; }
+      if (action === 'requestJoin') { await rpc('rpc_request_join', { p_lid: data.league_id }, true); DB = null; return { success: true }; }
+      if (action === 'approveRequest') { await rpc('rpc_approve_request', { p_lid: data.league_id, p_user: data.user_code }, true); DB = null; return { success: true }; }
+      if (action === 'rejectRequest') { await rpc('rpc_reject_request', { p_lid: data.league_id, p_user: data.user_code }, true); DB = null; return { success: true }; }
+      if (action === 'removeLeagueMember') { await rpc('rpc_remove_member', { p_lid: data.league_id, p_user: data.member_code }, true); DB = null; return { success: true }; }
+      if (action === 'deleteLeague') { await rpc('rpc_delete_league', { p_lid: data.league_id }, true); DB = null; return { success: true }; }
+      if (action === 'inviteToLeague') { const message = await rpc('rpc_invite_to_league', { p_lid: data.league_id, p_target: data.target }, true); DB = null; return { success: true, message }; }
+
+      // ---- SOCIAL ----
+      if (action === 'react') { await rpc('rpc_react', { p_lid: data.league_id, p_target: data.target_code, p_emoji: data.emoji || null }, true); DB = null; return { success: true }; }
+      if (action === 'addComment') { const comment = await rpc('rpc_add_comment', { p_lid: data.league_id, p_jornada: String(data.jornada || ''), p_text: data.text }, true); DB = null; return { success: true, comment }; }
+      if (action === 'reportComment') { await rpc('rpc_report_comment', { p_lid: data.league_id, p_comment_code: data.comment_code, p_comment_at: data.comment_at || '', p_comment_text: data.comment_text || '' }, true); return { success: true }; }
+      if (action === 'deleteComment') { await rpc('rpc_delete_comment', { p_lid: data.league_id, p_comment_code: data.comment_code, p_comment_at: data.comment_at || '' }, true); DB = null; return { success: true }; }
+      if (action === 'blockUser') { const blocked = await rpc('rpc_block_user', { p_target: data.target_code, p_block: data.block !== false }, true); DB = null; return { success: true, blocked }; }
+
+      // ---- NOTIFICAÇÕES / PREFS ----
+      if (action === 'saveNotifPrefs') { await rpc('rpc_save_notif_prefs', { p_prefs: data.prefs || {} }, true); DB = null; return { success: true }; }
+      if (action === 'savePushToken') { await rpc('rpc_save_push_token', { p_token: data.token, p_platform: data.platform || 'web' }, true); return { success: true }; }
+
+      // ---- ADMIN ----
+      if (action === 'getSpecials') { const db = await loadDB(); return { specials: db.specials }; }
+      if (action === 'saveResults') { await rpc('rpc_save_results', { p_comp: COMP, p_results: data.results || {} }, true); DB = null; return { success: true }; }
+      if (action === 'unlockResult') { await rpc('rpc_unlock_result', { p_comp: COMP, p_game: data.game_id }, true); DB = null; return { success: true }; }
+      if (action === 'saveSpecials') { await rpc('rpc_save_specials', { p_comp: COMP, p_specials: data.specials || {} }, true); DB = null; return { success: true }; }
+      if (action === 'saveConfig') { await rpc('rpc_save_config', { p_deadline: data.deadlineH != null ? String(data.deadlineH) : '', p_new_password: data.newPassword || '', p_api_key: data.apiKey || '', p_odds_key: data.oddsApiKey || '' }, true); DB = null; return { success: true }; }
+      if (action === 'broadcast') { await rpc('rpc_broadcast', { p_text: data.text || data.message || '' }, true); DB = null; return { success: true }; }
+
+      // Escritas ainda não portadas (auto-fetch resultados, bot, gestão de users): no-op suave.
+      console.warn('[Supabase SANDBOX] ação ainda não ativa nesta fase:', action);
+      return { success: true, _notYet: true };
+    } catch (e) {
+      console.error('[Supabase SANDBOX] erro em', action, e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  window.UPSB = { dispatch, loadDB, session: () => SESSION };
+})();
+
+</script>
 </head>
 <body>
 
@@ -2601,6 +3039,9 @@ async function loadData() {
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
     S.koTeams=r.koTeams||{}; // equipas KO resolvidas automaticamente pelo backend
+    // PRODUÇÃO: datas/horários vêm do backend (auto-fetch sincroniza com a fonte
+    // oficial). Sobrepõem GAMES[].date — os horários (sobretudo do KO) auto-corrigem-se.
+    if(r.gameDatesUTC){ GAMES.forEach(g=>{ const d=r.gameDatesUTC[g.id]; if(d) g.date=d; }); }
     if(r.lb)S.lb=r.lb;
     S.lbPrev=r.lbPrev||null; // ranking anterior (seta de subida/descida desde o último jogo)
     if(r.rarityMap)S.rarityMap=r.rarityMap;
@@ -5509,6 +5950,7 @@ function rarityBadgeHtml(gameId, pred, res, jokerOn) {
 //  API
 // ════════════════════════════════════════════════
 async function api(action,data){
+  if(window.UPSB) return UPSB.dispatch(action,data);
   if(S.demoMode)return mockApi(action,data);
   const r=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({action,competition_id:(S.competition||'mundial2026'),...data})});
   if(!r.ok)throw new Error('HTTP '+r.status);
