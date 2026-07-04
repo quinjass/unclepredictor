@@ -653,6 +653,14 @@
   const SS_KEY = 'upsb_session';
   const CF = 'competition_id=eq.' + COMP; // filtro de competição p/ leituras
 
+  // ── NICKNAMES (preparação p/ fase Champions) ──────────────────────────────
+  // O nickname é 1 por CONTA (participants.nickname). Nesta competição mostramos
+  // o nome próprio; na Champions basta trocar UP_DISPLAY_MODE para 'nickname'.
+  //   'name'     -> mostra o nome próprio (Mundial 2026, comportamento atual)
+  //   'nickname' -> mostra o nickname da conta (quando toda a gente já o definiu)
+  const UP_DISPLAY_MODE = 'name';
+  const dispName = (p) => (UP_DISPLAY_MODE === 'nickname' && p && p.nickname) ? p.nickname : (p ? (p.name || '') : '');
+
   // ---- sessão (persistida em localStorage, com refresh) ----
   let SESSION = null;
   try { SESSION = JSON.parse(localStorage.getItem(SS_KEY) || 'null'); } catch (e) { SESSION = null; }
@@ -797,7 +805,7 @@
       }
       const prebets_pts = calcPrebetPoints(userPrebets, specials, gs);
       const total = groupPts + koPts + joker_pts + rarity_pts + prebets_pts + default_pts;
-      return { name:p.name, code:p.code, total, wins, draws, ko_wins, ko_draws, group_pts:groupPts, ko_pts:koPts, approx_pts, joker_pts, prebets_pts, rarity_pts, jp, games:gamesBet, default_pts, defaults:default_used };
+      return { name:dispName(p), realName:p.name, nickname:p.nickname||null, code:p.code, total, wins, draws, ko_wins, ko_draws, group_pts:groupPts, ko_pts:koPts, approx_pts, joker_pts, prebets_pts, rarity_pts, jp, games:gamesBet, default_pts, defaults:default_used };
     });
     return { players, rarityMap };
   }
@@ -815,7 +823,7 @@
   async function loadDB() {
     if (DB) return DB;
     const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, duels, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
-      rest('v_participants', 'code,name,is_bot', ''),
+      rest('v_participants', 'code,name,is_bot,nickname', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true),                // useAuth: RLS revela as próprias + pós-A1
       rest('results', 'game_id,t1,t2,pen', CF),
@@ -918,9 +926,60 @@
       headers: { apikey: SB_KEY, Authorization: 'Bearer ' + sess.access_token, 'Content-Type': 'application/json' }, body: '{}' });
     const rows = await who.json();
     if (!Array.isArray(rows) || !rows.length) return { success: false, error: 'Conta sem participante associado.' };
-    sess.code = rows[0].code; sess.name = rows[0].name; sess.email = data.email;
+    sess.code = rows[0].code; sess.realName = rows[0].name; sess.nickname = rows[0].nickname || null;
+    sess.name = dispName({ name: rows[0].name, nickname: sess.nickname }); sess.email = data.email;
     saveSession(sess); DB = null;
-    return { success: true, code: sess.code, name: sess.name, email: data.email };
+    return { success: true, code: sess.code, name: sess.name, nickname: sess.nickname, email: data.email };
+  }
+
+  // ---- RECUPERAÇÃO / ALTERAÇÃO de password (Supabase Auth + SMTP) -----------
+  // O link do email de recuperação traz #access_token&type=recovery na URL; o
+  // frontend chama beginRecovery() para guardar essa sessão temporária e depois
+  // resetPassword() usa-a para gravar a nova password.
+  let RECOVERY = null;
+  function beginRecovery(access_token, refresh_token) { RECOVERY = { access_token, refresh_token }; }
+
+  async function forgotPassword(data) {
+    const email = String(data.email || '').trim().toLowerCase();
+    if (email) {
+      const redir = enc(location.origin + location.pathname);
+      try {
+        await fetch(`${SB_URL}/auth/v1/recover?redirect_to=${redir}`, {
+          method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+      } catch (e) { /* silencioso */ }
+    }
+    return { success: true }; // resposta genérica (não revela se o email existe)
+  }
+
+  async function resetPassword(data) {
+    if (!RECOVERY || !RECOVERY.access_token) return { success: false, error: 'Link inválido ou expirado. Pede um novo email.' };
+    const nw = data.newPassword || '';
+    if (nw.length < 6) return { success: false, error: 'A password deve ter pelo menos 6 caracteres.' };
+    const r = await fetch(`${SB_URL}/auth/v1/user`, {
+      method: 'PUT', headers: { apikey: SB_KEY, Authorization: 'Bearer ' + RECOVERY.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: nw }),
+    });
+    if (!r.ok) return { success: false, error: 'Link inválido ou expirado. Pede um novo email.' };
+    RECOVERY = null;
+    return { success: true };
+  }
+
+  async function changePassword(data) {
+    const email = String((SESSION && SESSION.email) || data.email || '').toLowerCase();
+    const cur = data.currentPassword || '', nw = data.newPassword || '';
+    if (!email) return { success: false, error: 'Sessão expirada — entra de novo.' };
+    if (nw.length < 6) return { success: false, error: 'A nova password deve ter pelo menos 6 caracteres.' };
+    const ok = await passwordGrant(email, cur);
+    if (!ok) return { success: false, error: 'Password atual incorreta.' };
+    const t = await ensureToken();
+    const r = await fetch(`${SB_URL}/auth/v1/user`, {
+      method: 'PUT', headers: { apikey: SB_KEY, Authorization: 'Bearer ' + (t || SB_KEY), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: nw }),
+    });
+    if (!r.ok) return { success: false, error: 'Erro ao alterar a password.' };
+    return { success: true };
   }
 
   // ---- ESCRITAS do loop de apostas (RLS valida ownership/membership/prazo) ----
@@ -1009,7 +1068,8 @@
         return { leagues };
       }
       if (action === 'getSocial') { const db = await loadDB(); const lid = data.league_id; const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji })); const comments = db.comments.filter(c => c.league_id === lid).map(c => ({ jornada:String(c.jornada||''), code:(c.code||'').toUpperCase(), name:c.name, text:c.text, at:c.created_at })); const duelRosters = {}; db.duels.filter(d => d.league_id === lid).forEach(d => { duelRosters[String(d.jornada)] = String(d.codes||'').split(',').map(s => s.trim()).filter(Boolean); }); return { reactions, comments, duelRosters }; }
-      if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:p.name })) }; }
+      if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:dispName(p), realName:p.name, nickname:p.nickname||null })) }; }
+      if (action === 'saveNickname') { const nick = await rpc('rpc_set_nickname', { p_nick: data.nickname || '' }, true); DB = null; if (SESSION) { SESSION.nickname = nick || null; SESSION.name = dispName({ name: SESSION.realName || SESSION.name, nickname: nick || null }); saveSession(SESSION); } return { success: true, nickname: nick || null }; }
       if (action === 'getLive') {
         // Lê o store escrito pela Edge Function live-fetch (migration 009).
         // Falha silenciosa → app segue sem live (igual ao comportamento antigo).
@@ -1049,9 +1109,15 @@
       if (action === 'getSpecials') { const db = await loadDB(); return { specials: db.specials }; }
       if (action === 'saveResults') { await rpc('rpc_save_results', { p_comp: COMP, p_results: data.results || {} }, true); DB = null; return { success: true }; }
       if (action === 'unlockResult') { await rpc('rpc_unlock_result', { p_comp: COMP, p_game: data.game_id }, true); DB = null; return { success: true }; }
+      if (action === 'adminSetPrediction') { await rpc('rpc_admin_set_prediction', { p_comp: COMP, p_code: (data.code || '').toUpperCase(), p_game: data.gameId, p_t1: data.clear ? null : Number(data.t1), p_t2: data.clear ? null : Number(data.t2), p_joker: !!data.joker, p_clear: !!data.clear }, true); DB = null; return { success: true }; }
       if (action === 'saveSpecials') { await rpc('rpc_save_specials', { p_comp: COMP, p_specials: data.specials || {} }, true); DB = null; return { success: true }; }
       if (action === 'saveConfig') { await rpc('rpc_save_config', { p_deadline: data.deadlineH != null ? String(data.deadlineH) : '', p_new_password: data.newPassword || '', p_api_key: data.apiKey || '', p_odds_key: data.oddsApiKey || '' }, true); DB = null; return { success: true }; }
       if (action === 'broadcast') { await rpc('rpc_broadcast', { p_text: data.text || data.message || '' }, true); DB = null; return { success: true }; }
+
+      // Password (Supabase Auth + SMTP)
+      if (action === 'forgotPassword') return await forgotPassword(data);
+      if (action === 'resetPassword') return await resetPassword(data);
+      if (action === 'changePassword') return await changePassword(data);
 
       // Escritas ainda não portadas (auto-fetch resultados, bot, gestão de users): no-op suave.
       console.warn('[Supabase SANDBOX] ação ainda não ativa nesta fase:', action);
@@ -1062,7 +1128,7 @@
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery };
 })();
 
 </script>
@@ -1898,6 +1964,7 @@
     <div id="admin-panel" style="display:none">
       <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
         <button class="btn btn-outline atab-active" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('results')" id="atab-results">Resultados</button>
+        <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('manualbet')" id="atab-manualbet">Apostas</button>
         <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('specials')" id="atab-specials">Pré-Apostas</button>
         <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('users')" id="atab-users">Participantes</button>
         <button class="btn btn-outline" style="flex:1;font-size:.75rem;min-width:80px" onclick="adminTab('leagues')" id="atab-leagues">Ligas</button>
@@ -1924,6 +1991,27 @@
           <button class="btn btn-outline" style="flex:1;font-size:.78rem" onclick="autoFetchResults()" id="btn-autofetch">🔄 Auto-fetch</button>
         </div>
         <div id="autofetch-status" style="font-size:.74rem;color:var(--sub);margin-top:6px;display:none"></div>
+      </div>
+      <div id="apanel-manualbet" style="display:none">
+        <div class="card">
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:6px">Inserir / editar aposta de um jogador</div>
+          <div style="font-size:.74rem;color:var(--sub);margin-bottom:12px">Grava a aposta em nome de outro utilizador, mesmo fora de horas. Substitui a aposta existente nesse jogo.</div>
+          <div class="form-group"><label class="form-label">Jogo</label><select class="form-input" id="mb-game"></select></div>
+          <div class="form-group"><label class="form-label">Utilizador</label><select class="form-input" id="mb-user"></select></div>
+          <div class="form-group"><label class="form-label">Resultado</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input class="admin-score" id="mb-t1" type="number" min="0" max="20" placeholder="–">
+              <span style="color:var(--sub);font-size:.9rem">–</span>
+              <input class="admin-score" id="mb-t2" type="number" min="0" max="20" placeholder="–">
+              <label style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text);margin-left:8px;cursor:pointer"><input type="checkbox" id="mb-joker"> 🃏 Joker</label>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-success" style="flex:2" onclick="adminSaveManualBet()">💾 Guardar aposta</button>
+            <button class="btn btn-outline" style="flex:1;font-size:.78rem" onclick="adminClearManualBet()">✕ Apagar</button>
+          </div>
+          <div id="mb-status" style="font-size:.76rem;margin-top:10px"></div>
+        </div>
       </div>
       <div id="apanel-users" style="display:none">
         <div class="card">
@@ -2514,11 +2602,15 @@ function setGaUser(code){ try{ if(gaOn()&&code) gtag('set',{user_id:String(code)
 async function init() {
   if (S.demoMode) document.getElementById('demo-notice').style.display='block';
 
-  // Verificar URL params para reset de password
-  const urlParams = new URLSearchParams(window.location.search);
-  const _rtk = urlParams.get('resetToken');
-  const _rem = urlParams.get('email');
-  if (_rtk && _rem) { setTimeout(() => showResetPw(_rem, _rtk), 400); }
+  // Reset de password: o link do email do Supabase traz #access_token&type=recovery
+  try {
+    const _h = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+    if (_h.get('type') === 'recovery' && _h.get('access_token')) {
+      if (window.UPSB && window.UPSB.beginRecovery) window.UPSB.beginRecovery(_h.get('access_token'), _h.get('refresh_token') || '');
+      history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => showResetPw('', ''), 400);
+    }
+  } catch (e) {}
 
   let saved = localStorage.getItem('up26_user');
   // MIGRAÇÃO (4 Jul): sessões do sistema antigo (GS) deixadas no localStorage
@@ -2727,11 +2819,11 @@ async function submitResetPw() {
   if (nw!==confirm){ errEl.textContent='As passwords não coincidem.'; errEl.style.display='block'; return; }
   const btn=document.getElementById('rpw-btn'); btn.textContent='A guardar...'; btn.disabled=true;
   try {
-    const r=await api('resetPassword',{email:_resetEmail,token:_resetToken,newPassword:nw});
+    const r=await api('resetPassword',{newPassword:nw});
     if (r.success){
       sucEl.textContent='Password definida com sucesso! Podes fazer login agora.'; sucEl.style.display='block'; btn.style.display='none';
       history.replaceState({},'',window.location.pathname);
-      setTimeout(()=>{ document.getElementById('resetpw-overlay').classList.remove('open'); document.getElementById('login-email').value=_resetEmail; document.getElementById('login-pw').focus(); }, 2800);
+      setTimeout(()=>{ document.getElementById('resetpw-overlay').classList.remove('open'); if(_resetEmail) document.getElementById('login-email').value=_resetEmail; document.getElementById('login-pw').focus(); }, 2800);
     } else {
       errEl.textContent=r.error||'Link inválido ou expirado.'; errEl.style.display='block';
       btn.disabled=false; btn.textContent='Guardar password';
@@ -5316,7 +5408,7 @@ function buildPlayerBetsHtml(playerName) {
 
   let total=0, wins=0, draws=0;
   const thP=`font-size:.62rem`;
-  let html=`<table class="modal-table"><thead><tr>
+  const theadHtml=`<thead><tr>
     <th class="th-left" style="min-width:110px;${thP}">Jogo</th>
     <th style="${thP}">Aposta</th>
     <th style="${thP}">Res.</th>
@@ -5325,10 +5417,11 @@ function buildPlayerBetsHtml(playerName) {
     <th style="${thP};color:#f39c12" title="Bónus de raridade">⭐</th>
     <th style="${thP};color:#00bcd4" title="Bónus do joker (duplica base e raridade)">J</th>
     <th style="${thP};color:var(--gold)" title="Total deste jogo">Tot</th>
-  </tr></thead><tbody>`;
+  </tr></thead>`;
 
   const nC=`font-family:'Rajdhani',sans-serif;font-weight:700`;
   let anyLive=false;
+  const rowsArr=[];
   shownGames.forEach(g=>{
     const res=results[g.id];
     const isF=res&&res.t1!==undefined;
@@ -5367,7 +5460,7 @@ function buildPlayerBetsHtml(playerName) {
     // KO grossC===3 = tendência+aproximação → verde-limão (grupos: 3 = exato → verde)
     const ptsCls=dpick?'':(isF?(!hasPred||grossC===0?'pred-wrong':(isKO&&grossC===3)?'pred-close':grossC===1||grossC===2?'pred-partial':'pred-correct'):'');
     const liveStyle=lv?';opacity:.85;font-style:italic':'';
-    html+=`<tr>
+    rowsArr.push(`<tr>
       <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
       <td style="${nC}">${isF?`${res.t1}–${res.t2}${res.pen?'<span class="pen-star" title="'+(res.pen==='t1'?getKOTeamName(g.id,'t1'):getKOTeamName(g.id,'t2'))+' passou por penáltis">★</span>':''}`:(lv?`<span class="live-dot" style="font-size:.72rem">🔴 ${lv.t1}–${lv.t2}</span>`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>')}</td>
@@ -5376,26 +5469,45 @@ function buildPlayerBetsHtml(playerName) {
       <td style="${nC};color:${rar?'#f39c12':'var(--sub)'}${liveStyle}">${rar?'+'+rar:'—'}</td>
       <td style="${nC};color:${jok?'#00bcd4':'var(--sub)'}${liveStyle}">${jok?'+'+jok:'—'}</td>
       <td style="${nC};color:${dpick?'#a78bfa':(lv?'var(--red)':'var(--gold)')}${liveStyle}">${tot===null?'—':tot}</td>
-    </tr>`;
+    </tr>`);
   });
 
-  html+=`</tbody></table>
-  ${anyLive?'<div style="font-size:.68rem;color:var(--sub);margin-top:6px">🔴 = jogo a decorrer — pontos potenciais (em itálico), não somam ao total até ao apito final.</div>':''}
-  ${Object.keys(defPicks).length?'<div style="font-size:.68rem;color:#a78bfa;margin-top:6px">🤖 = default pick: aposta do IA herdada por esquecimento (só tendência: 1 grupos / 2 KO; sem joker nem raridade).</div>':''}
-  <div style="display:flex;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+  const notesHtml = `${anyLive?'<div style="font-size:.68rem;color:var(--sub);margin-top:6px">🔴 = jogo a decorrer — pontos potenciais (em itálico), não somam ao total até ao apito final.</div>':''}${Object.keys(defPicks).length?'<div style="font-size:.68rem;color:#a78bfa;margin-top:6px">🤖 = default pick: aposta do IA herdada por esquecimento (só tendência: 1 grupos / 2 KO; sem joker nem raridade).</div>':''}`;
+
+  const statsHtml = `<div style="display:flex;gap:10px;padding-top:2px">
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL JOGOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">RESULTADOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)">${wins}</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">VENC/EMP ✓</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#f39c12">${draws}</div></div>
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">ERROS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--red)">${finishedCount-wins-draws}</div></div>
   </div>`;
 
-  // ── Evolução de posição (#12) — sparkline por jornada ──
-  html += buildRankSparkline(playerName);
+  // ══ SECÇÃO 1: resumo (stats + evolução de posição) ══
+  let out = statsHtml + buildRankSparkline(playerName);
 
-  // ── Secção Pré-Apostas ──
-  html += buildPrebetModalSection(playerName, preds);
+  // ══ SECÇÃO 2: pré-apostas — escondidas por defeito (expandir para ver) ══
+  const pb = buildPrebetModalSection(playerName, preds);
+  out += `<details style="margin-top:16px;border-top:1px solid var(--border);padding-top:6px">
+    <summary style="cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;padding:8px 0">🏆 Pré-Apostas <span style="font-size:.72rem;color:var(--sub);font-weight:400">${pb.pts?'('+pb.pts+'pts ganhos · toca para expandir)':'(toca para expandir)'}</span></summary>
+    <div style="padding-top:8px">${pb.html}</div>
+  </details>`;
 
-  return html;
+  // ══ SECÇÃO 3: apostas — visíveis; só as últimas 10, as anteriores escondidas ══
+  const LAST_N = 10;
+  const recent = rowsArr.slice(-LAST_N);
+  const older = rowsArr.slice(0, Math.max(0, rowsArr.length - LAST_N));
+  out += `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">📊 Apostas <span style="font-size:.72rem;color:var(--sub);font-weight:400">(${rowsArr.length})</span></div>`;
+  if (older.length) {
+    out += `<details style="margin-bottom:8px">
+      <summary style="cursor:pointer;font-size:.76rem;color:var(--sub);padding:4px 0">Ver ${older.length} aposta${older.length>1?'s':''} anterior${older.length>1?'es':''}</summary>
+      <div style="overflow-x:auto"><table class="modal-table">${theadHtml}<tbody>${older.join('')}</tbody></table></div>
+    </details>`;
+  }
+  out += `<div style="overflow-x:auto"><table class="modal-table">${theadHtml}<tbody>${recent.join('')}</tbody></table>
+    ${notesHtml}
+  </div></div>`;
+
+  return out;
 }
 
 // Sparkline da evolução de posição na classificação (dados de S.rankHist, calculados no renderLB)
@@ -5514,15 +5626,10 @@ function buildPrebetModalSection(playerName, _preds) {
     if (!closed) msg = 'As pré-apostas dos jogadores ficam visíveis quando fecharem (19h00 de 11 Jun).';
     else if (!hasAny) msg = isMe ? '❌ Não fizeste pré-apostas dentro do prazo.' : `❌ ${playerName} não fez pré-apostas dentro do prazo.`;
     else msg = 'Sem pré-apostas para mostrar.';
-    return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🏆 Pré-Apostas</div>
-      <div class="alert alert-info" style="font-size:.75rem">${msg}</div>
-    </div>`;
+    return { pts:0, html:`<div class="alert alert-info" style="font-size:.75rem">${msg}</div>` };
   }
 
-  return `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">🏆 Pré-Apostas <span style="font-size:.75rem;color:var(--sub);font-weight:400">(${pbTotal}pts ganhos)</span></div>
-    <div style="overflow-x:auto"><table class="modal-table">
+  return { pts:pbTotal, html:`<div style="overflow-x:auto"><table class="modal-table">
       <thead><tr>
         <th class="th-left">Aposta</th>
         <th>Previsão</th>
@@ -5530,8 +5637,7 @@ function buildPrebetModalSection(playerName, _preds) {
         <th>Pts</th>
       </tr></thead>
       <tbody>${allRows}</tbody>
-    </table></div>
-  </div>`;
+    </table></div>` };
 }
 
 // Calcula standings de grupo no cliente — só devolve 1º/2º quando grupo está completo (6 jogos)
@@ -5675,13 +5781,64 @@ function closeModal(){document.getElementById('modal-overlay').classList.remove(
 //  ADMIN
 // ════════════════════════════════════════════════
 function adminTab(t){
-  ['results','specials','users','leagues','config'].forEach(x=>{
+  ['results','manualbet','specials','users','leagues','config'].forEach(x=>{
     document.getElementById('apanel-'+x).style.display=x===t?'block':'none';
     document.getElementById('atab-'+x).classList.toggle('atab-active',x===t);
   });
   if(t==='users')loadUsers();
   if(t==='leagues'){loadAdminLeagues();loadJoinRequests();}
   if(t==='specials')initSpecialsSelects();
+  if(t==='manualbet')renderManualBet();
+}
+
+// ── Admin: inserir/editar aposta de outro jogador (mesmo fora de horas) ──
+function mbGameLabel(g){
+  const t1=g.ko?getKOTeamName(g.id,'t1'):g.t1;
+  const t2=g.ko?getKOTeamName(g.id,'t2'):g.t2;
+  const stage=g.g?('Grupo '+g.g):(JORNADA_SHORT[g.md]||g.md);
+  return `[${g.id}] ${stage} · ${t1} vs ${t2}`;
+}
+async function renderManualBet(){
+  const gSel=document.getElementById('mb-game');
+  const uSel=document.getElementById('mb-user');
+  if(gSel){
+    const games=[...GAMES].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    gSel.innerHTML=games.map(g=>`<option value="${g.id}">${escapeHtml(mbGameLabel(g))}</option>`).join('');
+  }
+  if(uSel){
+    let users=(S.lb&&S.lb.length)?S.lb.map(u=>({code:u.code,name:u.name})):[];
+    if(!users.length){ try{ const r=await api('getUsers'); users=(r.users||[]).map(u=>({code:u.code,name:u.name})); }catch(e){} }
+    users=users.filter(u=>u.code!=='BOT_IA').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    uSel.innerHTML=users.length?users.map(u=>`<option value="${u.code}">${escapeHtml(u.name)} (${u.code})</option>`).join(''):'<option value="">— sem utilizadores carregados —</option>';
+  }
+}
+async function adminSaveManualBet(){
+  const gid=document.getElementById('mb-game').value;
+  const code=document.getElementById('mb-user').value;
+  const t1=document.getElementById('mb-t1').value, t2=document.getElementById('mb-t2').value;
+  const joker=document.getElementById('mb-joker').checked;
+  const st=document.getElementById('mb-status');
+  if(!gid||!code){st.style.color='var(--red)';st.textContent='Escolhe o jogo e o utilizador.';return;}
+  if(t1===''||t2===''){st.style.color='var(--red)';st.textContent='Preenche o resultado.';return;}
+  st.style.color='var(--sub)';st.textContent='A guardar...';
+  try{
+    const r=await api('adminSetPrediction',{code,gameId:gid,t1:Number(t1),t2:Number(t2),joker});
+    if(r.success){st.style.color='var(--green)';st.textContent=`✓ Aposta de ${code} guardada (${t1}–${t2}${joker?' · joker':''}).`;setTimeout(loadData,800);}
+    else{st.style.color='var(--red)';st.textContent=r.error||'Erro ao guardar.';}
+  }catch(e){st.style.color='var(--red)';st.textContent='Erro de ligação.';}
+}
+async function adminClearManualBet(){
+  const gid=document.getElementById('mb-game').value;
+  const code=document.getElementById('mb-user').value;
+  const st=document.getElementById('mb-status');
+  if(!gid||!code){st.style.color='var(--red)';st.textContent='Escolhe o jogo e o utilizador.';return;}
+  if(!confirm(`Apagar a aposta de ${code} no jogo ${gid}?`))return;
+  st.style.color='var(--sub)';st.textContent='A apagar...';
+  try{
+    const r=await api('adminSetPrediction',{code,gameId:gid,clear:true});
+    if(r.success){st.style.color='var(--green)';st.textContent=`✓ Aposta de ${code} apagada.`;setTimeout(loadData,800);}
+    else{st.style.color='var(--red)';st.textContent=r.error||'Erro ao apagar.';}
+  }catch(e){st.style.color='var(--red)';st.textContent='Erro de ligação.';}
 }
 function adminMD(md){
   S.adminMD=md;
