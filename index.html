@@ -988,6 +988,47 @@
     return { success: true };
   }
 
+  // ---- GOOGLE OAUTH (Sessão C) ---------------------------------------------
+  // loginWithGoogle(): redireciona para o Supabase Auth (provider google); o
+  // Supabase volta a esta página com #access_token&refresh_token no fragmento.
+  // completeOAuth(): chamado pelo init() do frontend com esses tokens — obtém
+  // o participante (rpc me); se não existir, chama a Edge Function link-oauth
+  // (liga a conta antiga por email verificado, ou cria participante novo =
+  // registo via Google) e tenta de novo.
+  function loginWithGoogle() {
+    const redir = enc(location.origin + location.pathname);
+    location.href = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${redir}`;
+  }
+  async function completeOAuth(access_token, refresh_token, expires_in) {
+    if (!access_token) return { success: false };
+    const H = { apikey: SB_KEY, Authorization: 'Bearer ' + access_token, 'Content-Type': 'application/json' };
+    const whoAmI = async () => {
+      const r = await fetch(`${SB_URL}/rest/v1/rpc/me`, { method: 'POST', headers: H, body: '{}' });
+      const rows = await r.json().catch(() => null);
+      return (Array.isArray(rows) && rows.length) ? rows[0] : null;
+    };
+    let row = await whoAmI();
+    if (!row) {
+      try {
+        await fetch(`${SB_URL}/functions/v1/link-oauth`, { method: 'POST', headers: H, body: JSON.stringify({ comp: COMP }) });
+      } catch (e) { /* segue para o retry; falha tratada abaixo */ }
+      row = await whoAmI();
+    }
+    if (!row) return { success: false, error: 'Não foi possível associar a conta Google. Tenta de novo ou entra com email e password.' };
+    let email = '';
+    try {
+      const u = await fetch(`${SB_URL}/auth/v1/user`, { headers: { apikey: SB_KEY, Authorization: 'Bearer ' + access_token } });
+      const uj = await u.json().catch(() => ({}));
+      email = (uj && uj.email) || '';
+    } catch (e) { /* email fica vazio; não é bloqueante */ }
+    const sess = { access_token, refresh_token: refresh_token || '',
+                   expires_at: Math.floor(realNowMs() / 1000) + (Number(expires_in) || 3600) };
+    sess.code = row.code; sess.realName = row.name; sess.nickname = row.nickname || null;
+    sess.name = dispName({ name: row.name, nickname: sess.nickname }); sess.email = email;
+    saveSession(sess); DB = null;
+    return { success: true, code: sess.code, name: sess.name, nickname: sess.nickname, email };
+  }
+
   // ---- ESCRITAS do loop de apostas (RLS valida ownership/membership/prazo) ----
   async function savePred(data) {
     const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada — entra de novo.' };
@@ -1134,7 +1175,7 @@
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, invalidate: () => { DB = null; } };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth };
 })();
 
 </script>
@@ -1234,6 +1275,11 @@
     <div id="reg-error" style="display:none" class="alert alert-error"></div>
     <div id="reg-success" style="display:none" class="alert alert-success"></div>
     <button class="btn btn-primary btn-full" onclick="submitRegister()" id="reg-btn">Criar conta</button>
+    <div style="text-align:center;margin:10px 0 2px;font-size:.72rem;color:var(--sub)">ou</div>
+    <button class="btn btn-full" onclick="loginGoogle()" style="margin-top:8px;background:#fff;color:#1f1f1f;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Registar com Google
+    </button>
     <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeRegister()">Cancelar</button>
   </div>
 </div>
@@ -1361,6 +1407,15 @@
         </div>
         <div id="login-error" style="display:none" class="alert alert-error"></div>
         <button class="btn btn-primary btn-full" onclick="loginReady=true;login()" id="login-btn">Entrar no jogo</button>
+        <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
+          <div style="flex:1;height:1px;background:rgba(255,255,255,.12)"></div>
+          <span style="font-size:.72rem;color:var(--sub)">ou</span>
+          <div style="flex:1;height:1px;background:rgba(255,255,255,.12)"></div>
+        </div>
+        <button class="btn btn-full" id="google-btn" onclick="loginGoogle()" style="background:#fff;color:#1f1f1f;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Continuar com Google
+        </button>
       </div>
       <div style="margin-top:10px;text-align:center">
         <span style="font-size:.78rem;color:var(--sub)">Não tens conta? </span>
@@ -2618,6 +2673,28 @@ async function init() {
     }
   } catch (e) {}
 
+  // Login com Google (Sessão C): o redirect do Supabase Auth volta com
+  // #access_token&refresh_token (sem type=recovery). completeOAuth() liga/cria
+  // o participante e grava a sessão; depois basta semear up26_user e deixar o
+  // caminho normal de restauro (abaixo) fazer o resto.
+  try {
+    const _h = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+    if (_h.get('access_token') && _h.get('type') !== 'recovery' && window.UPSB && window.UPSB.completeOAuth) {
+      history.replaceState({}, '', window.location.pathname);
+      const r = await UPSB.completeOAuth(_h.get('access_token'), _h.get('refresh_token') || '', _h.get('expires_in'));
+      if (r && r.success) {
+        localStorage.setItem('up26_user', JSON.stringify({ name: r.name, code: r.code, email: r.email }));
+        track('login',{method:'google'});
+      } else {
+        setTimeout(() => showLoginErr((r && r.error) || 'Falha no login com Google.'), 400);
+      }
+    } else if (_h.get('error_description')) {
+      // O Supabase devolve #error=...&error_description=... quando o OAuth falha
+      history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => showLoginErr('Login com Google falhou: ' + _h.get('error_description')), 400);
+    }
+  } catch (e) {}
+
   let saved = localStorage.getItem('up26_user');
   // MIGRAÇÃO (4 Jul): sessões do sistema antigo (GS) deixadas no localStorage
   // faziam auto-login SEM sessão Auth do Supabase → user "logado" mas sem JWT,
@@ -2713,6 +2790,15 @@ async function login() {
   btn.textContent = 'Entrar no jogo'; btn.disabled = false;
 }
 function showLoginErr(m){const el=document.getElementById('login-error');el.textContent=m;el.style.display='block';}
+
+// ── Login com Google (Sessão C) ──
+// Redireciona para o Supabase Auth; o resto acontece no init() quando o
+// Supabase devolve o browser a esta página com os tokens no fragmento (#).
+function loginGoogle(){
+  if (S.demoMode || !window.UPSB || !UPSB.loginWithGoogle) { showLoginErr('Login com Google indisponível neste modo.'); return; }
+  track('login',{method:'google_start'});
+  UPSB.loginWithGoogle();
+}
 
 // ── Registo ──
 function showRegister() {
