@@ -882,7 +882,7 @@
     db.allPreds.forEach(r => { if (r.t1 == null) return; if (!isGameLocked(r.game_id, deadlineH, db.gameDatesUTC) && !db.results[r.game_id]) return; (allPreds[r.game_id] = allPreds[r.game_id] || {})[(r.code || '').toUpperCase()] = { t1:+r.t1, t2:+r.t2, joker: r.joker === true }; });
     const allPrebets = {};
     if (isGameLocked('A1', deadlineH, db.gameDatesUTC) || db.results['A1']) db.prebets.forEach(r => { const c = (r.code || '').toUpperCase(); (allPrebets[c] = allPrebets[c] || {})[r.key] = r.value; });
-    const notifs = db.notifs.filter(n => n.to_code === '*' || (n.to_code || '').toUpperCase() === code).slice(-30).map(n => ({ id:n.id, type:n.type, text:n.text, at:n.created_at }));
+    const notifs = db.notifs.filter(n => n.to_code === '*' || (n.to_code || '').toUpperCase() === code).sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)).slice(-30).map(n => ({ id:n.id, type:n.type, text:n.text, at:n.created_at }));
     const blocks = db.blocks.filter(b => (b.code || '').toUpperCase() === code).map(b => (b.blocked_code || '').toUpperCase());
     const notifPrefs = db.prefsMap[code] || {};
     let lockedResults = []; try { lockedResults = JSON.parse(db.config['locked_results_' + COMP] || '[]'); } catch (e) {}
@@ -1128,7 +1128,7 @@
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, invalidate: () => { DB = null; } };
 })();
 
 </script>
@@ -6394,7 +6394,7 @@ async function autoRefreshData(){
   _dataRefreshLast=Date.now();
   try{await loadData();}catch(e){}
 }
-document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible')autoRefreshData(); });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ if(window.UPSB&&window.UPSB.invalidate)window.UPSB.invalidate(); _dataRefreshLast=0; autoRefreshData(); } });
 window.addEventListener('focus',autoRefreshData);
 setInterval(()=>{
   if(liveWindowActive())return; // durante os jogos, o polling live já trata disto
