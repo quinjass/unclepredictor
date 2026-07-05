@@ -4119,7 +4119,7 @@ function renderLiveBanner(){
     const myTxt=(my&&my.t1!==undefined)?`tua aposta ${my.t1}–${my.t2}`:'sem aposta tua';
     const extra=lives.length>1?` · +${lives.length-1} a decorrer`:'';
     el.style.background='linear-gradient(90deg, rgba(220,40,40,.20), rgba(220,40,40,.04))';
-    el.innerHTML=`<span class="live-dot">🔴</span><span style="overflow:hidden;text-overflow:ellipsis"><b>AO VIVO</b> · ${lbTeam(g,'t1')} <b>${lv.t1}–${lv.t2}</b> ${lbTeam(g,'t2')} <span style="${sub}">(${myTxt}${extra})</span></span><span style="${cta}">ver ›</span>`;
+    el.innerHTML=`<span class="live-dot">${lv.st==='FT'?'⏳':'🔴'}</span><span style="overflow:hidden;text-overflow:ellipsis"><b>${liveStTxt(lv)}</b> · ${lbTeam(g,'t1')} <b>${lv.t1}–${lv.t2}</b> ${lbTeam(g,'t2')} <span style="${sub}">(${myTxt}${extra})</span></span><span style="${cta}">ver ›</span>`;
     el.style.display='';return;
   }
 
@@ -4207,7 +4207,9 @@ function renderBetsKO() {
     const pred = S.preds[g.id] || {};
     const res = S.results[g.id] || null;
     const locked = !knownTeams || dlPassed(g.date);
-    const isFinished = res && res.t1 !== undefined;
+    const lvKO = liveOf(g.id);
+    // Só fecha com FINISHED confirmado — resultado com live ativo é provisório
+    const isFinished = res && res.t1 !== undefined && !lvKO;
     const isSaved = !!S.savedCards[g.id];
     const hasPred = pred.t1 !== undefined && pred.t2 !== undefined;
     // F3+FIN: joker partilhado — verificar em ambas as fases
@@ -4220,9 +4222,8 @@ function renderBetsKO() {
     const t2v = pred.t2 !== undefined ? pred.t2 : '';
     const ptsHtml = pts !== null ? ` ${koPtsBadgeHtml(pred, res)}` : '';
     const matchNum = `J${idx+1}`;
-    const lvKO = !isFinished ? liveOf(g.id) : null;
     const potKO = (lvKO && pred.t1 !== undefined) ? livePotential(g.id, pred) : null;
-    const dlWarn = !locked ? dlWarnHtml(g.date) : (isFinished ? '' : (lvKO ? `<span class="live-dot">🔴 ${lvKO.st==='HT'?'INTERVALO':'AO VIVO'}</span>` : '<span class="dl-pass">🔒 Fechado</span>'));
+    const dlWarn = !locked ? dlWarnHtml(g.date) : (isFinished ? '' : (lvKO ? `<span class="live-dot">${liveBadgeTxt(lvKO)}</span>` : '<span class="dl-pass">🔒 Fechado</span>'));
     const t1ph = isKOPlaceholder(t1) ? ' placeholder' : '';
     const t2ph = isKOPlaceholder(t2) ? ' placeholder' : '';
 
@@ -4323,20 +4324,22 @@ function renderBets() {
       const res=S.results[g.id]||(S.demoMode?DEMO_RESULTS[g.id]:null);
       const locked=dlPassed(g.date);
       const isKO=!!g.ko;
-      const pts=(res&&res.t1!==undefined&&pred.t1!==undefined)?calcPts(pred,res,isKO):null;
+      const lv=liveOf(g.id);
+      // Só é "terminado" com FINISHED confirmado (sem live ativo) — um resultado
+      // importado com o jogo ainda a decorrer é provisório e o card NÃO fecha.
+      const isFinished=res&&res.t1!==undefined&&!lv;
+      const pts=(isFinished&&pred.t1!==undefined)?calcPts(pred,res,isKO):null;
       const t1v=pred.t1!==undefined?pred.t1:'';
       const t2v=pred.t2!==undefined?pred.t2:'';
       const jokerOn=!!pred.joker;
       const canJoker=!locked&&(!jokerGame||jokerGame.id===g.id);
-      const isFinished=res&&res.t1!==undefined;
       const isSaved=!!S.savedCards[g.id];
       const hasPred=pred.t1!==undefined&&pred.t2!==undefined;
 
       let ptsHtml='';
       if(pts!==null){ ptsHtml=` ${ptsBadgeHtml(pts)}`; }
-      const lv=!isFinished?liveOf(g.id):null;
       const pot=(lv&&hasPred)?livePotential(g.id,pred):null;
-      const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':(lv?`<span class="live-dot">🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'}</span>`:'<span class="dl-pass">🔒 Fechado</span>'));
+      const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':(lv?`<span class="live-dot">${liveBadgeTxt(lv)}</span>`:'<span class="dl-pass">🔒 Fechado</span>'));
 
       // Classe de cor do cartão
       let colorClass='';
@@ -5208,11 +5211,12 @@ function openGameModal(gameId) {
   const game = GAMES.find(g=>g.id===gameId);
   if (!game) return;
   const res = S.results[gameId]||(S.demoMode?DEMO_RESULTS[gameId]:null);
-  const isFinished = !!(res&&res.t1!==undefined);
+  const lv = liveOf(gameId);
+  // Só é "terminado" com FINISHED confirmado (sem live ativo) — cf. cards
+  const isFinished = !!(res&&res.t1!==undefined)&&!lv;
   const locked = dlPassed(game.date);
   if (!isFinished && !locked) return; // antes do fecho ninguém vê as apostas
 
-  const lv = !isFinished ? liveOf(gameId) : null;
   const resEff = isFinished ? res : (lv ? {t1:lv.t1, t2:lv.t2} : null); // resultado efetivo p/ cálculo
   const showPts = !!resEff;
 
@@ -5221,7 +5225,7 @@ function openGameModal(gameId) {
   document.getElementById('modal-title').textContent = resEff ? `${t1} ${resEff.t1}–${resEff.t2} ${t2}` : `${t1} vs ${t2}`;
   const penNote = isFinished && res.pen ? ` · ★ ${res.pen==='t1'?t1:t2} passou por penáltis` : '';
   document.getElementById('modal-subtitle').textContent =
-    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?penNote:(lv?` · 🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'} — pontuação potencial`:' · 🔒 Apostas fechadas — jogo por disputar')}`;
+    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?penNote:(lv?` · ${liveBadgeTxt(lv)} — pontuação potencial`:' · 🔒 Apostas fechadas — jogo por disputar')}`;
 
   // Apostas de todos: S.allPreds (backend só envia jogos já fechados)
   const isKO = !!game.ko;
@@ -5267,7 +5271,7 @@ function openGameModal(gameId) {
   });
 
   let html='';
-  if(lv) html+=`<div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.35);border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:.72rem;text-align:center"><span class="live-dot">🔴 ${lv.st==='HT'?'INTERVALO':'AO VIVO'}</span> — pontuação <strong>potencial</strong> com o resultado atual. Só conta no apito final.</div>`;
+  if(lv) html+=`<div style="background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.35);border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:.72rem;text-align:center"><span class="live-dot">${liveBadgeTxt(lv)}</span> — ${lv.st==='FT'?'resultado <strong>provisório</strong>, a aguardar confirmação oficial.':'pontuação <strong>potencial</strong> com o resultado atual. Só conta no apito final.'}</div>`;
   html+=`<table class="modal-table"><thead><tr>
     <th class="th-left">Jogador</th>
     <th>Aposta</th>
@@ -5424,13 +5428,13 @@ function buildPlayerBetsHtml(playerName) {
   const rowsArr=[];
   shownGames.forEach(g=>{
     const res=results[g.id];
-    const isF=res&&res.t1!==undefined;
+    const lv=liveOf(g.id);
+    const isF=res&&res.t1!==undefined&&!lv; // só fecha com FINISHED confirmado
     const pred=preds[g.id];
     const hasPred=pred&&pred.t1!==undefined;
     if(isF&&hasPred)finishedCount++;
     const dpick=(isF&&!hasPred)?defPicks[g.id]:null;
     const isKO=!!(g.ko);
-    const lv=!isF?liveOf(g.id):null;
     // Decomposição igual ao modal de jogo: base + raridade + joker
     let base=null,apr=0,rar=0,jok=0,tot=null;
     if(isF&&hasPred){
@@ -6304,10 +6308,21 @@ function rarityBonusLocal(exactCount,bets){
 
 // Jogo a decorrer (e ainda sem resultado final)
 function liveOf(gameId){
+  const lv=(S.live&&S.live[gameId])||null;
+  if(!lv)return null;
   const R=activeResults();
-  if(R[gameId]&&R[gameId].t1!==undefined)return null;
-  return (S.live&&S.live[gameId])||null;
+  const hasRes=!!(R[gameId]&&R[gameId].t1!==undefined);
+  // Sessão A (5 Jul): o live da API tem PRECEDÊNCIA sobre um resultado importado.
+  // Se a API ainda diz LIVE/HT, o card mantém-se "ao vivo" mesmo que um resultado
+  // (prematuro — caso Canadá-Marrocos 2-0→3-0) já exista na BD; só fecha com
+  // FINISHED confirmado. st:'FT' = terminado a aguardar confirmação: mostra-se
+  // apenas enquanto NÃO há resultado importado.
+  if(hasRes&&lv.st==='FT')return null;
+  return lv;
 }
+// Texto do estado live (badge): LIVE/HT/FT
+function liveStTxt(lv){return lv.st==='HT'?'INTERVALO':lv.st==='FT'?'A CONFIRMAR':'AO VIVO';}
+function liveBadgeTxt(lv){return (lv.st==='FT'?'⏳ ':'🔴 ')+liveStTxt(lv);}
 
 // Pontuação potencial de uma aposta contra o resultado live (base + raridade local + joker)
 function livePotential(gameId,pred){
@@ -6335,12 +6350,14 @@ function livePotential(gameId,pred){
   return {base,rar,jok,tot:base+rar+jok};
 }
 
-// Janela ativa de jogos (5 min antes do kickoff até ~2h45 depois) — espelha o backend
+// Janela ativa de jogos (75 min antes do kickoff até 4h depois) — espelha o backend
+// (Sessão A, 5 Jul: 75 min antes tolera kickoff errado na BD — caso França;
+//  240 min depois cobre prolongamento + penáltis + paragens longas)
 function liveWindowActive(){
   const now=Date.now();
   return GAMES.some(g=>{
     const t=new Date(g.date).getTime();
-    return now>=t-5*60000&&now<=t+165*60000;
+    return now>=t-75*60000&&now<=t+240*60000;
   });
 }
 
