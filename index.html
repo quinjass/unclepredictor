@@ -4223,7 +4223,7 @@ function renderBetsKO() {
     const ptsHtml = pts !== null ? ` ${koPtsBadgeHtml(pred, res)}` : '';
     const matchNum = `J${idx+1}`;
     const potKO = (lvKO && pred.t1 !== undefined) ? livePotential(g.id, pred) : null;
-    const dlWarn = !locked ? dlWarnHtml(g.date) : (isFinished ? '' : (lvKO ? `<span class="live-dot">${liveBadgeTxt(lvKO)}</span>` : '<span class="dl-pass">🔒 Fechado</span>'));
+    const dlWarn = !locked ? dlWarnHtml(g.date) : (isFinished ? '' : (lvKO ? `<span class="live-dot">${liveBadgeTxt(lvKO)}</span>` : (knownTeams&&gameUnderway(g) ? '<span class="live-dot">🔴 EM JOGO</span>' : '<span class="dl-pass">🔒 Fechado</span>')));
     const t1ph = isKOPlaceholder(t1) ? ' placeholder' : '';
     const t2ph = isKOPlaceholder(t2) ? ' placeholder' : '';
 
@@ -4339,7 +4339,7 @@ function renderBets() {
       let ptsHtml='';
       if(pts!==null){ ptsHtml=` ${ptsBadgeHtml(pts)}`; }
       const pot=(lv&&hasPred)?livePotential(g.id,pred):null;
-      const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':(lv?`<span class="live-dot">${liveBadgeTxt(lv)}</span>`:'<span class="dl-pass">🔒 Fechado</span>'));
+      const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':(lv?`<span class="live-dot">${liveBadgeTxt(lv)}</span>`:(gameUnderway(g)?'<span class="live-dot">🔴 EM JOGO</span>':'<span class="dl-pass">🔒 Fechado</span>')));
 
       // Classe de cor do cartão
       let colorClass='';
@@ -6323,6 +6323,10 @@ function liveOf(gameId){
 // Texto do estado live (badge): LIVE/HT/FT
 function liveStTxt(lv){return lv.st==='HT'?'INTERVALO':lv.st==='FT'?'A CONFIRMAR':'AO VIVO';}
 function liveBadgeTxt(lv){return (lv.st==='FT'?'⏳ ':'🔴 ')+liveStTxt(lv);}
+// Jogo já começou (kickoff…+4h) mas ainda sem feed live nem resultado — p.ex.
+// a API demora a marcar IN_PLAY (caso França R16_01): mostrar "EM JOGO" em vez
+// de "Fechado" (que sugeria jogo por disputar/terminado)
+function gameUnderway(g){const t=new Date(g.date).getTime(),n=Date.now();return n>=t&&n<=t+240*60000;}
 
 // Pontuação potencial de uma aposta contra o resultado live (base + raridade local + joker)
 function livePotential(gameId,pred){
