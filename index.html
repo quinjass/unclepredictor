@@ -3339,6 +3339,7 @@ async function loadData() {
     if(S.curView==='bets'&&!editingScoreInput())renderBets(); // AUTOSAVE: não roubar o foco a meio da escrita
     if(S.curView==='prebets')renderPrebets();
     renderLiveBanner();
+    pollLive(true); // refresh/arranque: buscar o live já, sem esperar pelo poll de ~1 min
   } catch(e){console.warn('loadData failed, using cache');}
 }
 
@@ -6661,14 +6662,16 @@ function liveWindowActive(){
   });
 }
 
-// Polling leve: pede getLive a cada ~60s (com jitter), só com a app visível e dentro da janela
-let _livePollLast=Date.now()-Math.floor(Math.random()*30000); // jitter inicial — espalha os clientes
+// Polling leve: pede getLive a cada ~60s, só com a app visível e dentro da janela.
+// pollLive(true) = força já (ignora o intervalo de 58s) — usado no arranque/refresh e
+// ao voltar ao 1º plano, para o live aparecer de imediato em vez de esperar pelo poll.
+let _livePollLast=0;
 let _livePollBusy=false;
-setInterval(async()=>{
+async function pollLive(force){
   if(typeof document==='undefined'||document.visibilityState!=='visible')return;
   if(!S.user||S.demoMode||_livePollBusy)return;
   if(!liveWindowActive()&&!Object.keys(S.live||{}).length)return;
-  if(Date.now()-_livePollLast<58000)return;
+  if(!force&&Date.now()-_livePollLast<58000)return;
   _livePollLast=Date.now();
   _livePollBusy=true;
   try{
@@ -6685,7 +6688,8 @@ setInterval(async()=>{
     }
   }catch(e){}
   _livePollBusy=false;
-},15000);
+}
+setInterval(()=>pollLive(false),15000);
 
 // Atualiza o countdown da faixa "Ao Vivo / Próximo" a cada segundo (só se visível).
 setInterval(()=>{
