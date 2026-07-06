@@ -892,7 +892,7 @@
     const blocks = db.blocks.filter(b => (b.code || '').toUpperCase() === code).map(b => (b.blocked_code || '').toUpperCase());
     const notifPrefs = db.prefsMap[code] || {};
     let lockedResults = []; try { lockedResults = JSON.parse(db.config['locked_results_' + COMP] || '[]'); } catch (e) {}
-    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, live: {}, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC };
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC };
   }
 
   // ---- AUTH ----
@@ -3334,7 +3334,7 @@ async function loadData() {
     if(r.lockedResults)S.lockedResults=r.lockedResults;
     if(r.allPrebets)S.allPrebets=r.allPrebets;
     if(r.blocks)S.blocks=r.blocks;
-    if(r.live)S.live=r.live;
+    if(r.live&&Object.keys(r.live).length)S.live=r.live; // NÃO deixar getData (live vazio) apagar o S.live que o polling getLive mantém; getLive é a única autoridade do live
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets'&&!editingScoreInput())renderBets(); // AUTOSAVE: não roubar o foco a meio da escrita
     if(S.curView==='prebets')renderPrebets();
