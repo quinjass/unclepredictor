@@ -939,11 +939,17 @@
   }
 
   // ---- RECUPERAÇÃO / ALTERAÇÃO de password (Supabase Auth + SMTP) -----------
-  // O link do email de recuperação traz #access_token&type=recovery na URL; o
-  // frontend chama beginRecovery() para guardar essa sessão temporária e depois
-  // resetPassword() usa-a para gravar a nova password.
+  // Recuperação de password — dois caminhos:
+  //  (A) LEGADO: link com #access_token&type=recovery → beginRecovery() guarda a
+  //      sessão temporária; resetPassword() usa-a diretamente.
+  //  (B) ANTI-PREFETCH (recomendado): link com ?token_hash=..&type=recovery →
+  //      beginRecoveryHash() guarda o hash e o token só é CONSUMIDO no submit
+  //      (resetPassword chama /auth/v1/verify). Assim o scanner do Hotmail/Outlook
+  //      (SafeLinks) que faz prefetch do GET não gasta o token de uso único.
   let RECOVERY = null;
+  let RECOVERY_HASH = null;
   function beginRecovery(access_token, refresh_token) { RECOVERY = { access_token, refresh_token }; }
+  function beginRecoveryHash(token_hash) { RECOVERY_HASH = token_hash; }
 
   async function forgotPassword(data) {
     const email = String(data.email || '').trim().toLowerCase();
@@ -960,6 +966,24 @@
   }
 
   async function resetPassword(data) {
+    // (B) Caminho token_hash: consumir o token só agora, no submit.
+    if (!RECOVERY && RECOVERY_HASH) {
+      try {
+        const vr = await fetch(`${SB_URL}/auth/v1/verify`, {
+          method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'recovery', token_hash: RECOVERY_HASH }),
+        });
+        const vj = await vr.json().catch(() => ({}));
+        if (vr.ok && vj.access_token) {
+          RECOVERY = { access_token: vj.access_token, refresh_token: vj.refresh_token || '' };
+          RECOVERY_HASH = null;
+        } else {
+          return { success: false, error: 'Link inválido ou expirado. Pede um novo email.' };
+        }
+      } catch (e) {
+        return { success: false, error: 'Link inválido ou expirado. Pede um novo email.' };
+      }
+    }
     if (!RECOVERY || !RECOVERY.access_token) return { success: false, error: 'Link inválido ou expirado. Pede um novo email.' };
     const nw = data.newPassword || '';
     if (nw.length < 6) return { success: false, error: 'A password deve ter pelo menos 6 caracteres.' };
@@ -1175,7 +1199,7 @@
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth };
 })();
 
 </script>
@@ -2673,6 +2697,18 @@ async function init() {
     }
   } catch (e) {}
 
+  // Reset de password (ANTI-PREFETCH): o novo template traz ?token_hash=..&type=recovery
+  // na QUERY STRING. O token só é consumido quando o user submete a nova password
+  // (resetPassword → /auth/v1/verify), pelo que o prefetch/scan do email não o gasta.
+  try {
+    const _q = new URLSearchParams(window.location.search || '');
+    if (_q.get('type') === 'recovery' && _q.get('token_hash') && window.UPSB && window.UPSB.beginRecoveryHash) {
+      window.UPSB.beginRecoveryHash(_q.get('token_hash'));
+      history.replaceState({}, '', window.location.pathname);
+      setTimeout(() => showResetPw('', ''), 400);
+    }
+  } catch (e) {}
+
   // Login com Google (Sessão C): o redirect do Supabase Auth volta com
   // #access_token&refresh_token (sem type=recovery). completeOAuth() liga/cria
   // o participante e grava a sessão; depois basta semear up26_user e deixar o
@@ -2689,9 +2725,14 @@ async function init() {
         setTimeout(() => showLoginErr((r && r.error) || 'Falha no login com Google.'), 400);
       }
     } else if (_h.get('error_description')) {
-      // O Supabase devolve #error=...&error_description=... quando o OAuth falha
+      // O Supabase devolve #error=...&error_description=... quando um link falha.
+      // Pode ser OAuth OU um link de email já usado/expirado — não assumir Google.
       history.replaceState({}, '', window.location.pathname);
-      setTimeout(() => showLoginErr('Login com Google falhou: ' + _h.get('error_description')), 400);
+      const _ed = _h.get('error_description') || '';
+      const _msg = /invalid or has expired/i.test(_ed)
+        ? 'O link do email é inválido ou já foi usado. Pede um novo em "Esqueceste a password?".'
+        : 'Não foi possível autenticar: ' + _ed;
+      setTimeout(() => showLoginErr(_msg), 400);
     }
   } catch (e) {}
 
