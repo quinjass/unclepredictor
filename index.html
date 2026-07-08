@@ -959,6 +959,18 @@
   async function forgotPassword(data) {
     const email = String(data.email || '').trim().toLowerCase();
     if (email) {
+      // (0) Garante conta Auth p/ participantes migrados que ainda não fizeram
+      //     login (sem auth_uid). Sem isto, o /recover não encontra utilizador,
+      //     não envia email e responde 200 na mesma -> "link enviado" mas nada
+      //     chega. A criação exige service role, logo é feita numa Edge Function
+      //     (o frontend só tem a anon key). Falha aqui não bloqueia o recover.
+      try {
+        await fetch(`${SB_URL}/functions/v1/forgot-ensure`, {
+          method: 'POST',
+          headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+      } catch (e) { /* silencioso — segue para o recover na mesma */ }
       const redir = enc(location.origin + location.pathname);
       try {
         await fetch(`${SB_URL}/auth/v1/recover?redirect_to=${redir}`, {
