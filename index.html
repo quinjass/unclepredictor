@@ -897,7 +897,8 @@
     const blocks = db.blocks.filter(b => (b.code || '').toUpperCase() === code).map(b => (b.blocked_code || '').toUpperCase());
     const notifPrefs = db.prefsMap[code] || {};
     let lockedResults = []; try { lockedResults = JSON.parse(db.config['locked_results_' + COMP] || '[]'); } catch (e) {}
-    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC };
+    let scorers = []; try { scorers = JSON.parse(db.config['scorers_' + COMP] || '[]'); } catch (e) {}
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, scorers };
   }
 
   // ---- AUTH ----
@@ -2160,11 +2161,8 @@
           </div>
           <div class="form-group">
             <label class="form-label">⚽ Melhor Marcador <span style="color:var(--gold)">+5pts</span></label>
-            <div style="display:flex;gap:8px;align-items:center">
-              <input class="form-input" id="sp-top_scorer" type="text" placeholder="Nome do jogador" style="flex:1">
-              <button class="btn btn-outline" style="font-size:.75rem;white-space:nowrap;flex-shrink:0" onclick="fetchTopScorerAdmin()">🔄 Buscar ranking</button>
-            </div>
-            <div id="scorer-ranking" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
+            <input class="form-input" id="sp-top_scorer" type="text" placeholder="Automático no fim do Mundial">
+            <div style="font-size:.68rem;color:var(--sub);margin-top:4px;line-height:1.5">Definido <strong>automaticamente</strong> com o líder de golos oficial quando a Final terminar — a pontuação resolve-se sozinha. Só preenche aqui se quiseres <strong>forçar</strong> um nome (ex.: desempate da Bota de Ouro); nesse caso o automático não sobrepõe.</div>
           </div>
           <div style="display:flex;gap:8px;margin-top:4px">
             <button class="btn btn-success" style="flex:1" onclick="saveSpecials()">💾 Confirmar e Guardar</button>
@@ -3352,9 +3350,11 @@ async function loadData() {
     if(r.allPrebets)S.allPrebets=r.allPrebets;
     if(r.blocks)S.blocks=r.blocks;
     if(r.live&&Object.keys(r.live).length)S.live=r.live; // NÃO deixar getData (live vazio) apagar o S.live que o polling getLive mantém; getLive é a única autoridade do live
+    if(r.scorers)S.scorers=r.scorers; // melhores marcadores (públicos, atualizados pelo auto-fetch a cada jogo)
     if(S.curView==='leaderboard')renderLB();
     if(S.curView==='bets'&&!editingScoreInput())renderBets(); // AUTOSAVE: não roubar o foco a meio da escrita
     if(S.curView==='prebets')renderPrebets();
+    if(S.curView==='mundial')renderMundial(); // atualiza bracket + marcadores no fim de cada jogo
     renderLiveBanner();
     pollLive(true); // refresh/arranque: buscar o live já, sem esperar pelo poll de ~1 min
   } catch(e){console.warn('loadData failed, using cache');}
@@ -5210,8 +5210,8 @@ function renderBracket() {
       const t1ph = isKOPlaceholder(t1);
       const t2ph = isKOPlaceholder(t2);
       const hasScore = res && res.t1 !== undefined;
-      const t1wins = hasScore && res.t1 > res.t2;
-      const t2wins = hasScore && res.t2 > res.t1;
+      const t1wins = hasScore && (res.t1 > res.t2 || (res.t1 === res.t2 && res.pen === 't1'));
+      const t2wins = hasScore && (res.t2 > res.t1 || (res.t1 === res.t2 && res.pen === 't2'));
       const f1 = !t1ph ? flag(t1) : '';
       const f2 = !t2ph ? flag(t2) : '';
       const d = new Date(g.date);
@@ -5226,7 +5226,7 @@ function renderBracket() {
       html += `<div class="bracket-match ${round.cls}">
         <span class="bracket-match-n">J${n}</span>
         <span class="bracket-team${t1ph?' placeholder':''}${t1wins?' bracket-winner':''}">${f1}${t1}</span>
-        <span class="bracket-score-badge">${hasScore?`${res.t1}–${res.t2}`:'·'}</span>
+        <span class="bracket-score-badge">${hasScore?`${res.t1}–${res.t2}${res.pen?`<span class="pen-star" title="${(res.pen==='t1'?t1:t2)} passou por penáltis">★</span>`:''}`:'·'}</span>
         <span class="bracket-team${t2ph?' placeholder':''}${t2wins?' bracket-winner':''}" style="text-align:right">${f2}${t2}</span>
         <span style="font-size:.63rem;color:var(--sub);white-space:nowrap;margin-left:2px">${dateShort} ${timeShort}</span>
         <button onclick="showTVInfo('${g.id}')" style="${tvBtnStyle};border-radius:5px;font-size:.58rem;font-weight:700;padding:2px 4px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4;margin-left:2px;flex-shrink:0">📺</button>
@@ -6337,26 +6337,6 @@ async function saveSpecials(){
   }catch(e){statusEl.style.color='var(--red)'; statusEl.textContent='⚠ Erro de ligação.';}
 }
 
-async function fetchTopScorerAdmin(){
-  const rankEl=document.getElementById('scorer-ranking');
-  rankEl.style.display='block'; rankEl.innerHTML='<div style="padding:10px;font-size:.75rem;color:var(--sub)">A buscar dados...</div>';
-  try{
-    const r=await api('fetchTopScorer',{password:document.getElementById('admin-pw').value});
-    if(r.success && r.scorers && r.scorers.length){
-      rankEl.innerHTML=r.scorers.map((s,i)=>`
-        <div onclick="document.getElementById('sp-top_scorer').value='${s.name.replace(/'/g,"\\'")}'" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(245,197,24,.08)'" onmouseout="this.style.background=''">
-          <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--gold);width:22px">${i+1}</span>
-          <div style="flex:1">
-            <div style="font-size:.82rem;font-weight:600">${s.name}</div>
-            <div style="font-size:.7rem;color:var(--sub)">${s.team}</div>
-          </div>
-          <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;color:var(--green)">${s.goals} ⚽</span>
-        </div>`).join('');
-    } else {
-      rankEl.innerHTML=`<div style="padding:10px;font-size:.75rem;color:var(--red)">⚠ ${r.error||'Sem dados disponíveis.'}</div>`;
-    }
-  }catch(e){rankEl.innerHTML=`<div style="padding:10px;font-size:.75rem;color:var(--red)">⚠ Erro de ligação.</div>`;}
-}
 
 async function saveConfig(){
   const dh=parseInt(document.getElementById('cfg-deadline').value);
