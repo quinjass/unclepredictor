@@ -5540,7 +5540,7 @@ function openGameModal(gameId) {
     if (S.demoMode) pred = genDemoPreds(u.code)[gameId];
     else pred = gamePreds[u.code] || (S.user&&u.code===S.user.code ? S.preds[gameId] : undefined);
     const hasPred = pred && pred.t1!==undefined;
-    let base=null, apr=0, rar=0, jok=0, tot=null;
+    let base=null, apr=0, rar=0, jok=0, tot=null, dpick=null;
     if (showPts && hasPred) {
       const gross = calcPts({...pred, joker:false}, resEff, isKO);    // base bruta (inclui aproximação)
       apr = koApprox(pred, resEff, isKO);                             // aproximação isolada (só KO)
@@ -5549,8 +5549,16 @@ function openGameModal(gameId) {
       rar = exact ? rarBonus : 0;                                     // bónus de raridade (base)
       jok = pred.joker ? (gross + rar) : 0;                           // joker duplica base+aprox E raridade
       tot = base + apr + rar + jok;
+    } else if (isFinished && !hasPred && !S.demoMode && u.code!=='BOT_IA') {
+      // Default pick: se este jogo (terminado) foi coberto por uma default pick deste jogador,
+      // herda a aposta do IA (só tendência; sem aproximação, joker ou raridade) — igual ao perfil do jogador.
+      const uPreds = (S.user && u.code===S.user.code)
+        ? S.preds
+        : (()=>{ const m={}; Object.entries(S.allPreds||{}).forEach(([gid,mm])=>{ if(mm[u.code]) m[gid]=mm[u.code]; }); return m; })();
+      const dp = defaultPicksOf(uPreds, S.results)[gameId];
+      if (dp) { dpick = dp; tot = dp.pts; }
     }
-    return {name:u.name, code:u.code, pred, base, apr, rar, jok, tot, isMe: S.user && u.name===S.user.name};
+    return {name:u.name, code:u.code, pred, base, apr, rar, jok, tot, dpick, isMe: S.user && u.name===S.user.name};
   }).sort((a,b) => {
     const hasPredA = !!(a.pred && a.pred.t1 !== undefined);
     const hasPredB = !!(b.pred && b.pred.t1 !== undefined);
@@ -5578,10 +5586,11 @@ function openGameModal(gameId) {
   const nCell=`font-family:'Rajdhani',sans-serif;font-weight:700`;
   rows.forEach(r=>{
     const hasPred = r.pred && r.pred.t1!==undefined;
-    const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : '—';
+    const dpick = r.dpick;
+    const predStr = hasPred ? `${r.pred.t1}–${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : (dpick?`<span style="color:#a78bfa" title="Default pick — aposta do IA por esquecimento">🤖 ${dpick.t1}–${dpick.t2}</span>`:'—');
     const gross = (r.base||0)+(r.apr||0);
     // KO gross===3 = tendência+aproximação (sem exato) → verde-limão; grupos gross===3 = exato → verde
-    const ptsCls = showPts ? (!hasPred||gross===0?'pred-wrong':(isKO&&gross===3)?'pred-close':gross===1||gross===2?'pred-partial':'pred-correct') : '';
+    const ptsCls = dpick ? '' : (showPts ? (!hasPred||gross===0?'pred-wrong':(isKO&&gross===3)?'pred-close':gross===1||gross===2?'pred-partial':'pred-correct') : '');
     // Navegação cruzada (Sessão B): tocar num jogador abre o perfil de apostas dele
     const rowClick = r.code==='BOT_IA' ? `openBotModal()` : `openPlayerModal('${(r.name||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')`;
     html+=`<tr class="${r.isMe?'row-me':''}" onclick="${rowClick}" style="cursor:pointer">
@@ -5592,7 +5601,7 @@ function openGameModal(gameId) {
       <td style="${nCell};color:${r.apr?'#1abc9c':'var(--sub)'}">${r.apr?'+'+r.apr:'—'}</td>
       <td style="${nCell};color:${r.rar?'#f39c12':'var(--sub)'}">${r.rar?'+'+r.rar:'—'}</td>
       <td style="${nCell};color:${r.jok?'#00bcd4':'var(--sub)'}">${r.jok?'+'+r.jok:'—'}</td>
-      <td style="${nCell};color:${lv?'var(--red)':'var(--gold)'};font-size:.95rem">${r.tot===null?'—':r.tot}</td>`:''}
+      <td style="${nCell};color:${dpick?'#a78bfa':(lv?'var(--red)':'var(--gold)')};font-size:.95rem">${r.tot===null?'—':r.tot}</td>`:''}
     </tr>`;
   });
 
@@ -5602,6 +5611,7 @@ function openGameModal(gameId) {
       <strong style="color:var(--text)">Base</strong> = resultado/tendência · <strong style="color:#1abc9c">Apr</strong> = aproximação (só KO: +1 por errar só 1 golo) · <strong style="color:#f39c12">⭐</strong> = bónus de raridade${rarBonus?` (${lv?'com o resultado atual':'neste jogo'}: +${rarBonus} por acerto exato)`:' (sem bónus neste jogo)'} · <strong style="color:#00bcd4">J</strong> = bónus do joker (duplica base, aproximação e raridade)<br>
       ${lv?'🔴 Valores provisórios — a raridade pode mudar com cada golo.':'⭐ e J são as colunas homónimas da classificação detalhada — somadas, formam o 1º critério de desempate.'}
     </div>`;
+    if(rows.some(r=>r.dpick)) html+=`<div style="font-size:.68rem;color:#a78bfa;margin-top:6px;line-height:1.6">🤖 = default pick: aposta do IA herdada por esquecimento (só tendência: 1 grupos / 2 KO; sem joker nem raridade).</div>`;
   }
   if(!isFinished) html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:8px;text-align:center">As apostas ficam visíveis assim que fecham (${S.deadlineH||1}h antes do jogo).</div>`;
   html+=`<div style="font-size:.68rem;color:var(--sub);margin-top:6px;text-align:center">👆 Toca num jogador para veres o perfil de apostas dele.</div>`;
