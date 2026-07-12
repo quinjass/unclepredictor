@@ -882,7 +882,7 @@
   async function getData(data) {
     const db = await loadDB();
     const code = (data.code || myCode() || '').toUpperCase();
-    const deadlineH = Number(db.config.deadline_hours || 2);
+    const deadlineH = Number(db.config.deadline_hours || 1);
     const preds = {};
     db.allPreds.filter(r => (r.code || '').toUpperCase() === code).forEach(r => { preds[r.game_id] = { t1: r.t1 != null ? +r.t1 : undefined, t2: r.t2 != null ? +r.t2 : undefined, joker: r.joker === true }; });
     const prebets = {}; db.prebets.filter(r => (r.code || '').toUpperCase() === code).forEach(r => { prebets[r.key] = r.value; });
@@ -1094,7 +1094,7 @@
     // servidor; aqui a RLS rejeitaria o LOTE inteiro por causa de um único
     // jogo fechado no batch. Só enviamos os que ainda estão abertos.
     const db = await loadDB();
-    const dh = Number(db.config.deadline_hours || 2);
+    const dh = Number(db.config.deadline_hours || 1);
     const open = (g) => !isGameLocked(g, dh, db.gameDatesUTC);
     const preds = data.preds || {}; const ups = [], dels = [];
     Object.entries(preds).forEach(([g, p]) => {
@@ -2178,7 +2178,7 @@
       <div id="apanel-config" style="display:none">
         <div class="card">
           <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:12px">Configurações</div>
-          <div class="form-group"><label class="form-label">Horas antes do jogo para fechar apostas</label><input class="form-input" id="cfg-deadline" type="number" value="2" min="1" max="24"></div>
+          <div class="form-group"><label class="form-label">Horas antes do jogo para fechar apostas</label><input class="form-input" type="text" value="1 hora (fixo)" disabled style="opacity:.7;cursor:not-allowed"></div>
           <div class="form-group"><label class="form-label">Nova password de admin (deixa em branco para manter)</label><input class="form-input" id="cfg-newpw" type="password" placeholder="Nova password"></div>
           <div class="form-group">
             <label class="form-label">API Key — football-data.org <span style="color:var(--sub);font-weight:400">(para auto-fetch de resultados)</span></label>
@@ -6339,13 +6339,13 @@ async function saveSpecials(){
 
 
 async function saveConfig(){
-  const dh=parseInt(document.getElementById('cfg-deadline').value);
+  // Deadline fixo em 1h — já não é editável via admin (não enviamos deadlineH).
   const np=document.getElementById('cfg-newpw').value;
   const ak=document.getElementById('cfg-apikey')?document.getElementById('cfg-apikey').value.trim():null;
   const ok=document.getElementById('cfg-oddskey')?document.getElementById('cfg-oddskey').value.trim():null;
   try {
-    await api('saveConfig',{password:document.getElementById('admin-pw').value,deadlineH:dh,newPassword:np||null,apiKey:ak||null,oddsApiKey:ok||null});
-    S.deadlineH=dh; showToast('Configurações guardadas!','success');
+    await api('saveConfig',{password:document.getElementById('admin-pw').value,newPassword:np||null,apiKey:ak||null,oddsApiKey:ok||null});
+    showToast('Configurações guardadas!','success');
   } catch(e){showToast('Erro.','error');}
 }
 
