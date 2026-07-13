@@ -3516,14 +3516,9 @@ function renderLB() {
   const duelData=null;
   const reactAgg={};
   if(social)social.reactions.forEach(r=>{const t=(r.target||'').toUpperCase();if(!reactAgg[t])reactAgg[t]={};reactAgg[t][r.emoji]=(reactAgg[t][r.emoji]||0)+1;});
-  const reactHtml=code=>{
-    if(!social)return'';
-    const agg=reactAgg[(code||'').toUpperCase()]||{};
-    let h=Object.entries(agg).map(([e,c])=>`<span class="react-chip">${e}${c>1?'&hairsp;'+c:''}</span>`).join('');
-    if(S.user&&code!==S.user.code)h+=`<span class="react-add" onclick="event.stopPropagation();toggleReactPicker('${code}')">${S.reactFor===code?'✕':'+'}</span>`;
-    return h;
-  };
-  const reactPickerRow=(code,colspan)=>S.reactFor===code?`<tr><td colspan="${colspan}" style="padding:5px 10px;background:var(--bg2);text-align:center">${REACT_EMOJIS.map(e=>`<button class="react-pick" onclick="event.stopPropagation();sendReact('${code}','${e}')">${e}</button>`).join('')}</td></tr>`:'';
+  // Reações removidas da classificação (13 Jul) — baixa aderência. Backend intacto.
+  const reactHtml=code=>'';
+  const reactPickerRow=(code,colspan)=>'';
 
   let html = ligaHdr + champHtml + mvpHtml;
   // Toggle row
@@ -3557,7 +3552,7 @@ function renderLB() {
       const add=S.liveLB?(liveAdd[p.code]||0):0;
       html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}${S.liveLB?'':posArrow(p.code,rank)}</td>
-        <td class="td-name">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}${bot?'':reactHtml(p.code)}</td>
+        <td class="td-name">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}</td>
         <td>${p.games!==undefined?p.games:finishedGames}</td>
         <td class="td-pts">${S.liveLB?`${p.total+add}${add?` <span class="live-dot" style="animation:none;font-size:.62rem">+${add}</span>`:''}`:p.total}</td>
       </tr>`;
@@ -3610,7 +3605,7 @@ function renderLB() {
       const bot=isBot(p);
       html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
-        <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}${trophyHtml(p)}</td>
+        <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}</td>
         <td style="${tdN};color:var(--sub)">${p.games!==undefined?p.games:finishedGames}</td>
         <td style="${tdN};color:#a78bfa" title="Default picks usadas">${p.defaults?('🤖'+p.defaults):'—'}</td>
         <td style="${tdN};color:var(--green)">${p.wins||0}</td>
@@ -5800,6 +5795,9 @@ function buildPlayerBetsHtml(playerName) {
   // ══ SECÇÃO 1: resumo (stats + evolução de posição) ══
   let out = statsHtml + buildRankSparkline(playerName);
 
+  // ══ SECÇÃO 1b: medalhas (troféus de jornada) — perfil do jogador (13 Jul) ══
+  out += buildMedalsModalSection(playerName);
+
   // ══ SECÇÃO 2: pré-apostas — escondidas por defeito (expandir para ver) ══
   const pb = buildPrebetModalSection(playerName, preds);
   out += `<details style="margin-top:16px;border-top:1px solid var(--border);padding-top:6px">
@@ -5850,6 +5848,42 @@ function buildRankSparkline(playerName) {
       <text x="${xAt(i).toFixed(1)}" y="${(yAt(r) - 7).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--sub)" font-family="Rajdhani,sans-serif" font-weight="700">${r}º</text>
       <text x="${xAt(i).toFixed(1)}" y="${H + 13}" text-anchor="middle" font-size="8.5" fill="var(--sub)">${JORNADA_SHORT[js[i]] || ''}</text>`).join('')}
     </svg>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════
+//  MEDALHAS — secção no modal de jogador (troféus de jornada)
+//  Movidas da classificação para o perfil (13 Jul). Reutiliza o mesmo motor
+//  computeMatchdayTrophies usado no Palmarés e na classificação.
+// ════════════════════════════════════════════════
+function buildMedalsModalSection(playerName) {
+  const lb = (S.lb && S.lb.length) ? S.lb : (S.demoMode && typeof calcDemoLB==='function' ? calcDemoLB() : []);
+  if (!lb.length) return '';
+  const humans = lb.filter(p => p.code !== 'BOT_IA');
+  const hasJP = humans.some(p => p.jp && Object.keys(p.jp).length);
+  let trophies = [];
+  try {
+    if (hasJP && typeof completeJornadas === 'function') {
+      const compJs = completeJornadas();
+      const mdPts = {};
+      compJs.forEach(j => { mdPts[j] = {}; humans.forEach(p => { mdPts[j][p.name] = (p.jp && p.jp[j]) || 0; }); });
+      trophies = computeMatchdayTrophies(mdPts)[playerName] || [];
+    }
+  } catch (e) { /* sem dados de jornada */ }
+
+  const g = trophies.filter(t => t.rank === 1).length;
+  const s = trophies.filter(t => t.rank === 2).length;
+  const b = trophies.filter(t => t.rank === 3).length;
+  const summary = trophies.length
+    ? `${g?`🥇×${g} `:''}${s?`🥈×${s} `:''}${b?`🥉×${b}`:''}`.trim()
+    : 'sem troféus de jornada';
+  const chips = trophies.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px">${trophies.map(t=>`<span class="md-trophy" title="${t.rank===1?'MVP':'Pódio'} ${jLabel(t.md)}">${trophySyms[t.rank-1]}${JORNADA_SHORT[t.md]||'J'+t.md}</span>`).join('')}</div>`
+    : `<div style="font-size:.76rem;color:var(--sub);margin-top:2px">Ainda sem troféus de jornada.</div>`;
+
+  return `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:8px">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;padding:2px 0 4px">🏅 Medalhas <span style="font-size:.72rem;color:var(--sub);font-weight:400">(${summary})</span></div>
+    ${chips}
   </div>`;
 }
 
