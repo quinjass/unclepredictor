@@ -2663,7 +2663,9 @@ const S = {
   competition:'mundial2026',
   competitions:[
     {id:'mundial2026',name:'Mundial 2026',status:'active',subtitle:'11 Jun – 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
-    {id:'ucl2627',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0}
+    {id:'ucl2627',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0},
+    {id:'ligapt2627',name:'Liga Portugal Betclic 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0},
+    {id:'pl2627',name:'Premier League 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0}
   ],
   live:{}, liveLB:false,
 };
@@ -3117,8 +3119,8 @@ function showApp() {
 }
 
 // ── Página de seleção de competição (landing pós-login; sempre acessível) ──
-const COMP_EMBLEM={mundial2026:'img/comp-mundial.jpg',ucl2627:'img/comp-ucl.jpg'};
-const COMP_FALLBACK={mundial2026:'🏆',ucl2627:'⭐'};
+const COMP_EMBLEM={mundial2026:'img/comp-mundial.jpg',ucl2627:'img/comp-ucl.jpg',ligapt2627:'img/comp-ligapt.png',pl2627:'img/comp-pl.png'};
+const COMP_FALLBACK={mundial2026:'🏆',ucl2627:'⭐',ligapt2627:'⚽',pl2627:'⚽'};
 function showCompetitions(){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-competitions').classList.add('active');
