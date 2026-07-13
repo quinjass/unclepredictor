@@ -5877,8 +5877,11 @@ function buildMedalsModalSection(playerName) {
   const summary = trophies.length
     ? `${g?`🥇×${g} `:''}${s?`🥈×${s} `:''}${b?`🥉×${b}`:''}`.trim()
     : 'sem troféus de jornada';
+  // NB: usa só globais (JORNADA_SHORT). NÃO usar trophySyms/jLabel — são locais a renderLB.
+  const MEDAL = ['🥇','🥈','🥉'];
+  const jShort = md => JORNADA_SHORT[md] || ('J' + md);
   const chips = trophies.length
-    ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px">${trophies.map(t=>`<span class="md-trophy" title="${t.rank===1?'MVP':'Pódio'} ${jLabel(t.md)}">${trophySyms[t.rank-1]}${JORNADA_SHORT[t.md]||'J'+t.md}</span>`).join('')}</div>`
+    ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px">${trophies.map(t=>`<span class="md-trophy" title="${t.rank===1?'MVP':'Pódio'} ${jShort(t.md)}">${MEDAL[t.rank-1]||'🏅'}${jShort(t.md)}</span>`).join('')}</div>`
     : `<div style="font-size:.76rem;color:var(--sub);margin-top:2px">Ainda sem troféus de jornada.</div>`;
 
   return `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:8px">
