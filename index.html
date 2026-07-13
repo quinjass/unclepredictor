@@ -3452,6 +3452,7 @@ function renderLB() {
     compJs.forEach(j=>{mdPts[j]={};humans.forEach(p=>{mdPts[j][p.name]=(p.jp&&p.jp[j])||0;});});
     trophyMap=computeMatchdayTrophies(mdPts);
   }
+  S.trophyMap=trophyMap; // contexto atual (liga selecionada ou global) — usado no card do jogador
   const trophyHtml=p=>{
     const ts=trophyMap?(trophyMap[p.name]||[]):(p.mdTrophies||[]);
     return ts.map(t=>`<span class="md-trophy" title="${t.rank===1?'MVP':'Pódio'} ${jLabel(t.md)}">${trophySyms[t.rank-1]}${JORNADA_SHORT[t.md]||'J'+t.md}</span>`).join('');
@@ -5857,19 +5858,9 @@ function buildRankSparkline(playerName) {
 //  computeMatchdayTrophies usado no Palmarés e na classificação.
 // ════════════════════════════════════════════════
 function buildMedalsModalSection(playerName) {
-  const lb = (S.lb && S.lb.length) ? S.lb : (S.demoMode && typeof calcDemoLB==='function' ? calcDemoLB() : []);
-  if (!lb.length) return '';
-  const humans = lb.filter(p => p.code !== 'BOT_IA');
-  const hasJP = humans.some(p => p.jp && Object.keys(p.jp).length);
-  let trophies = [];
-  try {
-    if (hasJP && typeof completeJornadas === 'function') {
-      const compJs = completeJornadas();
-      const mdPts = {};
-      compJs.forEach(j => { mdPts[j] = {}; humans.forEach(p => { mdPts[j][p.name] = (p.jp && p.jp[j]) || 0; }); });
-      trophies = computeMatchdayTrophies(mdPts)[playerName] || [];
-    }
-  } catch (e) { /* sem dados de jornada */ }
+  // Usa o MESMO trophyMap calculado no renderLB — respeita a liga selecionada
+  // (ou o global, se for esse o contexto). Evita divergência com a classificação.
+  const trophies = (S.trophyMap && S.trophyMap[playerName]) ? S.trophyMap[playerName] : [];
 
   const g = trophies.filter(t => t.rank === 1).length;
   const s = trophies.filter(t => t.rank === 2).length;
