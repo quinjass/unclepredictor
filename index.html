@@ -660,9 +660,17 @@
 
   const SB_URL = 'https://pzvwzqynxsaelyyakqes.supabase.co';
   const SB_KEY = 'sb_publishable_5aiD7taF5eYKvfDBsGbklQ_XoBoFPyN';
-  const COMP = 'WC2026';                 // competição real (produção)
+  let COMP = 'WC2026';                    // competição ATIVA (Fase 0: mutável p/ multi-competição)
   const SS_KEY = 'upsb_session';
-  const CF = 'competition_id=eq.' + COMP; // filtro de competição p/ leituras
+  let CF = 'competition_id=eq.' + COMP;   // filtro de competição p/ leituras (segue COMP)
+  // Troca de competição ativa: atualiza o filtro e invalida a cache de dados.
+  // Sem persistência — cada sessão arranca no Mundial ('WC2026'); a competição
+  // só muda quando se ENTRA nela (Fase 0). O público nunca a muda.
+  function setComp(dbId) {
+    if (!dbId || dbId === COMP) return COMP;
+    COMP = dbId; CF = 'competition_id=eq.' + COMP; DB = null;
+    return COMP;
+  }
 
   // ── NICKNAMES (preparação p/ fase Champions) ──────────────────────────────
   // O nickname é 1 por CONTA (participants.nickname). Nesta competição mostramos
@@ -705,11 +713,18 @@
   // Por omissão usa a chave pública (anon): tabelas públicas (results, games,
   // ligas, ...). Para predictions/prebets passa-se useAuth=true: a RLS (006)
   // esconde apostas por-fechar e, com o JWT, devolve também as DO PRÓPRIO.
-  async function rest(table, select, filter, useAuth) {
+  // FIX (14 Jul): paginação limit/offset SEM `order` não é determinística no
+  // Postgres (synchronized seq scans): quando a tabela passa de 1000 linhas
+  // (predictions, notifications, ...) cada página pode vir com linhas repetidas
+  // ou EM FALTA, e cada fetch devolve um subconjunto diferente → classificação/
+  // nº de jogos/pontos a "saltar" após login e a estabilizar só após refresh.
+  // Ordenar SEMPRE por uma chave estável (por omissão, a 1ª coluna do select).
+  async function rest(table, select, filter, useAuth, order) {
     const PAGE = 1000; let off = 0, out = [];
+    const ord = order || String(select).split(',')[0];
     const H = useAuth ? await authH() : anonH();
     for (;;) {
-      const u = `${SB_URL}/rest/v1/${table}?select=${select}${filter ? '&' + filter : ''}&limit=${PAGE}&offset=${off}`;
+      const u = `${SB_URL}/rest/v1/${table}?select=${select}${filter ? '&' + filter : ''}&order=${ord}&limit=${PAGE}&offset=${off}`;
       const r = await fetch(u, { cache: 'no-store', headers: H });
       if (!r.ok) throw new Error(`${table} [${r.status}] ${await r.text()}`);
       const rows = await r.json();
@@ -741,7 +756,8 @@
 
   // ---- pontuação (porta fiel do apps-script.gs) ----
   const BOT_CODE = 'BOT_IA', DEFAULT_PICK_BUDGET = 5, DEFAULT_PICK_CUTOFF_UTC = '2026-06-21T00:00:00Z';
-  function jornadaKeyOf(g) { const m = String(g).match(/^(R32|R16|QF|SF|F3|FIN)_/); if (m) return m[1]; const n = parseInt(String(g).slice(1), 10); if (!n) return null; return String(Math.min(3, Math.ceil(n / 2))); }
+  let GAME_MD = {}; // game_id -> jornada (md); preenchido em loadDB a partir da tabela games
+  function jornadaKeyOf(g) { if (GAME_MD[g] != null) return GAME_MD[g]; const m = String(g).match(/^(R32|R16|QF|SF|F3|FIN)_/); if (m) return m[1]; const n = parseInt(String(g).slice(1), 10); if (!n) return null; return String(Math.min(3, Math.ceil(n / 2))); }
   function getRarityBonus(e, t) { if (!t || !e) return 0; const p = e / t; if (p < 0.05) return 6; if (p < 0.15) return 4; if (p <= 0.30) return 2; return 0; }
   function calcPoints(pred, res, isKO) {
     if (pred.t1 == null || res.t1 == null) return 0;
@@ -831,30 +847,41 @@
 
   // ---- carregamento (cache em memória; filtrado pela competição sandbox) ----
   let DB = null;
+  // FIX (14 Jul): dedup de loadDB concorrentes — no login, loadData() e
+  // loadMyLeagues() disparavam DOIS carregamentos completos em paralelo, cada
+  // um com o seu snapshot (que podiam divergir) → renders intercalados com
+  // números diferentes. Agora partilham o MESMO fetch em curso.
+  let DBP = null;
   async function loadDB() {
     if (DB) return DB;
+    if (DBP) return DBP;
+    DBP = loadDBFetch().finally(() => { DBP = null; });
+    return DBP;
+  }
+  async function loadDBFetch() {
     const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, duels, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname', ''),
-      rest('predictions', 'code,game_id,t1,t2,joker', CF, true),  // useAuth: RLS revela as próprias + jogos fechados
-      rest('prebets', 'code,key,value', CF, true),                // useAuth: RLS revela as próprias + pós-A1
+      rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
+      rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
       rest('results', 'game_id,t1,t2,pen', CF),
       rest('specials', 'key,value', CF),
-      rest('games', 'game_id,stage,group_label,t1_team,t2_team,kickoff_utc', CF),
+      rest('games', 'game_id,stage,md,group_label,t1_team,t2_team,kickoff_utc', CF),
       rest('leagues', 'id,name,admin_code,invite_code', CF),
-      rest('league_members', 'league_id,user_code'),
-      rest('reactions', 'league_id,from_code,target_code,emoji', '', true),   // RLS 008: membros da liga (JWT)
-      rest('comments', 'league_id,jornada,code,name,text,created_at', '', true),
-      rest('duel_rosters', 'league_id,jornada,codes', '', true),
+      rest('league_members', 'league_id,user_code', '', false, 'league_id,user_code'),
+      rest('reactions', 'league_id,from_code,target_code,emoji', '', true, 'league_id,from_code,target_code'),   // RLS 008: membros da liga (JWT)
+      rest('comments', 'league_id,jornada,code,name,text,created_at', '', true, 'created_at,code'),
+      rest('duel_rosters', 'league_id,jornada,codes', '', true, 'league_id,jornada'),
       rest('notifications', 'id,to_code,type,text,created_at', '', true),     // RLS 008: próprio/broadcast (JWT)
-      rest('blocks', 'code,blocked_code', '', true),
+      rest('blocks', 'code,blocked_code', '', true, 'code,blocked_code'),
       rest('notif_prefs', 'code,prefs', '', true),
       rest('config', 'key,value', ''),
       rest('competition_members', 'code', CF),
     ]);
     const pm = {}; predsRaw.forEach(r => { pm[r.code + '|' + r.game_id] = r; }); const allPreds = Object.values(pm);
     const results = {}; resultsRaw.forEach(r => { if (r.t1 != null && r.t2 != null) results[r.game_id] = { t1:+r.t1, t2:+r.t2, pen:r.pen || '' }; });
-    const gameDatesUTC = {}, groupGames = [], koTeams = {};
+    const gameDatesUTC = {}, groupGames = [], koTeams = {}; GAME_MD = {};
     games.forEach(g => {
+      if (g.md != null && g.md !== '') GAME_MD[g.game_id] = String(g.md);
       if (g.kickoff_utc) gameDatesUTC[g.game_id] = g.kickoff_utc;
       if (g.stage === 'group') groupGames.push({ id:g.game_id, t1:g.t1_team, t2:g.t2_team });
       else if (g.t1_team && g.t2_team) koTeams[g.game_id] = { t1:g.t1_team, t2:g.t2_team }; // KO já resolvido (preenchido pelo auto-fetch)
@@ -871,7 +898,7 @@
     // Leaderboard só com os MEMBROS desta competição (não todos os participantes globais)
     const cmSet = new Set((compMembers || []).map(m => m.code));
     const participantsM = participants.filter(p => cmSet.has(p.code));
-    DB = { participants: participantsM, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, duels: fduels, notifs, blocks, prefsMap };
+    DB = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, duels: fduels, notifs, blocks, prefsMap };
     return DB;
   }
   function shapeLeague(l, db) {
@@ -898,7 +925,7 @@
     const notifPrefs = db.prefsMap[code] || {};
     let lockedResults = []; try { lockedResults = JSON.parse(db.config['locked_results_' + COMP] || '[]'); } catch (e) {}
     let scorers = []; try { scorers = JSON.parse(db.config['scorers_' + COMP] || '[]'); } catch (e) {}
-    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, scorers };
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers };
   }
 
   // ---- AUTH ----
@@ -1217,7 +1244,7 @@
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth, setComp, comp: () => COMP };
 })();
 
 </script>
@@ -1788,13 +1815,14 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
       <span id="bets-phase-title">Fase de Grupos</span>
     </div>
-    <div class="md-tabs">
+    <div class="md-tabs" id="md-tabs-league" style="display:none"></div>
+    <div class="md-tabs" id="md-tabs-grp">
       <div class="md-tab active" onclick="switchMD(1)" id="md-1">Jornada 1<br><span style="font-size:.63rem;font-weight:400">11–17 Jun</span></div>
       <div class="md-tab" onclick="switchMD(2)" id="md-2">Jornada 2<br><span style="font-size:.63rem;font-weight:400">18–23 Jun</span></div>
       <div class="md-tab" onclick="switchMD(3)" id="md-3">Jornada 3<br><span style="font-size:.63rem;font-weight:400">24–27 Jun</span></div>
     </div>
-    <div class="ko-divider">🔥 Fase a Eliminar</div>
-    <div class="md-tabs" style="flex-wrap:wrap;gap:5px;margin-bottom:14px">
+    <div class="ko-divider" id="md-ko-div">🔥 Fase a Eliminar</div>
+    <div class="md-tabs" id="md-tabs-ko" style="flex-wrap:wrap;gap:5px;margin-bottom:14px">
       <div class="md-tab-ko" onclick="switchMD('R32')" id="md-R32">16-avos<br><span style="font-size:.6rem;font-weight:400">28 Jun–4 Jul</span></div>
       <div class="md-tab-ko" onclick="switchMD('R16')" id="md-R16">Oitavos<br><span style="font-size:.6rem;font-weight:400">4–7 Jul</span></div>
       <div class="md-tab-ko" onclick="switchMD('QF')" id="md-QF">QF<br><span style="font-size:.6rem;font-weight:400">9–12 Jul</span></div>
@@ -2263,7 +2291,7 @@ const GROUPS = {
   L:['Inglaterra','Croácia','Gana','Panamá'],
 };
 
-const GAMES = [
+let GAMES = [
   {id:'A1',g:'A',md:1,t1:'México',t2:'África do Sul',date:'2026-06-11T20:00',venue:'Cidade do México'},
   {id:'A2',g:'A',md:1,t1:'Coreia do Sul',t2:'Chéquia',date:'2026-06-12T03:00',venue:'Zapopan'},
   {id:'B1',g:'B',md:1,t1:'Canadá',t2:'Bósnia e Herzegovina',date:'2026-06-12T20:00',venue:'Toronto'},
@@ -2379,6 +2407,17 @@ const GAMES = [
   // ── FIN — Final · 19 Jul ──
   {id:'FIN_01',md:'FIN',ko:true,t1:'V SF_01', t2:'V SF_02', date:'2026-07-19T20:00',venue:'East Rutherford'},
 ];
+// Referência imutável ao array do Mundial (restaurado ao sair de uma liga).
+const _GAMES_WC = GAMES;
+// Constrói GAMES no formato do frontend a partir dos jogos da BD (ligas/UCL).
+// Fase de liga/época → md numérico (jornada); KO fica p/ Incremento 2.
+function buildLeagueGamesFrom(dbGames){
+  return (dbGames||[])
+    .filter(g=>g.stage==='league'||g.stage==='group')
+    .map(g=>({ id:g.game_id, g:null, md:(parseInt(g.md,10)||0), ko:false,
+               t1:g.t1_team, t2:g.t2_team, date:g.kickoff_utc, stage:g.stage }))
+    .sort((a,b)=> a.md-b.md || (new Date(a.date||0)-new Date(b.date||0)) );
+}
 
 // ── À prova de fuso horário ────────────────────────────────────────────────
 // As horas dos jogos estão em HORA DE PORTUGAL (UTC+1 durante todo o Mundial —
@@ -2662,10 +2701,10 @@ const S = {
   notifs:[], allPreds:{}, allPrebets:{}, notifPrefs:{}, lockedResults:[],
   competition:'mundial2026',
   competitions:[
-    {id:'mundial2026',name:'Mundial 2026',status:'active',subtitle:'11 Jun – 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
-    {id:'ucl2627',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0},
-    {id:'ligapt2627',name:'Liga Portugal Betclic 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0},
-    {id:'pl2627',name:'Premier League 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0}
+    {id:'mundial2026',format:'cup',name:'Mundial 2026',status:'active',subtitle:'11 Jun – 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
+    {id:'ucl2627',format:'hybrid',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0},
+    {id:'ligapt2627',format:'league',name:'Liga Portugal Betclic 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0},
+    {id:'pl2627',format:'league',name:'Premier League 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0}
   ],
   live:{}, liveLB:false,
 };
@@ -3108,19 +3147,143 @@ async function adminLogin() {
 // ════════════════════════════════════════════════
 //  SHELL
 // ════════════════════════════════════════════════
+// Ajusta a barra de navegação para ligas: esconde "Simul." e renomeia a tab
+// "Mundial" para um rótulo genérico (rename definitivo p/ "Real" num incremento futuro).
+function setupLeagueNav(){
+  const sim=document.getElementById('nav-sim'); if(sim) sim.style.display=S.leagueMode?'none':'';
+  const mnav=document.getElementById('nav-mundial'); if(mnav&&mnav.lastChild&&mnav.lastChild.nodeType===3) mnav.lastChild.textContent=S.leagueMode?'Jogos':'Mundial';
+}
 function showApp() {
+  // Ligas/UCL reutilizam a app do Mundial (Incremento 1): mesmas tabs, cards e
+  // classificação. A tab Apostas usa seletor de jornadas 1–N; Jogos/Pré-apostas
+  // têm variante de liga. O ramo 'cup' (Mundial) fica idêntico.
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('header').style.display='';
   document.getElementById('bottom-nav').style.display='';
+  setupLeagueNav();
   document.getElementById('user-pill').textContent='👤 '+S.user.name;
   updateLeaguePill();
   showView('leaderboard');
   registerPush();
 }
+// ══════════════════════════════════════════════════════════════════════════
+//  VISTA DE LIGA (pontos-corridos) — Fase 1
+//  Jornadas por `md`, cartões de jogo com input de resultado, 1 joker/jornada,
+//  autosave por jogo (savePred com jokerScope). Só o ramo 'league'/'hybrid';
+//  o Mundial ('cup') nunca passa por aqui.
+// ══════════════════════════════════════════════════════════════════════════
+function leagueContainer(){
+  let el=document.getElementById('league-view');
+  if(!el){ el=document.createElement('div'); el.id='league-view'; el.className='view'; document.body.appendChild(el); }
+  return el;
+}
+function showLeagueApp(){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  const hdr=document.getElementById('header'); if(hdr)hdr.style.display='none';
+  const nav=document.getElementById('bottom-nav'); if(nav)nav.style.display='none';
+  const el=leagueContainer(); el.classList.add('active');
+  el.style.cssText='max-width:560px;margin:0 auto;padding:14px 14px 60px';
+  const c=(S.competitions||[]).find(x=>x.id===S.competition)||{};
+  const dbId=COMP_DB_ID[S.competition]||'?';
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <button class="btn btn-outline" style="font-size:.8rem;padding:6px 11px" onclick="backToCompetitions()">←</button>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.12rem;color:var(--gold);line-height:1.1">${c.name||dbId}</div>
+    </div>
+    <div id="league-body"><div style="color:var(--sub);text-align:center;padding:30px">A carregar jornadas…</div></div>`;
+  window.scrollTo(0,0);
+  if(S.demoMode||!S.user){ document.getElementById('league-body').innerHTML='<div style="color:var(--sub);text-align:center;padding:30px">Inicia sessão para apostar.</div>'; return; }
+  api('getData',{code:S.user.code}).then(r=>{
+    const games=(r&&r.dbGames)||[];
+    S.league={ dbId, name:c.name||dbId, deadlineH:Number((r&&r.deadlineH)||1),
+               preds:(r&&r.preds)||{}, results:(r&&r.results)||{}, games, byMd:{}, mds:[], curMd:null };
+    const phase=games.filter(g=>g.stage==='league'||g.stage==='group'); // KO = Fase 1b
+    phase.forEach(g=>{ const k=String(g.md||'?'); (S.league.byMd[k]=S.league.byMd[k]||[]).push(g); });
+    Object.values(S.league.byMd).forEach(l=>l.sort((a,b)=>new Date(a.kickoff_utc||0)-new Date(b.kickoff_utc||0)));
+    S.league.mds=Object.keys(S.league.byMd).sort((a,b)=>(+a||999)-(+b||999));
+    S.league.koCount=games.length-phase.length;
+    const now=Date.now(); let cur=S.league.mds[0]||null;
+    for(const md of S.league.mds){ cur=md; if(S.league.byMd[md].some(g=>g.kickoff_utc&&new Date(g.kickoff_utc).getTime()>now)) break; }
+    S.league.curMd=cur;
+    renderLeagueView();
+  }).catch(e=>{ const bd=document.getElementById('league-body'); if(bd)bd.innerHTML='<div style="color:var(--red);text-align:center;padding:30px">Erro: '+escapeHtml(e.message||'')+'</div>'; });
+}
+function leagueGameLocked(g){ if(!g.kickoff_utc) return false; return Date.now()>=new Date(g.kickoff_utc).getTime()-((S.league&&S.league.deadlineH)||1)*3600000; }
+function renderLeagueView(){
+  const L=S.league; if(!L) return; const b=document.getElementById('league-body'); if(!b) return;
+  if(!L.mds.length){
+    b.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">
+      Ainda não há jornadas para esta competição.<br><span style="font-size:.8rem">Corre a <b>sync-fixtures</b> ou aguarda o sorteio do calendário.</span></div>`;
+    return;
+  }
+  const md=L.curMd, games=L.byMd[md]||[], idx=L.mds.indexOf(md);
+  const nav=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
+     <button class="btn btn-outline" style="padding:8px 13px" ${idx<=0?'disabled':''} onclick="leagueGotoMd(${idx-1})">◀</button>
+     <div style="text-align:center;font-family:'Rajdhani',sans-serif;font-weight:700"><div style="font-size:1.05rem">Jornada ${md}</div><div style="font-size:.7rem;color:var(--sub);font-weight:400">${idx+1} de ${L.mds.length}</div></div>
+     <button class="btn btn-outline" style="padding:8px 13px" ${idx>=L.mds.length-1?'disabled':''} onclick="leagueGotoMd(${idx+1})">▶</button>
+   </div>`;
+  const jokerUsed=games.some(g=>{const p=L.preds[g.game_id];return p&&p.joker;});
+  const inp=(gid,which,val,locked)=>`<input type="number" min="0" max="20" inputmode="numeric" value="${val}" ${locked?'disabled':''} onchange="leagueSetScore('${gid}','${which}',this.value)" style="width:46px;height:44px;text-align:center;font-size:1.1rem;font-family:'Rajdhani',sans-serif;font-weight:700;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px">`;
+  let cards='';
+  games.forEach(g=>{
+    const p=L.preds[g.game_id]||{}, res=L.results[g.game_id], jok=!!p.joker, locked=leagueGameLocked(g)||!!res;
+    const dt=g.kickoff_utc?new Date(g.kickoff_utc).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'data por confirmar';
+    const t1v=p.t1!=null?p.t1:'', t2v=p.t2!=null?p.t2:'';
+    let ptsHtml='';
+    if(res){ const pts=(typeof calcPoints==='function')?calcPoints({t1:p.t1,t2:p.t2,joker:jok},res,false):0;
+      ptsHtml=`<div style="font-size:.7rem;color:var(--sub);text-align:center;margin-top:7px">Resultado <b style="color:var(--text)">${res.t1}–${res.t2}</b> · ${p.t1!=null?`aposta ${p.t1}–${p.t2} → <b style="color:var(--gold)">${pts} pts</b>`:'sem aposta'}</div>`; }
+    cards+=`<div style="background:var(--card);border:1px solid ${jok?'var(--gold)':'var(--border)'};border-radius:12px;padding:12px;margin-bottom:10px">
+      <div style="font-size:.68rem;color:var(--sub);text-align:center;margin-bottom:8px">${dt}${locked&&!res?' · 🔒 fechado':''}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="flex:1;text-align:right;font-weight:600;font-size:.9rem">${escapeHtml(g.t1_team||'?')}</div>
+        ${inp(g.game_id,'t1',t1v,locked)}<span style="color:var(--sub)">–</span>${inp(g.game_id,'t2',t2v,locked)}
+        <div style="flex:1;text-align:left;font-weight:600;font-size:.9rem">${escapeHtml(g.t2_team||'?')}</div>
+      </div>
+      <div style="text-align:center;margin-top:8px">
+        <button ${locked?'disabled':''} onclick="leagueToggleJoker('${g.game_id}')" style="font-size:.7rem;padding:4px 12px;border-radius:6px;cursor:${locked?'default':'pointer'};border:1px solid ${jok?'var(--gold)':'var(--border)'};background:${jok?'rgba(245,197,24,.15)':'none'};color:${jok?'var(--gold)':'var(--sub)'}">${jok?'★ JOKER ativo':'☆ Usar joker'}</button>
+      </div>${ptsHtml}
+    </div>`;
+  });
+  const jinfo=`<div style="font-size:.7rem;color:var(--sub);text-align:center;margin-bottom:10px">1 joker por jornada — duplica os pontos de um jogo.${jokerUsed?'':' <span style="color:var(--gold)">ainda por usar</span>'}</div>`;
+  b.innerHTML=nav+jinfo+cards+`<div id="league-save" style="font-size:.72rem;color:var(--sub);text-align:center;margin-top:6px;height:16px"></div>`;
+}
+function leagueGotoMd(i){ const L=S.league; if(!L||i<0||i>=L.mds.length)return; L.curMd=L.mds[i]; renderLeagueView(); window.scrollTo(0,0); }
+function leagueSetScore(gid,which,val){ const L=S.league; if(!L)return; const p=L.preds[gid]||(L.preds[gid]={}); p[which]=(val===''?undefined:Math.max(0,Math.min(20,parseInt(val,10)||0))); leagueQueueSave(gid); }
+function leagueToggleJoker(gid){ const L=S.league; if(!L)return; const on=!(L.preds[gid]&&L.preds[gid].joker);
+  (L.byMd[L.curMd]||[]).forEach(g=>{ if(L.preds[g.game_id]) L.preds[g.game_id].joker=false; });
+  if(on){ (L.preds[gid]=L.preds[gid]||{}).joker=true; }
+  renderLeagueView(); leagueQueueSave(gid,true);
+}
+let _leagueSaveTimer=null;
+function leagueQueueSave(gid,immediate){ const L=S.league; if(!L)return;
+  const st=document.getElementById('league-save'); if(st)st.textContent='a guardar…';
+  clearTimeout(_leagueSaveTimer);
+  _leagueSaveTimer=setTimeout(async()=>{
+    const p=L.preds[gid]||{};
+    const st2=()=>document.getElementById('league-save');
+    if(p.t1==null||p.t2==null){ const s=st2(); if(s)s.textContent='(preenche os dois resultados para guardar)'; return; }
+    const scope=(L.byMd[L.curMd]||[]).map(g=>g.game_id);
+    try{ await api('savePred',{gameId:gid,pred:{t1:p.t1,t2:p.t2,joker:!!p.joker},jokerScope:scope}); const s=st2(); if(s)s.textContent='✓ guardado'; }
+    catch(e){ const s=st2(); if(s)s.textContent='erro ao guardar'; }
+  }, immediate?60:800);
+}
+function backToCompetitions(){
+  const el=document.getElementById('league-view'); if(el)el.classList.remove('active');
+  S.league=null; S.competition='mundial2026';
+  try{ if(window.UPSB&&UPSB.setComp) UPSB.setComp('WC2026'); }catch(e){}
+  showCompetitions();
+}
 
 // ── Página de seleção de competição (landing pós-login; sempre acessível) ──
 const COMP_EMBLEM={mundial2026:'img/comp-mundial.jpg',ucl2627:'img/comp-ucl.jpg',ligapt2627:'img/comp-ligapt.png',pl2627:'img/comp-pl.png'};
 const COMP_FALLBACK={mundial2026:'🏆',ucl2627:'⭐',ligapt2627:'⚽',pl2627:'⚽'};
+// ── Multi-competição (Fase 0) ──────────────────────────────────────────────
+// Mapa id-do-frontend → id-na-base-de-dados. Modo dev (?dev / localStorage up_dev='1')
+// desbloqueia a entrada de teste nas competições 'soon' — invisível ao público.
+const COMP_DB_ID={mundial2026:'WC2026',ucl2627:'UCL2627',ligapt2627:'LIGAPT2627',pl2627:'PL2627'};
+const isLeagueComp=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !!(c&&c.format==='league');};
+// Competições cujo formato ainda não tem vista construída (só o Mundial 'cup' tem).
+const compHasNoView=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !!(c&&c.format&&c.format!=='cup');};
+const UP_DEV=()=>{try{return /[?#&]dev\b/.test(location.href)||localStorage.getItem('up_dev')==='1';}catch(e){return /[?#&]dev\b/.test(location.href);}};
 function showCompetitions(){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-competitions').classList.add('active');
@@ -3153,8 +3316,9 @@ function compCard(c){
       <div style="color:var(--sub);font-size:.8rem;margin-top:3px">${c.subtitle||''}</div>
     </div></div>`;
   if(c.status!=='active'){
-    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;opacity:.62">${head}
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:.78rem;color:var(--sub)">🔒 Inscrições abrem mais perto do arranque da competição</div></div>`;
+    const devBtn=UP_DEV()?`<div style="margin-top:12px"><button class="btn btn-outline" style="font-size:.75rem;padding:7px 14px" onclick="event.stopPropagation();enterCompetition('${c.id}')">🧪 Entrar (teste)</button></div>`:'';
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;opacity:${UP_DEV()?'.85':'.62'}">${head}
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:.78rem;color:var(--sub)">🔒 Inscrições abrem mais perto do arranque da competição</div>${devBtn}</div>`;
   }
   const st=c.stats||{};
   const stat=(v,l)=>`<div><b style="display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">${v}</b>${l}</div>`;
@@ -3178,10 +3342,16 @@ function renderCompetitions(){
   if(soon.length){ html+=label('Em breve'); soon.forEach(c=>html+=compCard(c)); }
   const el=document.getElementById('competitions-list'); if(el)el.innerHTML=html;
 }
-function enterCompetition(id){
+async function enterCompetition(id){
   const c=(S.competitions||[]).find(x=>x.id===id);
-  if(c && c.status!=='active')return; // competição ainda não disponível
+  if(c && c.status!=='active' && !UP_DEV())return; // só entra se ativa (ou modo dev p/ teste)
   S.competition=id||'mundial2026';
+  S.leagueMode=compHasNoView(S.competition); // liga/híbrido → GAMES vem da BD
+  // aponta o motor de dados à competição escolhida (Mundial = no-op)
+  try{ if(window.UPSB&&UPSB.setComp) UPSB.setComp(COMP_DB_ID[S.competition]||'WC2026'); }catch(e){}
+  if(!S.leagueMode) GAMES=_GAMES_WC;
+  S.curMD = S.leagueMode ? 1 : (S.curMD||1);
+  try{ await loadData(); }catch(e){}
   showApp();
 }
 async function registerToCompetition(id){
@@ -3241,6 +3411,7 @@ function showLeaguePicker() {
 }
 
 function showView(v) {
+  if(v==='sim' && S.leagueMode) v='bets'; // Simulador não se aplica a ligas
   if(S.curView==='bets' && v!=='bets' && S.pending){
     // AUTOSAVE (Sessão B): dispara já o que está em debounce (grava em fundo);
     // só avisa se ficarem apostas INCOMPLETAS (falta um dos resultados)
@@ -3272,8 +3443,9 @@ function showView(v) {
     // exceto se houver edição pendente (não "salta" enquanto o user está a editar).
     if(!S.pending){
       const md=currentOrNextMD();
-      if(md!=null && md!==S.curMD){ S.curMD=md; syncMDButtons(md); }
+      if(md!=null && md!==S.curMD){ S.curMD=md; }
     }
+    if(S.leagueMode) setupMDNav(); else syncMDButtons(S.curMD);
     renderBets();
   }
   if(v==='prebets')renderPrebets();
@@ -3337,6 +3509,11 @@ async function loadData() {
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
     if(r.results)S.results=r.results;
     S.koTeams=r.koTeams||{}; // equipas KO resolvidas automaticamente pelo backend
+    // LIGAS: GAMES é construído da BD (fase de liga, jornadas por md). O Mundial
+    // mantém o array fixo. Assim as tabs Apostas/Classificação/Duelos e os cards
+    // reutilizam-se tal e qual, com toda a polish do Mundial.
+    if(S.leagueMode){ GAMES = buildLeagueGamesFrom(r.dbGames); S.leagueMds=[...new Set(GAMES.map(g=>g.md))].sort((a,b)=>a-b); }
+    else { GAMES = _GAMES_WC; }
     // PRODUÇÃO: datas/horários vêm do backend (auto-fetch sincroniza com a fonte
     // oficial). Sobrepõem GAMES[].date — os horários (sobretudo do KO) auto-corrigem-se.
     if(r.gameDatesUTC){ GAMES.forEach(g=>{ const d=r.gameDatesUTC[g.id]; if(d) g.date=d; }); }
@@ -4205,12 +4382,30 @@ async function shareCardFor(j){
 // ════════════════════════════════════════════════
 function switchMD(md) {
   S.curMD=md;
-  syncMDButtons(md);
+  if(S.leagueMode) setupMDNav(); else syncMDButtons(md);
   renderBets();
 }
 function syncMDButtons(md){
   [1,2,3].forEach(m=>{const el=document.getElementById('md-'+m);if(el)el.classList.toggle('active',m===md);});
   KO_MDS.forEach(m=>{const el=document.getElementById('md-'+m);if(el)el.classList.toggle('active',m===md);});
+}
+// Seletor de jornadas 1–N para ligas; esconde as tabs fixas do Mundial.
+function setupMDNav(){
+  const grp=document.getElementById('md-tabs-grp'), ko=document.getElementById('md-tabs-ko'),
+        kod=document.getElementById('md-ko-div'), lg=document.getElementById('md-tabs-league'),
+        title=document.getElementById('bets-phase-title');
+  if(!S.leagueMode){ if(grp)grp.style.display=''; if(ko)ko.style.display=''; if(kod)kod.style.display=''; if(lg)lg.style.display='none'; return; }
+  if(grp)grp.style.display='none'; if(ko)ko.style.display='none'; if(kod)kod.style.display='none';
+  if(title){ const c=(S.competitions||[]).find(x=>x.id===S.competition); title.textContent=(c&&c.name)||'Jornadas'; }
+  if(!lg)return; lg.style.display='';
+  const mds=S.leagueMds||[];
+  if(!mds.length){ lg.innerHTML='<div style="color:var(--sub);font-size:.8rem;padding:6px">Sem jornadas (aguarda o calendário).</div>'; return; }
+  let cur=(typeof S.curMD==='number')?S.curMD:mds[0]; if(mds.indexOf(cur)<0)cur=mds[0];
+  const i=mds.indexOf(cur);
+  const opts=mds.map(m=>`<option value="${m}" ${m===cur?'selected':''}>Jornada ${m}</option>`).join('');
+  lg.innerHTML=`<button class="md-tab" style="flex:0 0 auto;min-width:46px;padding:8px 0" ${i<=0?'disabled':''} onclick="switchMD(${mds[Math.max(0,i-1)]})">◀</button>
+    <select onchange="switchMD(parseInt(this.value,10))" style="flex:1;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.95rem;text-align:center;padding:9px">${opts}</select>
+    <button class="md-tab" style="flex:0 0 auto;min-width:46px;padding:8px 0" ${i>=mds.length-1?'disabled':''} onclick="switchMD(${mds[Math.min(mds.length-1,i+1)]})">▶</button>`;
 }
 
 // Devolve a jornada (md) do jogo em curso ou, na falta, do próximo jogo a começar.
@@ -4454,7 +4649,7 @@ function renderBetsKO() {
 function renderBets() {
   const isKO = typeof S.curMD === 'string';
   const ptitle = document.getElementById('bets-phase-title');
-  if (ptitle && !isKO) ptitle.textContent = 'Fase de Grupos';
+  if (ptitle && !isKO && !S.leagueMode) ptitle.textContent = 'Fase de Grupos';
   if (isKO) { renderBetsKO(); return; }
 
   const games=GAMES.filter(g=>g.md===S.curMD);
@@ -4867,6 +5062,8 @@ async function saveAllCards(){
 //  PRÉ-APOSTAS
 // ════════════════════════════════════════════════
 function renderPrebets(){
+  if(S.leagueMode){ leagueTabPlaceholder('prebets','🏆 Pré-apostas de época','Campeão, descidas, Top 4 e melhor marcador chegam no próximo incremento.'); return; }
+  leagueTabRestore('prebets');
   const closed=dlPassed('2026-06-11T20:00'); // A1 às 20:00 PT — fecha deadlineH antes (19:00)
   if(closed)S.prebetPending=false;
 
@@ -5170,7 +5367,73 @@ const DEMO_SCORERS = [
 // ════════════════════════════════════════════════
 //  MUNDIAL — classificações por grupo
 // ════════════════════════════════════════════════
+// Placeholder reversível para tabs ainda sem variante de liga (Incrementos 2/3).
+// Esconde os filhos estáticos (sem os destruir) e mostra uma mensagem.
+function leagueTabPlaceholder(view,title,msg){
+  const host=document.getElementById('view-'+view); if(!host)return;
+  let ph=document.getElementById('lgph-'+view);
+  if(!ph){ ph=document.createElement('div'); ph.id='lgph-'+view; ph.style.cssText='padding:34px 18px;text-align:center'; host.appendChild(ph); }
+  Array.from(host.children).forEach(ch=>{ if(ch!==ph) ch.style.display='none'; });
+  ph.style.display='';
+  ph.innerHTML=`<div style="font-size:1.9rem;margin-bottom:6px">🏗️</div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">${title}</div><div style="color:var(--sub);font-size:.85rem;line-height:1.5">${msg}</div>`;
+}
+function leagueTabRestore(view){
+  const host=document.getElementById('view-'+view); if(!host)return;
+  const ph=document.getElementById('lgph-'+view); if(ph)ph.style.display='none';
+  Array.from(host.children).forEach(ch=>{ if(!ph||ch!==ph) ch.style.display=''; });
+}
+// Injeta conteúdo de liga num view (esconde os filhos estáticos, reversível).
+function leagueTabContent(view, html){
+  const host=document.getElementById('view-'+view); if(!host)return;
+  let el=document.getElementById('lgph-'+view);
+  if(!el){ el=document.createElement('div'); el.id='lgph-'+view; host.appendChild(el); }
+  Array.from(host.children).forEach(ch=>{ if(ch!==el) ch.style.display='none'; });
+  el.style.cssText='padding:6px 2px'; el.style.display=''; el.innerHTML=html;
+}
+// Tabela classificativa das equipas, calculada dos resultados reais (V=3, E=1).
+function buildLeagueStandingsHtml(){
+  const tbl={}, ensure=t=>tbl[t]||(tbl[t]={team:t,p:0,w:0,d:0,l:0,gf:0,ga:0});
+  GAMES.forEach(g=>{ const r=S.results[g.id]; if(!r||r.t1==null||r.t2==null||!g.t1||!g.t2) return;
+    const a=ensure(g.t1), b=ensure(g.t2); a.p++;b.p++; a.gf+=+r.t1;a.ga+=+r.t2; b.gf+=+r.t2;b.ga+=+r.t1;
+    if(+r.t1>+r.t2){a.w++;b.l++;} else if(+r.t1<+r.t2){b.w++;a.l++;} else {a.d++;b.d++;} });
+  const totalTeams=new Set([].concat(...GAMES.map(g=>[g.t1,g.t2]).filter(x=>x))).size||18;
+  let rows=Object.values(tbl).map(t=>({...t,gd:t.gf-t.ga,pts:t.w*3+t.d}));
+  if(!rows.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">Ainda sem resultados.<br><span style="font-size:.8rem">A tabela vai aparecendo à medida que os jogos terminam.</span></div>`;
+  rows.sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf || a.team.localeCompare(b.team,'pt'));
+  const releg = totalTeams>=20?3:2;           // descidas: Premier 3 / Liga Portugal 2
+  const allIn = rows.length>=totalTeams;      // só marca a zona de descida com a tabela completa
+  const zone=i=> i<4 ? 'var(--green)' : (allIn && i>=rows.length-releg ? 'var(--red)' : 'transparent');
+  let body='';
+  rows.forEach((t,i)=>{ const dg=t.gd>0?'+'+t.gd:t.gd;
+    body+=`<tr>
+      <td style="text-align:left;box-shadow:inset 3px 0 0 ${zone(i)}"><span style="color:var(--sub);font-size:.72rem;margin-right:7px">${i+1}</span><span style="font-size:.81rem;font-weight:600">${escapeHtml(t.team)}</span></td>
+      <td>${t.p}</td>
+      <td style="color:var(--green);font-weight:600">${t.w}</td>
+      <td style="color:#f39c12;font-weight:600">${t.d}</td>
+      <td style="color:var(--red);font-weight:600">${t.l}</td>
+      <td>${t.gf}</td><td>${t.ga}</td><td style="font-weight:600">${dg}</td>
+      <td class="td-pts-m">${t.pts}</td>
+    </tr>`; });
+  return `<div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--gold);margin:2px 2px 10px">📊 Classificação</div>
+    <div class="mundial-standings"><table class="mundial-table"><thead><tr>
+      <th style="text-align:left">Equipa</th>
+      <th title="Jogos disputados">J</th>
+      <th title="Vitórias" style="color:var(--green)">V</th>
+      <th title="Empates" style="color:#f39c12">E</th>
+      <th title="Derrotas" style="color:var(--red)">D</th>
+      <th title="Golos marcados">GM</th>
+      <th title="Golos sofridos">GS</th>
+      <th title="Diferença de golos">DG</th>
+      <th title="Pontos" style="color:var(--gold)">Pts</th>
+    </tr></thead><tbody>${body}</tbody></table></div>
+    <div style="display:flex;gap:14px;font-size:.7rem;color:var(--sub);margin:10px 2px;flex-wrap:wrap">
+      <span style="border-left:3px solid var(--green);padding-left:6px">Zona europeia (Top 4)</span>
+      <span style="border-left:3px solid var(--red);padding-left:6px">Descida (${releg} últimos)</span>
+    </div>`;
+}
 function renderMundial() {
+  if(S.leagueMode){ leagueTabContent('mundial', buildLeagueStandingsHtml()); return; }
+  leagueTabRestore('mundial');
   const tabsEl = document.getElementById('mundial-grp-tabs');
   tabsEl.innerHTML = Object.keys(GROUPS).map(g =>
     `<button class="grp-tab ${g===S.mundialGrp?'active':''}" data-grp="${g}" onclick="switchMundialGroup('${g}')">${g}</button>`
