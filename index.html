@@ -1069,9 +1069,19 @@
   // o participante (rpc me); se não existir, chama a Edge Function link-oauth
   // (liga a conta antiga por email verificado, ou cria participante novo =
   // registo via Google) e tenta de novo.
-  function loginWithGoogle() {
+  async function loginWithGoogle() {
+    // O login Google fala diretamente com supabase.co (o retorno do Google é fixo
+    // nesse domínio; o proxy não o cobre). Redes corporativas podem bloqueá-lo.
+    // Testar a ligação ANTES de navegar — se falhar, devolver {blocked:true} para
+    // o frontend explicar, em vez de deixar o browser mostrar "site can't be reached".
+    try {
+      const c = new AbortController(); const t = setTimeout(() => c.abort(), 4000);
+      await fetch(`${SB_URL_DIRECT}/auth/v1/health`, { mode: 'no-cors', cache: 'no-store', signal: c.signal });
+      clearTimeout(t);
+    } catch (e) { return { blocked: true }; }
     const redir = enc(location.origin + location.pathname);
     location.href = `${SB_URL_DIRECT}/auth/v1/authorize?provider=google&redirect_to=${redir}`;
+    return { blocked: false };
   }
   async function completeOAuth(access_token, refresh_token, expires_in) {
     if (!access_token) return { success: false };
@@ -1368,6 +1378,16 @@
     <div id="forgot-success" style="display:none" class="alert alert-success"></div>
     <button class="btn btn-primary btn-full" onclick="submitForgotPw()" id="forgot-btn">Enviar link</button>
     <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeForgotPw()">Cancelar</button>
+  </div>
+</div>
+<!-- ── Login Google bloqueado pela rede (ex.: firewall corporativa) ── -->
+<div class="switcher-overlay" id="googleblocked-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">Login com Google indisponível nesta rede</div>
+    <div style="font-size:.82rem;color:var(--sub);margin-bottom:12px;line-height:1.55">A tua rede (por exemplo, o WiFi de uma empresa) está a bloquear o serviço usado pelo login com Google. Não é problema da tua conta — noutra rede (dados móveis, casa) funciona.</div>
+    <div style="font-size:.82rem;color:var(--text);margin-bottom:16px;line-height:1.55"><b>Como entrar na mesma, nesta rede:</b><br>1. Fecha esta janela e entra com o teu <b>email e password</b> aqui em cima.<br>2. Se te registaste com Google e não tens password, clica em <b>“Esqueceste a password?”</b> para criar uma. Depois entras com email e password em qualquer rede.</div>
+    <button class="btn btn-primary btn-full" onclick="closeGoogleBlocked()">Entendi — usar email e password</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeGoogleBlocked();showForgotPw()">Criar/repor password</button>
   </div>
 </div>
 <!-- ── Alterar password (conta menu) ── -->
@@ -2892,11 +2912,19 @@ function showLoginErr(m){const el=document.getElementById('login-error');el.text
 // ── Login com Google (Sessão C) ──
 // Redireciona para o Supabase Auth; o resto acontece no init() quando o
 // Supabase devolve o browser a esta página com os tokens no fragmento (#).
-function loginGoogle(){
+async function loginGoogle(){
   if (S.demoMode || !window.UPSB || !UPSB.loginWithGoogle) { showLoginErr('Login com Google indisponível neste modo.'); return; }
   track('login',{method:'google_start'});
-  UPSB.loginWithGoogle();
+  const btn = document.getElementById('google-btn');
+  const label = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.style.opacity = '.7'; btn.innerHTML = 'A verificar…'; }
+  let r;
+  try { r = await UPSB.loginWithGoogle(); } catch (e) { r = { blocked: true }; }
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = label; }
+  if (r && r.blocked) { track('login',{method:'google_blocked'}); showGoogleBlocked(); }
 }
+function showGoogleBlocked(){ const el=document.getElementById('googleblocked-overlay'); if(el) el.classList.add('open'); }
+function closeGoogleBlocked(){ const el=document.getElementById('googleblocked-overlay'); if(el) el.classList.remove('open'); }
 
 // ── Registo ──
 function showRegister() {
