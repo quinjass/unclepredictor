@@ -658,7 +658,12 @@
 
   // PRODUÇÃO: sem relógio de sandbox — usa o tempo real do dispositivo.
 
-  const SB_URL = 'https://pzvwzqynxsaelyyakqes.supabase.co';
+  // API através de proxy no domínio próprio (api.unclepredictor.pt -> Supabase).
+  // Contorna firewalls corporativas que bloqueiam supabase.co (16 Jul 2026).
+  const SB_URL = 'https://api.unclepredictor.pt';
+  // Ligação direta ao Supabase — usada SÓ no redirect do login Google (o fluxo
+  // OAuth não pode passar pelo proxy por causa do estado/cookies de domínio).
+  const SB_URL_DIRECT = 'https://pzvwzqynxsaelyyakqes.supabase.co';
   const SB_KEY = 'sb_publishable_5aiD7taF5eYKvfDBsGbklQ_XoBoFPyN';
   let COMP = 'WC2026';                    // competição ATIVA (Fase 0: mutável p/ multi-competição)
   const SS_KEY = 'upsb_session';
@@ -1066,7 +1071,7 @@
   // registo via Google) e tenta de novo.
   function loginWithGoogle() {
     const redir = enc(location.origin + location.pathname);
-    location.href = `${SB_URL}/auth/v1/authorize?provider=google&redirect_to=${redir}`;
+    location.href = `${SB_URL_DIRECT}/auth/v1/authorize?provider=google&redirect_to=${redir}`;
   }
   async function completeOAuth(access_token, refresh_token, expires_in) {
     if (!access_token) return { success: false };
