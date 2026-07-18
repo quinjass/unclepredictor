@@ -762,7 +762,12 @@
   // ---- pontuação (porta fiel do apps-script.gs) ----
   const BOT_CODE = 'BOT_IA', DEFAULT_PICK_BUDGET = 5, DEFAULT_PICK_CUTOFF_UTC = '2026-06-21T00:00:00Z';
   let GAME_MD = {}; // game_id -> jornada (md); preenchido em loadDB a partir da tabela games
-  function jornadaKeyOf(g) { if (GAME_MD[g] != null) return GAME_MD[g]; const m = String(g).match(/^(R32|R16|QF|SF|F3|FIN)_/); if (m) return m[1]; const n = parseInt(String(g).slice(1), 10); if (!n) return null; return String(Math.min(3, Math.ceil(n / 2))); }
+  let GAME_STAGE = {}; // game_id -> stage (group/league/R32/R16/QF/SF/F3/FIN); loadDB
+  const KO_STAGE_SET = new Set(['R32','R16','QF','SF','F3','FIN']);
+  // "É jogo de mata-mata?" — por STAGE (funciona p/ ligas híbridas UCL, cujos ids
+  // são FD<n> e não têm o prefixo R16_/QF_). Fallback ao prefixo do id (Mundial).
+  function isKoGame(gid) { const st = GAME_STAGE[gid]; if (st) return KO_STAGE_SET.has(st); return /^(R32|R16|QF|SF|F3|FIN)_/.test(String(gid)); }
+  function jornadaKeyOf(g) { const st = GAME_STAGE[g]; if (st && KO_STAGE_SET.has(st)) return st; if (GAME_MD[g] != null) return GAME_MD[g]; const m = String(g).match(/^(R32|R16|QF|SF|F3|FIN)_/); if (m) return m[1]; const n = parseInt(String(g).slice(1), 10); if (!n) return null; return String(Math.min(3, Math.ceil(n / 2))); }
   function getRarityBonus(e, t) { if (!t || !e) return 0; const p = e / t; if (p < 0.05) return 6; if (p < 0.15) return 4; if (p <= 0.30) return 2; return 0; }
   function calcPoints(pred, res, isKO) {
     if (pred.t1 == null || res.t1 == null) return 0;
@@ -780,6 +785,25 @@
     if (specials.third && pb.third === specials.third) pts += 3;
     if (specials.top_scorer && pb.top_scorer === specials.top_scorer) pts += 5;
     ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(g => { const s = gs[g]; if (!s) return; if (s.first && pb['g'+g+'_1'] === s.first) pts += 2; if (s.second && pb['g'+g+'_2'] === s.second) pts += 2; });
+    return pts;
+  }
+  // LIGAS (Incr.3): pontuação de pré-apostas de época, guiada pela config
+  // prebets_<comp> (single/player = acerto exato → pts; multi = pts_each por cada
+  // acerto). Compara com a tabela 'specials' (champion/top_scorer/relegated/europe),
+  // que o admin/resolve-specials preenche no fim da época. Sem specials → 0 pts.
+  function _prebetArr(v){ if(v==null)return[]; if(Array.isArray(v))return v; if(typeof v==='string'){ const s=v.trim(); if(s.startsWith('[')){ try{ return JSON.parse(s); }catch(e){ return []; } } return s?[s]:[]; } return []; }
+  function calcLeaguePrebetPoints(userPrebets, specials, cfg) {
+    let pts = 0; const pb = {}; userPrebets.forEach(r => { pb[r.key] = r.value; });
+    (cfg || []).forEach(item => {
+      const sp = specials[item.key];
+      if (item.type === 'multi') {
+        const actual = new Set(_prebetArr(sp).map(x => String(x)));
+        if (!actual.size) return;
+        _prebetArr(pb[item.key]).forEach(p => { if (actual.has(String(p))) pts += (item.pts_each || 0); });
+      } else { // single | player
+        if (sp && pb[item.key] && String(pb[item.key]) === String(sp)) pts += (item.pts || 0);
+      }
+    });
     return pts;
   }
   function calcGroupStandings(results, groupGames) {
@@ -811,13 +835,15 @@
     const rarityMap = {};
     Object.keys(exactCountMap).forEach(gid => { const bonus = getRarityBonus(exactCountMap[gid], betCountMap[gid]); if (bonus > 0) rarityMap[gid] = { exactCount:exactCountMap[gid], totalPlayers:betCountMap[gid], bonus, label: bonus===6?'Ultra Raro':bonus===4?'Muito Raro':'Raro' }; });
     const specials = db.specials, gs = calcGroupStandings(results, db.groupGames);
+    // Liga → pré-apostas config-driven; Mundial → mantém o cálculo hardcoded.
+    const leaguePrebetsCfg = (() => { const v = db.config['prebets_' + COMP]; if (v == null) return null; if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch (e) { return null; } })();
     const players = db.participants.map(p => {
       const userPreds = allPreds.filter(r => r.code === p.code);
       const userPrebets = db.prebets.filter(r => r.code === p.code);
       let wins=0, draws=0, ko_wins=0, ko_draws=0, gamesBet=0, joker_pts=0, groupPts=0, koPts=0, rarity_pts=0, approx_pts=0; const jp = {};
       userPreds.forEach(pred => {
         const res = results[pred.game_id]; if (!res || pred.t1 == null) return; gamesBet++;
-        const isKO = /^(R32|R16|QF|SF|F3|FIN)_/.test(pred.game_id); const jk = jornadaKeyOf(pred.game_id);
+        const isKO = isKoGame(pred.game_id); const jk = jornadaKeyOf(pred.game_id);
         const jokerVal = pred.joker === true; const po = { t1:+pred.t1, t2:+pred.t2, joker:jokerVal };
         const ptsBase = calcPoints({ ...po, joker:false }, res, isKO); const ptsFull = jokerVal ? calcPoints(po, res, isKO) : ptsBase;
         if (isKO) koPts += ptsBase; else groupPts += ptsBase;
@@ -833,9 +859,9 @@
         const bg = {}; userPreds.forEach(r => { if (r.t1 != null) bg[r.game_id] = true; });
         const cand = Object.keys(results).filter(gid => { if (bg[gid]) return false; if (!botPredMap[gid]) return false; const k = db.gameDatesUTC[gid] ? new Date(db.gameDatesUTC[gid]).getTime() : 0; return k >= cutoffMs; });
         cand.sort((a, b) => { const ka = db.gameDatesUTC[a] ? new Date(db.gameDatesUTC[a]).getTime() : 0; const kb = db.gameDatesUTC[b] ? new Date(db.gameDatesUTC[b]).getTime() : 0; return ka - kb || (a < b ? -1 : a > b ? 1 : 0); });
-        for (let i = 0; i < cand.length && default_used < DEFAULT_PICK_BUDGET; i++) { const gid = cand[i]; default_used++; const res = results[gid], bp = botPredMap[gid]; const isKO = /^(R32|R16|QF|SF|F3|FIN)_/.test(gid); const pw = bp.t1 > bp.t2 ? 1 : bp.t1 < bp.t2 ? -1 : 0; const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0; if (pw === rw) { const pts = isKO ? 2 : 1; default_pts += pts; const jk = jornadaKeyOf(gid); if (jk) jp[jk] = (jp[jk] || 0) + pts; } }
+        for (let i = 0; i < cand.length && default_used < DEFAULT_PICK_BUDGET; i++) { const gid = cand[i]; default_used++; const res = results[gid], bp = botPredMap[gid]; const isKO = isKoGame(gid); const pw = bp.t1 > bp.t2 ? 1 : bp.t1 < bp.t2 ? -1 : 0; const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0; if (pw === rw) { const pts = isKO ? 2 : 1; default_pts += pts; const jk = jornadaKeyOf(gid); if (jk) jp[jk] = (jp[jk] || 0) + pts; } }
       }
-      const prebets_pts = calcPrebetPoints(userPrebets, specials, gs);
+      const prebets_pts = leaguePrebetsCfg ? calcLeaguePrebetPoints(userPrebets, specials, leaguePrebetsCfg) : calcPrebetPoints(userPrebets, specials, gs);
       const total = groupPts + koPts + joker_pts + rarity_pts + prebets_pts + default_pts;
       return { name:dispName(p), realName:p.name, nickname:p.nickname||null, code:p.code, total, wins, draws, ko_wins, ko_draws, group_pts:groupPts, ko_pts:koPts, approx_pts, joker_pts, prebets_pts, rarity_pts, jp, games:gamesBet, default_pts, defaults:default_used };
     });
@@ -884,8 +910,9 @@
     ]);
     const pm = {}; predsRaw.forEach(r => { pm[r.code + '|' + r.game_id] = r; }); const allPreds = Object.values(pm);
     const results = {}; resultsRaw.forEach(r => { if (r.t1 != null && r.t2 != null) results[r.game_id] = { t1:+r.t1, t2:+r.t2, pen:r.pen || '' }; });
-    const gameDatesUTC = {}, groupGames = [], koTeams = {}; GAME_MD = {};
+    const gameDatesUTC = {}, groupGames = [], koTeams = {}; GAME_MD = {}; GAME_STAGE = {};
     games.forEach(g => {
+      if (g.stage) GAME_STAGE[g.game_id] = g.stage;
       if (g.md != null && g.md !== '') GAME_MD[g.game_id] = String(g.md);
       if (g.kickoff_utc) gameDatesUTC[g.game_id] = g.kickoff_utc;
       if (g.stage === 'group') groupGames.push({ id:g.game_id, t1:g.t1_team, t2:g.t2_team });
@@ -930,7 +957,13 @@
     const notifPrefs = db.prefsMap[code] || {};
     let lockedResults = []; try { lockedResults = JSON.parse(db.config['locked_results_' + COMP] || '[]'); } catch (e) {}
     let scorers = []; try { scorers = JSON.parse(db.config['scorers_' + COMP] || '[]'); } catch (e) {}
-    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers };
+    // LIGAS (Incr.3): config de pré-apostas de época + lista de equipas por competição.
+    // Valor pode vir como string JSON (coluna text) ou já como objeto (jsonb) — parse defensivo.
+    const _pj = (v) => { if (v == null) return null; if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch (e) { return null; } };
+    const leaguePrebetsCfg = _pj(db.config['prebets_' + COMP]);
+    const leagueTeams = _pj(db.config['teams_' + COMP]);
+    const crests = _pj(db.config['crests_' + COMP]) || {}; // logótipos dos clubes (ligas/UCL)
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests };
   }
 
   // ---- AUTH ----
@@ -1157,7 +1190,9 @@
     const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada — entra de novo.' };
     const pb = data.prebets || {};
     await writeRest('DELETE', `prebets?competition_id=eq.${COMP}&code=eq.${enc(code)}`);
-    const rows = Object.entries(pb).filter(([k, v]) => v != null && v !== '').map(([k, v]) => ({ competition_id: COMP, code, key: k, value: String(v) }));
+    // Multi-seleção (ligas: despromovidos/europa) é um array → serializa como JSON.
+    // Valores simples (WC e single/player) continuam como string. Filtra arrays vazios.
+    const rows = Object.entries(pb).filter(([k, v]) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0)).map(([k, v]) => ({ competition_id: COMP, code, key: k, value: (v != null && typeof v === 'object') ? JSON.stringify(v) : String(v) }));
     if (rows.length) await writeRest('POST', 'prebets', rows, 'return=minimal');
     DB = null; return { success: true };
   }
@@ -1243,7 +1278,27 @@
       if (action === 'adminSetPrediction') { await rpc('rpc_admin_set_prediction', { p_comp: COMP, p_code: (data.code || '').toUpperCase(), p_game: data.gameId, p_t1: data.clear ? null : Number(data.t1), p_t2: data.clear ? null : Number(data.t2), p_joker: !!data.joker, p_clear: !!data.clear }, true); DB = null; return { success: true }; }
       if (action === 'saveSpecials') { await rpc('rpc_save_specials', { p_comp: COMP, p_specials: data.specials || {} }, true); DB = null; return { success: true }; }
       if (action === 'saveConfig') { await rpc('rpc_save_config', { p_deadline: data.deadlineH != null ? String(data.deadlineH) : '', p_new_password: data.newPassword || '', p_api_key: data.apiKey || '', p_odds_key: data.oddsApiKey || '' }, true); DB = null; return { success: true }; }
-      if (action === 'broadcast') { await rpc('rpc_broadcast', { p_text: data.text || data.message || '' }, true); DB = null; return { success: true }; }
+      if (action === 'broadcast') {
+        const bText = data.text || data.message || '';
+        const bChannel = data.channel || 'notif';   // 'notif' | 'email' | 'both'
+        let emailed = 0, emailError = '';
+        // Notificação no sino: só em 'notif' e 'both' (NÃO em 'só email').
+        if (bChannel !== 'email') { await rpc('rpc_broadcast', { p_text: bText }, true); }
+        // Email em BCC (Edge Function broadcast-email): em 'email' e 'both'.
+        if (bChannel === 'email' || bChannel === 'both') {
+          try {
+            const er = await fetch(`${SB_URL}/functions/v1/broadcast-email`, {
+              method: 'POST',
+              headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: data.password || '', subject: data.subject || '', text: bText }),
+            });
+            const ej = await er.json().catch(() => ({}));
+            if (ej && ej.ok) emailed = ej.emailed || 0;
+            else emailError = (ej && ej.error) || ('HTTP ' + er.status);
+          } catch (e) { emailError = 'ligação'; }
+        }
+        DB = null; return { success: true, emailed, emailError };
+      }
 
       // Password (Supabase Auth + SMTP)
       if (action === 'forgotPassword') return await forgotPassword(data);
@@ -2435,13 +2490,20 @@ let GAMES = [
 // Referência imutável ao array do Mundial (restaurado ao sair de uma liga).
 const _GAMES_WC = GAMES;
 // Constrói GAMES no formato do frontend a partir dos jogos da BD (ligas/UCL).
-// Fase de liga/época → md numérico (jornada); KO fica p/ Incremento 2.
+// Fase de liga/época → md numérico (jornada); KO (híbrido UCL) → md = stage
+// (R32/R16/QF/SF/F3/FIN), ko:true, para reutilizar os cartões/joker de mata-mata.
+const KO_STAGE_LIST=['R32','R16','QF','SF','F3','FIN'];
+const _koOrder=s=>{const i=KO_STAGE_LIST.indexOf(s);return i<0?999:i;};
 function buildLeagueGamesFrom(dbGames){
+  const KO=new Set(KO_STAGE_LIST);
   return (dbGames||[])
-    .filter(g=>g.stage==='league'||g.stage==='group')
-    .map(g=>({ id:g.game_id, g:null, md:(parseInt(g.md,10)||0), ko:false,
-               t1:g.t1_team, t2:g.t2_team, date:g.kickoff_utc, stage:g.stage }))
-    .sort((a,b)=> a.md-b.md || (new Date(a.date||0)-new Date(b.date||0)) );
+    .filter(g=>g.stage) // liga/grupo + rondas KO
+    .map(g=>{ const ko=KO.has(g.stage);
+      return { id:g.game_id, g:null, md: ko? g.stage : (parseInt(g.md,10)||0), ko,
+               t1:g.t1_team, t2:g.t2_team, date:g.kickoff_utc, stage:g.stage }; })
+    // ordena: jornadas numéricas primeiro (asc), depois rondas KO (ordem do bracket)
+    .sort((a,b)=>{ const oa=a.ko?100+_koOrder(a.md):a.md, ob=b.ko?100+_koOrder(b.md):b.md;
+      return oa-ob || (new Date(a.date||0)-new Date(b.date||0)); });
 }
 
 // ── À prova de fuso horário ────────────────────────────────────────────────
@@ -2496,13 +2558,21 @@ const FLAG_CODES = {
   'Inglaterra':'gb-eng','Croácia':'hr','Gana':'gh','Panamá':'pa',
 };
 function flag(t){
+  // Ligas/UCL: logótipo do clube (crest) em vez de bandeira, quando existe.
+  const cr=S.crests&&S.crests[t];
+  if(cr)return`<img src="${cr}" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;margin-right:4px" alt="${escapeHtml(t)}" onerror="this.style.display='none'">`;
   const c=FLAG_CODES[t];
   if(!c)return'';
   return`<img src="https://flagcdn.com/w20/${c}.png" style="width:18px;height:12px;object-fit:cover;border-radius:2px;vertical-align:middle;margin-right:4px" alt="${t}">`;
 }
+// Logótipo de clube (crest) — helper para tabelas/bracket. size = px (quadrado).
+function crest(t,size){ const cr=S.crests&&S.crests[t]; if(!cr)return''; const s=size||16;
+  return`<img src="${cr}" style="width:${s}px;height:${s}px;object-fit:contain;vertical-align:middle;margin-right:5px" alt="" onerror="this.style.display='none'">`; }
 // Bandeira para as pré-apostas — mesma estratégia dos cartões de jogo (img flagcdn, sem emoji).
 // Resolve o problema do PC (Windows não renderiza emoji de bandeira).
 function pbFlag(t,w,h){
+  const cr=S.crests&&S.crests[t];
+  if(cr)return`<img src="${cr}" alt="${escapeHtml(t)}" style="width:${h}px;height:${h}px;object-fit:contain;vertical-align:middle;display:inline-block" onerror="this.style.display='none'">`;
   const c=FLAG_CODES[t]||(typeof TEAM_CC!=='undefined'?TEAM_CC[t]:null);
   if(!c)return''; // sem bandeira (ex.: placeholder de KO) — quem chama trata do fallback
   return`<img src="https://flagcdn.com/w80/${c}.png" alt="${t}" style="width:${w}px;height:${h}px;object-fit:cover;border-radius:2px;vertical-align:middle;display:inline-block">`;
@@ -3180,7 +3250,7 @@ async function adminLogin() {
 // "Mundial" para um rótulo genérico (rename definitivo p/ "Real" num incremento futuro).
 function setupLeagueNav(){
   const sim=document.getElementById('nav-sim'); if(sim) sim.style.display=S.leagueMode?'none':'';
-  const mnav=document.getElementById('nav-mundial'); if(mnav&&mnav.lastChild&&mnav.lastChild.nodeType===3) mnav.lastChild.textContent=S.leagueMode?'Jogos':'Mundial';
+  const mnav=document.getElementById('nav-mundial'); if(mnav&&mnav.lastChild&&mnav.lastChild.nodeType===3) mnav.lastChild.textContent=S.leagueMode?'Real':'Mundial';
 }
 function showApp() {
   // Ligas/UCL reutilizam a app do Mundial (Incremento 1): mesmas tabs, cards e
@@ -3380,7 +3450,11 @@ async function enterCompetition(id){
   try{ if(window.UPSB&&UPSB.setComp) UPSB.setComp(COMP_DB_ID[S.competition]||'WC2026'); }catch(e){}
   if(!S.leagueMode) GAMES=_GAMES_WC;
   S.curMD = S.leagueMode ? 1 : (S.curMD||1);
+  // Ao trocar de competição, as ligas privadas são POR competição — limpa a
+  // seleção e recarrega para não mostrar as ligas de outra competição (cache).
+  S.curLeague=null;
   try{ await loadData(); }catch(e){}
+  try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
 }
 async function registerToCompetition(id){
@@ -3536,12 +3610,17 @@ async function loadData() {
       localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
     }
     if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
+    S.leaguePrebetsCfg=r.leaguePrebetsCfg||null; S.leagueTeams=r.leagueTeams||null; S.crests=r.crests||{};
     if(r.results)S.results=r.results;
     S.koTeams=r.koTeams||{}; // equipas KO resolvidas automaticamente pelo backend
     // LIGAS: GAMES é construído da BD (fase de liga, jornadas por md). O Mundial
     // mantém o array fixo. Assim as tabs Apostas/Classificação/Duelos e os cards
     // reutilizam-se tal e qual, com toda a polish do Mundial.
-    if(S.leagueMode){ GAMES = buildLeagueGamesFrom(r.dbGames); S.leagueMds=[...new Set(GAMES.map(g=>g.md))].sort((a,b)=>a-b); }
+    if(S.leagueMode){ GAMES = buildLeagueGamesFrom(r.dbGames);
+      const uniq=[...new Set(GAMES.map(g=>g.md))];
+      const nums=uniq.filter(m=>typeof m==='number').sort((a,b)=>a-b);
+      const kos=KO_STAGE_LIST.filter(s=>uniq.includes(s)); // rondas KO na ordem do bracket
+      S.leagueMds=[...nums,...kos]; }
     else { GAMES = _GAMES_WC; }
     // PRODUÇÃO: datas/horários vêm do backend (auto-fetch sincroniza com a fonte
     // oficial). Sobrepõem GAMES[].date — os horários (sobretudo do KO) auto-corrigem-se.
@@ -4429,13 +4508,19 @@ function setupMDNav(){
   if(!lg)return; lg.style.display='';
   const mds=S.leagueMds||[];
   if(!mds.length){ lg.innerHTML='<div style="color:var(--sub);font-size:.8rem;padding:6px">Sem jornadas (aguarda o calendário).</div>'; return; }
-  let cur=(typeof S.curMD==='number')?S.curMD:mds[0]; if(mds.indexOf(cur)<0)cur=mds[0];
+  let cur=S.curMD; if(mds.indexOf(cur)<0)cur=mds[0];
   const i=mds.indexOf(cur);
-  const opts=mds.map(m=>`<option value="${m}" ${m===cur?'selected':''}>Jornada ${m}</option>`).join('');
-  lg.innerHTML=`<button class="md-tab" style="flex:0 0 auto;min-width:46px;padding:8px 0" ${i<=0?'disabled':''} onclick="switchMD(${mds[Math.max(0,i-1)]})">◀</button>
-    <select onchange="switchMD(parseInt(this.value,10))" style="flex:1;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.95rem;text-align:center;padding:9px">${opts}</select>
-    <button class="md-tab" style="flex:0 0 auto;min-width:46px;padding:8px 0" ${i>=mds.length-1?'disabled':''} onclick="switchMD(${mds[Math.min(mds.length-1,i+1)]})">▶</button>`;
+  // Rótulo: jornadas numéricas → "Jornada N"; rondas KO (híbrido) → nome da fase.
+  const KO_LABEL={R32:'16-avos',R16:'Oitavos',QF:'Quartos',SF:'Meias-finais',F3:'3º/4º',FIN:'Final'};
+  const mdLabel=m=>(typeof m==='string')?('🏆 '+(KO_LABEL[m]||m)):('Jornada '+m);
+  const opts=mds.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${mdLabel(m)}</option>`).join('');
+  const nav=i=>`switchMDNav('${String(mds[i])}')`;
+  lg.innerHTML=`<button class="md-tab" style="flex:0 0 auto;min-width:46px;padding:8px 0" ${i<=0?'disabled':''} onclick="${nav(Math.max(0,i-1))}">◀</button>
+    <select onchange="switchMDNav(this.value)" style="flex:1;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.95rem;text-align:center;padding:9px">${opts}</select>
+    <button class="md-tab" style="flex:0 0 auto;min-width:46px;padding:8px 0" ${i>=mds.length-1?'disabled':''} onclick="${nav(Math.min(mds.length-1,i+1))}">▶</button>`;
 }
+// Converte o valor do seletor (string) no tipo certo: jornada→número, ronda KO→string.
+function switchMDNav(v){ switchMD(/^\d+$/.test(String(v))?parseInt(v,10):v); }
 
 // Devolve a jornada (md) do jogo em curso ou, na falta, do próximo jogo a começar.
 function currentOrNextMD(){
@@ -5091,7 +5176,7 @@ async function saveAllCards(){
 //  PRÉ-APOSTAS
 // ════════════════════════════════════════════════
 function renderPrebets(){
-  if(S.leagueMode){ leagueTabPlaceholder('prebets','🏆 Pré-apostas de época','Campeão, descidas, Top 4 e melhor marcador chegam no próximo incremento.'); return; }
+  if(S.leagueMode){ renderLeaguePrebets(); return; }
   leagueTabRestore('prebets');
   const closed=dlPassed('2026-06-11T20:00'); // A1 às 20:00 PT — fecha deadlineH antes (19:00)
   if(closed)S.prebetPending=false;
@@ -5353,7 +5438,11 @@ function showPrebetSaveSuccess(){
   },2500);
 }
 async function savePrebetsAuto(){
-  if(dlPassed('2026-06-11T20:00')){showToast('🔒 As pré-apostas já fecharam.','error');return;}
+  // Prazo: liga usa o kickoff da 1.ª jornada; Mundial mantém a data fixa do A1.
+  const passed = S.leagueMode
+    ? (()=>{ const d=leaguePrebetDeadlineMs(); return d!=null && Date.now()>=d; })()
+    : dlPassed('2026-06-11T20:00');
+  if(passed){showToast('🔒 As pré-apostas já fecharam.','error');return;}
   const btn=document.getElementById('save-prebets-btn');
   if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
   try {
@@ -5370,6 +5459,141 @@ async function savePrebetsAuto(){
 // Legacy function kept for backwards compatibility
 async function savePrebets(){
   return savePrebetsAuto();
+}
+
+// ════════════════════════════════════════════════
+//  LIGAS (Incr.3) — Pré-apostas de época (config-driven)
+// ════════════════════════════════════════════════
+// Lê S.leaguePrebetsCfg (prebets_<comp>) + S.leagueTeams (teams_<comp>).
+// Campeão (single) / Melhor marcador (player=texto) / Despromovidos & Top 4 (multi).
+// Fecha antes da 1.ª jornada (kickoff mais cedo − deadlineH). Quando os 'specials'
+// estiverem resolvidos, mostra a correção (acerto/erro + pontos).
+function leaguePrebetDeadlineMs(){
+  const ks=(GAMES||[]).map(g=>g.date?new Date(g.date).getTime():NaN).filter(t=>!isNaN(t));
+  if(!ks.length) return null;
+  return Math.min(...ks)-((S.deadlineH||1)*3600000);
+}
+function leaguePrebetGet(item){
+  const raw=S.prebets[item.key];
+  if(item.type==='multi'){
+    if(Array.isArray(raw)) return raw.slice();
+    if(typeof raw==='string'&&raw.trim().startsWith('[')){ try{ return JSON.parse(raw); }catch(e){ return []; } }
+    return raw?[raw]:[];
+  }
+  return raw!=null?raw:'';
+}
+function _specArr(v){ if(v==null)return[]; if(Array.isArray(v))return v; if(typeof v==='string'&&v.trim().startsWith('[')){ try{return JSON.parse(v);}catch(e){return[];} } return v?[v]:[]; }
+function renderLeaguePrebets(){
+  const cfg=S.leaguePrebetsCfg;
+  if(!cfg||!cfg.length){ leagueTabPlaceholder('prebets','🏆 Pré-apostas de época','Ainda não há pré-apostas definidas para esta competição.'); return; }
+  // Equipas dos dropdowns: config teams_<comp> se existir; senão deriva do
+  // calendário carregado (fase de liga) — funciona na UCL de teste e no sorteio real.
+  let teams=(S.leagueTeams||[]).slice();
+  if(!teams.length){ teams=[...new Set((GAMES||[]).filter(g=>!g.ko).flatMap(g=>[g.t1,g.t2]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt')); }
+  const dlMs=leaguePrebetDeadlineMs();
+  const closed=dlMs!=null && Date.now()>=dlMs;
+  if(closed) S.prebetPending=false;
+  const dlStr=dlMs!=null?new Date(dlMs).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):null;
+  const sp=S.specials||{};
+  const maxPts=cfg.reduce((s,it)=>s+(it.type==='multi'?(it.pts_each||0)*(it.count||1):(it.pts||0)),0);
+
+  const bannerRight=closed
+    ?`<div class="pb-badge">🔒 FECHADAS</div>`
+    :`<div style="display:flex;align-items:center;gap:8px">
+        <span id="prebet-unsaved-badge" class="autosave-pill unsaved-pill" style="display:none">⚠ Não guardado</span>
+        <button id="save-prebets-btn" class="btn btn-primary" style="font-size:.78rem;padding:4px 12px" onclick="savePrebetsAuto()">💾 Guardar</button>
+      </div>`;
+  let html=`<div class="pb-banner">
+    <div class="pb-banner-title">🔮 AS MINHAS PRÉ-APOSTAS</div>
+    ${bannerRight}
+  </div>`;
+  html+=`<div class="pb-info">${closed
+    ? 'As pré-apostas de época estão <b>fechadas</b>. A pontuação aparece quando os resultados finais da época forem lançados.'
+    : (dlStr?`Fecham <b style="color:var(--gold)">${dlStr}</b> (hora de Portugal), antes da 1.ª jornada. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`:`Fecham antes da 1.ª jornada. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`)}</div>`;
+
+  cfg.forEach(item=>{
+    const icon=item.key==='champion'?'🏆':item.key==='top_scorer'?'⚽':item.key==='relegated'?'🔻':item.key==='europe'?'⭐':'🎯';
+    const ptsLabel=item.type==='multi'?`${item.pts_each} pts/eq (×${item.count})`:`${item.pts} pts`;
+    html+=`<div class="pb-phase">${icon} ${escapeHtml(item.label||item.key)} <small>${ptsLabel}</small></div>`;
+    const resolved=sp[item.key]!=null && !(Array.isArray(sp[item.key])&&!sp[item.key].length);
+
+    if(item.type==='single'){
+      const val=leaguePrebetGet(item);
+      const actual=sp[item.key];
+      const hit=resolved&&val&&val===actual, miss=resolved&&val&&val!==actual;
+      const bg=hit?'background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4)':miss?'background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.3)':'';
+      html+=`<div class="card" style="${bg}"><div class="form-group" style="margin:0">
+        <select class="form-select" onchange="setLeaguePrebet('${item.key}',this.value)" ${closed?'disabled':''}>
+          <option value="">— Selecionar —</option>
+          ${teams.map(t=>`<option value="${escapeHtml(t)}" ${val===t?'selected':''}>${escapeHtml(t)}</option>`).join('')}
+        </select>
+        ${resolved?`<div style="font-size:.72rem;margin-top:6px;color:var(--sub)">Resultado: <b style="color:var(--text)">${escapeHtml(String(actual))}</b> · ${hit?`<b style="color:var(--green)">+${item.pts} pts</b>`:`<b style="color:#ef4444">0 pts</b>`}</div>`:''}
+      </div></div>`;
+    } else if(item.type==='player'){
+      const val=leaguePrebetGet(item);
+      const actual=sp[item.key];
+      const hit=resolved&&val&&val===actual, miss=resolved&&val&&val!==actual;
+      const bg=hit?'background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4)':miss?'background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.3)':'';
+      html+=`<div class="card" style="${bg}"><div class="form-group" style="margin:0">
+        <input type="text" class="form-select" placeholder="Nome do jogador" value="${escapeHtml(val||'')}" ${closed?'disabled':''}
+          onchange="setLeaguePrebet('${item.key}',this.value)" oninput="markPrebetDirty()">
+        ${resolved?`<div style="font-size:.72rem;margin-top:6px;color:var(--sub)">Resultado: <b style="color:var(--text)">${escapeHtml(String(actual))}</b> · ${hit?`<b style="color:var(--green)">+${item.pts} pts</b>`:`<b style="color:#ef4444">0 pts</b>`}</div>`:''}
+      </div></div>`;
+    } else if(item.type==='multi'){
+      const picks=leaguePrebetGet(item), cnt=item.count||1;
+      const actualSet=new Set(_specArr(sp[item.key]).map(String));
+      const chosenN=picks.length;
+      html+=`<div class="card"><div style="font-size:.72rem;color:var(--sub);margin-bottom:8px">Escolhe ${cnt} · <b style="color:${chosenN===cnt?'var(--green)':'var(--gold)'}">${chosenN}/${cnt}</b> selecionadas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">`;
+      teams.forEach(t=>{
+        const on=picks.includes(t);
+        const isHit=resolved&&on&&actualSet.has(t);
+        const isMiss=resolved&&on&&!actualSet.has(t);
+        const bd=isHit?'var(--green)':isMiss?'#ef4444':on?'var(--gold)':'var(--border)';
+        const bgc=isHit?'rgba(34,197,94,.15)':isMiss?'rgba(239,68,68,.1)':on?'rgba(245,197,24,.15)':'none';
+        const col=isHit?'var(--green)':isMiss?'#ef4444':on?'var(--gold)':'var(--sub)';
+        const disabled=closed||(!on&&chosenN>=cnt);
+        html+=`<button ${disabled?'disabled':''} onclick="toggleLeagueMultiPrebet('${item.key}','${escapeHtml(t).replace(/'/g,"\\'")}',${cnt})"
+          style="font-size:.75rem;padding:5px 10px;border-radius:14px;cursor:${disabled?'default':'pointer'};border:1px solid ${bd};background:${bgc};color:${col};opacity:${disabled&&!on?'.45':'1'}">${on?'✓ ':''}${escapeHtml(t)}</button>`;
+      });
+      html+=`</div>`;
+      if(resolved){ const got=picks.filter(t=>actualSet.has(t)).length; html+=`<div style="font-size:.72rem;margin-top:8px;color:var(--sub)">Acertaste <b style="color:var(--text)">${got}/${cnt}</b> · <b style="color:${got?'var(--green)':'#ef4444'}">+${got*(item.pts_each||0)} pts</b> · reais: ${_specArr(sp[item.key]).map(x=>escapeHtml(String(x))).join(', ')||'—'}</div>`; }
+      html+=`</div>`;
+    }
+  });
+
+  // Resumo dos pontos já atribuídos (quando fechado e o LB tem o meu registo)
+  const me=(S.lb||[]).find(x=>x.code===(S.user&&S.user.code));
+  if(closed && me && me.prebets_pts!==undefined){
+    html+=`<div class="card" style="text-align:center;margin-top:14px">
+      <div style="font-size:.72rem;color:var(--sub);margin-bottom:4px">Pontos de pré-apostas</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.6rem;color:var(--gold)">${me.prebets_pts} pts</div>
+    </div>`;
+  }
+  leagueTabContent('prebets', html);
+}
+function markPrebetDirty(){ if(S.leagueMode){ S.prebetPending=true; const b=document.getElementById('prebet-unsaved-badge'); if(b)b.style.display=''; } }
+function setLeaguePrebet(key,val){
+  if(val==null||val===''){ delete S.prebets[key]; } else { S.prebets[key]=val; }
+  markPrebetDirty(); queueLeaguePrebetSave();
+}
+function toggleLeagueMultiPrebet(key,team,cnt){
+  const cur=Array.isArray(S.prebets[key])?S.prebets[key].slice():leaguePrebetGetByKey(key);
+  const i=cur.indexOf(team);
+  if(i>=0) cur.splice(i,1); else { if(cur.length>=cnt) return; cur.push(team); }
+  if(cur.length) S.prebets[key]=cur; else delete S.prebets[key];
+  markPrebetDirty(); renderLeaguePrebets(); queueLeaguePrebetSave();
+}
+function leaguePrebetGetByKey(key){
+  const raw=S.prebets[key];
+  if(Array.isArray(raw)) return raw.slice();
+  if(typeof raw==='string'&&raw.trim().startsWith('[')){ try{ return JSON.parse(raw); }catch(e){ return []; } }
+  return raw?[raw]:[];
+}
+let _leaguePrebetTimer=null;
+function queueLeaguePrebetSave(){
+  clearTimeout(_leaguePrebetTimer);
+  _leaguePrebetTimer=setTimeout(()=>{ savePrebetsAuto().catch(()=>{}); }, 800);
 }
 
 // ════════════════════════════════════════════════
@@ -5421,21 +5645,24 @@ function leagueTabContent(view, html){
 }
 // Tabela classificativa das equipas, calculada dos resultados reais (V=3, E=1).
 function buildLeagueStandingsHtml(){
+  const hybrid=GAMES.some(g=>g.ko);          // UCL: fase de liga + mata-mata
+  const phaseGames=GAMES.filter(g=>!g.ko);    // classificação = só jogos de pontos-corridos
   const tbl={}, ensure=t=>tbl[t]||(tbl[t]={team:t,p:0,w:0,d:0,l:0,gf:0,ga:0});
-  GAMES.forEach(g=>{ const r=S.results[g.id]; if(!r||r.t1==null||r.t2==null||!g.t1||!g.t2) return;
+  phaseGames.forEach(g=>{ const r=S.results[g.id]; if(!r||r.t1==null||r.t2==null||!g.t1||!g.t2) return;
     const a=ensure(g.t1), b=ensure(g.t2); a.p++;b.p++; a.gf+=+r.t1;a.ga+=+r.t2; b.gf+=+r.t2;b.ga+=+r.t1;
     if(+r.t1>+r.t2){a.w++;b.l++;} else if(+r.t1<+r.t2){b.w++;a.l++;} else {a.d++;b.d++;} });
-  const totalTeams=new Set([].concat(...GAMES.map(g=>[g.t1,g.t2]).filter(x=>x))).size||18;
+  const totalTeams=new Set([].concat(...phaseGames.map(g=>[g.t1,g.t2]).filter(x=>x))).size||18;
   let rows=Object.values(tbl).map(t=>({...t,gd:t.gf-t.ga,pts:t.w*3+t.d}));
   if(!rows.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">Ainda sem resultados.<br><span style="font-size:.8rem">A tabela vai aparecendo à medida que os jogos terminam.</span></div>`;
   rows.sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf || a.team.localeCompare(b.team,'pt'));
   const releg = totalTeams>=20?3:2;           // descidas: Premier 3 / Liga Portugal 2
   const allIn = rows.length>=totalTeams;      // só marca a zona de descida com a tabela completa
-  const zone=i=> i<4 ? 'var(--green)' : (allIn && i>=rows.length-releg ? 'var(--red)' : 'transparent');
+  // Zonas só nas ligas domésticas (Top4 / descida). Na UCL (híbrido) a tabela é neutra.
+  const zone=i=> hybrid ? 'transparent' : (i<4 ? 'var(--green)' : (allIn && i>=rows.length-releg ? 'var(--red)' : 'transparent'));
   let body='';
   rows.forEach((t,i)=>{ const dg=t.gd>0?'+'+t.gd:t.gd;
     body+=`<tr>
-      <td style="text-align:left;box-shadow:inset 3px 0 0 ${zone(i)}"><span style="color:var(--sub);font-size:.72rem;margin-right:7px">${i+1}</span><span style="font-size:.81rem;font-weight:600">${escapeHtml(t.team)}</span></td>
+      <td style="text-align:left;box-shadow:inset 3px 0 0 ${zone(i)}"><span style="color:var(--sub);font-size:.72rem;margin-right:7px">${i+1}</span>${crest(t.team,16)}<span style="font-size:.81rem;font-weight:600">${escapeHtml(t.team)}</span></td>
       <td>${t.p}</td>
       <td style="color:var(--green);font-weight:600">${t.w}</td>
       <td style="color:#f39c12;font-weight:600">${t.d}</td>
@@ -5455,13 +5682,53 @@ function buildLeagueStandingsHtml(){
       <th title="Diferença de golos">DG</th>
       <th title="Pontos" style="color:var(--gold)">Pts</th>
     </tr></thead><tbody>${body}</tbody></table></div>
-    <div style="display:flex;gap:14px;font-size:.7rem;color:var(--sub);margin:10px 2px;flex-wrap:wrap">
+    ${hybrid?'':`<div style="display:flex;gap:14px;font-size:.7rem;color:var(--sub);margin:10px 2px;flex-wrap:wrap">
       <span style="border-left:3px solid var(--green);padding-left:6px">Zona europeia (Top 4)</span>
       <span style="border-left:3px solid var(--red);padding-left:6px">Descida (${releg} últimos)</span>
-    </div>`;
+    </div>`}`;
+}
+// Bracket simples do mata-mata (híbrido UCL): lista as rondas presentes com cada
+// jogo (equipas + resultado). Derivado dos GAMES/S.results — sem layout hardcoded.
+function buildHybridBracketHtml(){
+  const koGames=GAMES.filter(g=>g.ko);
+  if(!koGames.length) return '';
+  const PHASE={R32:'16-avos de Final',R16:'Oitavos de Final',QF:'Quartos de Final',SF:'Meias-Finais',F3:'3º/4º Lugar',FIN:'Final'};
+  const byStage={}; koGames.forEach(g=>{ (byStage[g.md]=byStage[g.md]||[]).push(g); });
+  let html=`<div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--gold);margin:20px 2px 10px">🏆 Mata-mata</div>`;
+  KO_STAGE_LIST.forEach(st=>{ const gs=byStage[st]; if(!gs||!gs.length) return;
+    // Agrupa as DUAS MÃOS de cada eliminatória pelo par de equipas (sem ordem).
+    const ties={};
+    gs.forEach(g=>{ const a=getKOTeamName(g.id,'t1'),b=getKOTeamName(g.id,'t2');
+      const key=[String(a||''),String(b||'')].sort().join(' ||| '); (ties[key]=ties[key]||[]).push(g); });
+    html+=`<div class="ko-divider">${PHASE[st]||st}</div><div style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">`;
+    Object.values(ties).forEach(legs=>{
+      legs.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+      const A=getKOTeamName(legs[0].id,'t1'), B=getKOTeamName(legs[0].id,'t2'); // equipas canónicas
+      const agg={}; let pen=null; const legTxt=[];
+      const allDone=legs.every(g=>{const r=S.results[g.id];return r&&r.t1!=null;});
+      legs.forEach(g=>{ const t1=getKOTeamName(g.id,'t1'),t2=getKOTeamName(g.id,'t2'),r=S.results[g.id];
+        if(r&&r.t1!=null){ agg[t1]=(agg[t1]||0)+ +r.t1; agg[t2]=(agg[t2]||0)+ +r.t2;
+          if(r.pen)pen={t1,t2,side:r.pen}; legTxt.push(`${escapeHtml(t1)} ${r.t1}–${r.t2}`); }
+        else legTxt.push(`${escapeHtml(t1)} –`); });
+      let wA=false,wB=false;
+      if(allDone){ const ga=agg[A]||0, gb=agg[B]||0;
+        if(ga>gb)wA=true; else if(gb>ga)wB=true;
+        else if(pen){ const wt=pen[pen.side]; if(wt===A)wA=true; else if(wt===B)wB=true; } }
+      const mid=allDone?`<b style="color:var(--text)">${agg[A]||0}–${agg[B]||0}</b>${pen?'<span class="pen-star" title="Penáltis / desempate">★</span>':''}`:'<span style="color:var(--sub);font-size:.72rem">— por jogar —</span>';
+      const twoLegs=legs.length>1;
+      html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.82rem">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;text-align:right;font-weight:${wA?'700':'500'};color:${wA?'var(--text)':'var(--sub)'}">${escapeHtml(A)}${crest(A,15)}</div>
+          <div style="flex:0 0 auto;min-width:56px;text-align:center">${mid}</div>
+          <div style="flex:1;text-align:left;font-weight:${wB?'700':'500'};color:${wB?'var(--text)':'var(--sub)'}">${crest(B,15)}${escapeHtml(B)}</div>
+        </div>
+        ${twoLegs&&allDone?`<div style="text-align:center;font-size:.66rem;color:var(--sub);margin-top:4px">${legTxt.join(' · ')}</div>`:''}
+      </div>`; });
+    html+=`</div>`; });
+  return html;
 }
 function renderMundial() {
-  if(S.leagueMode){ leagueTabContent('mundial', buildLeagueStandingsHtml()); return; }
+  if(S.leagueMode){ leagueTabContent('mundial', buildLeagueStandingsHtml() + buildHybridBracketHtml()); return; }
   leagueTabRestore('mundial');
   const tabsEl = document.getElementById('mundial-grp-tabs');
   tabsEl.innerHTML = Object.keys(GROUPS).map(g =>
