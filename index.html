@@ -1318,14 +1318,53 @@
         DB = null; return { success: true, emailed, emailError };
       }
 
+      // ---- ADMIN: REMOÇÃO DE UTILIZADORES (migração 022 + fn admin-remove-user) ----
+      // Diagnóstico: o que existe deste user e o que é possível remover.
+      if (action === 'getRemovalInfo') {
+        const info = await rpc('rpc_admin_removal_info', { p_code: (data.code || '').toUpperCase() }, true);
+        return { success: true, info };
+      }
+      // Sair de UMA competição (só se não tiver apostas nela — guarda da raridade).
+      if (action === 'removeFromCompetition') {
+        const res = await rpc('rpc_admin_remove_from_competition', {
+          p_comp: data.competition_id || COMP,
+          p_code: (data.code || '').toUpperCase(),
+        }, true);
+        DB = null;
+        return { success: true, ...(res || {}) };
+      }
+      // Remoção TOTAL do jogo (dados + conta Auth). Exige service_role -> Edge Function.
+      if (action === 'removeUser') {
+        const rr = await fetch(`${SB_URL}/functions/v1/admin-remove-user`, {
+          method: 'POST',
+          headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            password: data.password || '',
+            code: (data.code || '').toUpperCase(),
+            confirm: (data.confirm || '').toUpperCase(),
+            force: data.force === true,
+          }),
+        });
+        const rj = await rr.json().catch(() => ({}));
+        DB = null;
+        if (rj && rj.ok) return { success: true, ...rj };
+        return { success: false, error: (rj && rj.error) || ('HTTP ' + rr.status), needsForce: !!(rj && rj.needsForce), blocking: (rj && rj.blocking) || [] };
+      }
+
       // Password (Supabase Auth + SMTP)
       if (action === 'forgotPassword') return await forgotPassword(data);
       if (action === 'resetPassword') return await resetPassword(data);
       if (action === 'changePassword') return await changePassword(data);
 
-      // Escritas ainda não portadas (auto-fetch resultados, bot, gestão de users): no-op suave.
-      console.warn('[Supabase SANDBOX] ação ainda não ativa nesta fase:', action);
-      return { success: true, _notYet: true };
+      // ---- AÇÃO DESCONHECIDA -------------------------------------------------
+      // ⚠ NUNCA devolver { success:true } aqui. Até 19 Jul 2026 este fallback
+      // devolvia sucesso fabricado: o UI dizia "Removido."/"Adicionado!" e nada
+      // acontecia (foi assim que o removeUser passou despercebido desde o
+      // cutover). Falhar em voz alta é a única forma de estes buracos aparecerem.
+      // NOTA: 'addUser' também nunca foi portado — passa a falhar visivelmente.
+      // Enquanto não for portado, usar: node manage_user.mjs add --code ...
+      console.error('[Supabase] ação NÃO portada:', action);
+      return { success: false, error: 'Esta ação ainda não está disponível no sistema novo (' + action + ').', _notYet: true };
     } catch (e) {
       console.error('[Supabase SANDBOX] erro em', action, e);
       return { success: false, error: e.message };
@@ -6961,7 +7000,7 @@ function renderUsers(users){
   users.forEach(u=>{
     html+=`<div class="admin-row">
       <div style="flex:1;font-size:.82rem"><strong>${u.name}</strong> &nbsp;<span style="color:var(--gold);font-size:.76rem">${u.code}</span>${u.email?`<br><span style="color:var(--sub);font-size:.72rem">${u.email}</span>`:''}</div>
-      <button class="btn btn-danger" style="padding:4px 10px;font-size:.72rem" onclick="removeUser('${u.code}')">Remover</button>
+      <button class="btn btn-danger" style="padding:4px 10px;font-size:.72rem" onclick="openRemoveUserModal('${u.code}')">Remover</button>
     </div>`;
   });
   html+='</div>';
@@ -6982,12 +7021,117 @@ async function addUser(){
     loadUsers();
   } catch(e){showToast('Erro ao adicionar.','error');}
 }
-async function removeUser(code){
-  if(!confirm('Remover este utilizador e todas as suas apostas?'))return;
-  try {
-    await api('removeUser',{password:document.getElementById('admin-pw').value,code});
-    showToast('Removido.','success');loadUsers();
-  } catch(e){showToast('Erro.','error');}
+// ────────────────────────────────────────────────────────────────────────────
+//  REMOÇÃO DE UTILIZADORES  (19 Jul 2026)
+//  Dois níveis, deliberadamente diferentes:
+//    A) Sair de UMA competição — só permitido se a pessoa não tiver apostado
+//       nada nessa competição. Apagar apostas a meio mexe nas percentagens de
+//       raridade e nos bónus JÁ atribuídos a todos os outros jogadores.
+//    B) Remoção TOTAL do jogo — apaga dados + conta de login. Irreversível.
+//       Exige escrever o código à mão. Se houver apostas em competições a
+//       decorrer, pede uma segunda confirmação explícita (força).
+// ────────────────────────────────────────────────────────────────────────────
+let _rmUser=null;
+
+async function openRemoveUserModal(code){
+  _rmUser=null;
+  document.getElementById('modal-title').textContent='Remover utilizador';
+  document.getElementById('modal-subtitle').textContent=code;
+  document.getElementById('modal-body').innerHTML='<div style="padding:16px;text-align:center;color:var(--sub);font-size:.85rem">A verificar…</div>';
+  openModal();
+  const r=await api('getRemovalInfo',{password:document.getElementById('admin-pw').value,code});
+  if(!r||!r.success||!r.info){
+    document.getElementById('modal-body').innerHTML=`<div class="alert alert-error" style="font-size:.82rem;margin:12px">${(r&&r.error)||'Não foi possível ler os dados deste utilizador.'}</div>`;
+    return;
+  }
+  _rmUser=r.info;
+  renderRemoveUserModal();
+}
+
+function renderRemoveUserModal(){
+  const i=_rmUser; if(!i)return;
+  const who=`${i.name}${i.nickname?' (@'+i.nickname+')':''}`;
+  let h=`<div style="padding:4px 2px 2px">
+    <div style="font-size:.86rem;margin-bottom:2px"><strong>${who}</strong></div>
+    <div style="color:var(--sub);font-size:.75rem;margin-bottom:14px">${i.code}${i.email?' · '+i.email:''}${i.has_auth?'':' · <em>sem conta de login</em>'}</div>`;
+
+  if(i.is_admin||i.is_bot){
+    h+=`<div class="alert alert-info" style="font-size:.8rem">Esta conta está protegida (${i.is_admin?'administrador':'bot da IA'}) e não pode ser removida por aqui.</div></div>`;
+    document.getElementById('modal-body').innerHTML=h;
+    return;
+  }
+
+  // ---- A) por competição ----
+  h+=`<div style="font-size:.8rem;font-weight:600;margin-bottom:6px">Retirar de uma competição</div>`;
+  const comps=i.competitions||[];
+  if(!comps.length){
+    h+=`<div style="color:var(--sub);font-size:.78rem;margin-bottom:14px">Não está inscrito em nenhuma competição.</div>`;
+  }else{
+    comps.forEach(c=>{
+      const bets=(c.predictions||0)+(c.prebets||0);
+      const owned=c.leagues_owned||0;
+      let block='';
+      if(bets>0)block=`Tem ${c.predictions} aposta(s) e ${c.prebets} pré-aposta(s). Apagá-las alterava a raridade e os bónus dos outros jogadores.`;
+      else if(owned>0)block=`Administra ${owned} liga(s) com outros membros. Transfere ou apaga essas ligas primeiro.`;
+      h+=`<div class="admin-row" style="align-items:flex-start">
+        <div style="flex:1;font-size:.8rem">
+          <strong>${c.name}</strong>
+          <div style="color:var(--sub);font-size:.72rem;margin-top:2px">${bets===0?'Sem apostas — remoção limpa.':block}</div>
+        </div>
+        <button class="btn ${block?'btn-outline':'btn-danger'}" style="padding:4px 10px;font-size:.72rem" ${block?'disabled':''}
+          onclick="doRemoveFromCompetition('${c.competition_id}')">Retirar</button>
+      </div>`;
+    });
+    h+='<div style="height:12px"></div>';
+  }
+
+  // ---- B) total ----
+  h+=`<div style="border-top:1px solid rgba(255,255,255,.12);margin-top:8px;padding-top:12px">
+    <div style="font-size:.8rem;font-weight:600;color:#e74c3c;margin-bottom:4px">Remover do jogo (irreversível)</div>
+    <div style="color:var(--sub);font-size:.75rem;margin-bottom:8px">
+      Apaga a conta de login e todos os dados: ${i.total_predictions} aposta(s), ${i.total_prebets} pré-aposta(s), ligas, reações e comentários.
+    </div>
+    <input id="rm-confirm" class="form-input" placeholder="Escreve ${i.code} para confirmar" style="font-size:.8rem;margin-bottom:8px" autocomplete="off">
+    <button class="btn btn-danger btn-full" style="font-size:.78rem" onclick="doRemoveUserFully(false)">Remover definitivamente</button>
+    <div id="rm-msg" style="margin-top:10px"></div>
+  </div></div>`;
+
+  document.getElementById('modal-body').innerHTML=h;
+}
+
+async function doRemoveFromCompetition(compId){
+  if(!_rmUser)return;
+  if(!confirm(`Retirar ${_rmUser.code} de ${compId}? A conta e os dados noutras competições mantêm-se.`))return;
+  const r=await api('removeFromCompetition',{password:document.getElementById('admin-pw').value,code:_rmUser.code,competition_id:compId});
+  if(!r||!r.success){showToast((r&&r.error)||'Não foi possível retirar.','error');return;}
+  showToast(`${_rmUser.code} retirado de ${compId}.`,'success');
+  closeModal();loadUsers();loadData();
+}
+
+async function doRemoveUserFully(force){
+  if(!_rmUser)return;
+  const confirmVal=(document.getElementById('rm-confirm').value||'').trim().toUpperCase();
+  if(confirmVal!==_rmUser.code){showToast('Escreve o código exatamente como aparece.','error');return;}
+  if(!force&&!confirm(`Remover ${_rmUser.code} do jogo? Isto apaga a conta de login e não tem volta.`))return;
+
+  const r=await api('removeUser',{password:document.getElementById('admin-pw').value,code:_rmUser.code,confirm:confirmVal,force:!!force});
+
+  if(r&&r.success){
+    showToast(`${_rmUser.code} removido do jogo.`,'success');
+    closeModal();loadUsers();loadData();return;
+  }
+  // Bloqueado por apostas em competição a decorrer -> segunda confirmação.
+  if(r&&r.needsForce){
+    const lista=(r.blocking||[]).map(b=>`${b.name}: ${b.predictions} apostas, ${b.prebets} pré-apostas`).join('<br>');
+    document.getElementById('rm-msg').innerHTML=`<div class="alert alert-error" style="font-size:.78rem">
+      <strong>Atenção — competição a decorrer.</strong><br>${lista}<br><br>
+      Apagar isto altera as percentagens de raridade e os bónus já dados aos outros jogadores.
+      Só deves avançar se for um pedido de eliminação de conta.
+      <button class="btn btn-danger btn-full" style="font-size:.76rem;margin-top:8px" onclick="doRemoveUserFully(true)">Sim, remover mesmo assim</button>
+    </div>`;
+    return;
+  }
+  showToast((r&&r.error)||'Não foi possível remover.','error');
 }
 // ════════════════════════════════════════════════
 //  ADMIN — PRÉ-APOSTAS FINAIS (ESPECIAIS)
