@@ -1299,9 +1299,21 @@
       if (action === 'broadcast') {
         const bText = data.text || data.message || '';
         const bChannel = data.channel || 'notif';   // 'notif' | 'email' | 'both'
-        let emailed = 0, emailError = '';
-        // Notificação no sino: só em 'notif' e 'both' (NÃO em 'só email').
-        if (bChannel !== 'email') { await rpc('rpc_broadcast', { p_text: bText }, true); }
+        let emailed = 0, emailError = '', pushed = 0;
+        // Notificação no sino + push FCM: só em 'notif' e 'both' (NÃO em 'só email').
+        if (bChannel !== 'email') {
+          await rpc('rpc_broadcast', { p_text: bText }, true);   // sino (BD)
+          // O sino é só um INSERT; a push do telemóvel precisa da edge function.
+          try {
+            const pr = await fetch(`${SB_URL}/functions/v1/broadcast-push`, {
+              method: 'POST',
+              headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: data.password || '', text: bText }),
+            });
+            const pj = await pr.json().catch(() => ({}));
+            if (pj && pj.ok) pushed = pj.pushed || 0;
+          } catch (e) { /* push falhou: o sino já ficou registado */ }
+        }
         // Email em BCC (Edge Function broadcast-email): em 'email' e 'both'.
         if (bChannel === 'email' || bChannel === 'both') {
           try {
@@ -1315,7 +1327,7 @@
             else emailError = (ej && ej.error) || ('HTTP ' + er.status);
           } catch (e) { emailError = 'ligação'; }
         }
-        DB = null; return { success: true, emailed, emailError };
+        DB = null; return { success: true, emailed, emailError, pushed };
       }
 
       // ---- ADMIN: REMOÇÃO DE UTILIZADORES (migração 022 + fn admin-remove-user) ----
@@ -4464,9 +4476,10 @@ async function sendBroadcast(){
     const r=await api('broadcast',{password:document.getElementById('admin-pw').value,text,subject,channel});
     if(r.success){
       let msg='Mensagem enviada!';
+      const pushTxt=' (📱 '+(r.pushed||0)+' push)';
       if(channel==='email')msg='✉️ Email enviado a '+(r.emailed||0)+' jogadores.';
-      else if(channel==='both')msg='🔔 Notificação enviada + ✉️ email a '+(r.emailed||0)+' jogadores.';
-      else msg='🔔 Notificação enviada a todos!';
+      else if(channel==='both')msg='🔔 Sino'+pushTxt+' + ✉️ email a '+(r.emailed||0)+' jogadores.';
+      else msg='🔔 Notificação enviada a todos'+pushTxt+'.';
       showToast(msg,'success');
       if(r.emailError)showToast('Aviso email: '+r.emailError,'error');
       ta.value='';if(subjEl)subjEl.value='';
