@@ -660,7 +660,10 @@
 
   // API através de proxy no domínio próprio (api.unclepredictor.pt -> Supabase).
   // Contorna firewalls corporativas que bloqueiam supabase.co (16 Jul 2026).
-  const SB_URL = 'https://api.unclepredictor.pt';
+  // ⚠️ ROLLBACK 17 Jul: proxy (api.unclepredictor.pt) deixou de responder — provável
+  // limite do plano gratuito do Deno Deploy. Revertido para ligação direta até estar
+  // resolvido. Para voltar ao proxy: repor 'https://api.unclepredictor.pt'.
+  const SB_URL = 'https://pzvwzqynxsaelyyakqes.supabase.co';
   // Ligação direta ao Supabase — usada SÓ no redirect do login Google (o fluxo
   // OAuth não pode passar pelo proxy por causa do estado/cookies de domínio).
   const SB_URL_DIRECT = 'https://pzvwzqynxsaelyyakqes.supabase.co';
