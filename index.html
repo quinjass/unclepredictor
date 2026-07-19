@@ -658,15 +658,17 @@
 
   // PRODUÇÃO: sem relógio de sandbox — usa o tempo real do dispositivo.
 
-  // API através de proxy no domínio próprio (api.unclepredictor.pt -> Supabase).
-  // Contorna firewalls corporativas que bloqueiam supabase.co (16 Jul 2026).
-  // ⚠️ ROLLBACK 17 Jul: proxy (api.unclepredictor.pt) deixou de responder — provável
-  // limite do plano gratuito do Deno Deploy. Revertido para ligação direta até estar
-  // resolvido. Para voltar ao proxy: repor 'https://api.unclepredictor.pt'.
-  const SB_URL = 'https://pzvwzqynxsaelyyakqes.supabase.co';
-  // Ligação direta ao Supabase — usada SÓ no redirect do login Google (o fluxo
-  // OAuth não pode passar pelo proxy por causa do estado/cookies de domínio).
+  // ── BASE DA API (17 Jul 2026) ────────────────────────────────────────────
+  // Por omissão fala DIRETAMENTE com o Supabase. Só se essa ligação estiver
+  // bloqueada (ex.: firewall corporativa que corta supabase.co) é que passa pelo
+  // proxy no domínio próprio. Assim o proxy serve apenas quem precisa: não é
+  // ponto único de falha, nem consome limites com o tráfego de toda a gente.
+  // (Lição de 17 Jul: com todos a passar pelo proxy, os limites do Deno Deploy
+  // esgotaram-se, a app foi suspensa e o site foi abaixo para todos.)
+  // A escolha é feita no arranque por pickApiBase() — ver window.UPSB.pickBase.
   const SB_URL_DIRECT = 'https://pzvwzqynxsaelyyakqes.supabase.co';
+  const SB_URL_PROXY  = 'https://api.unclepredictor.pt';
+  let   SB_URL = SB_URL_DIRECT;   // base efetiva (direto por omissão = seguro)
   const SB_KEY = 'sb_publishable_5aiD7taF5eYKvfDBsGbklQ_XoBoFPyN';
   let COMP = 'WC2026';                    // competição ATIVA (Fase 0: mutável p/ multi-competição)
   const SS_KEY = 'upsb_session';
@@ -727,6 +729,20 @@
   // ou EM FALTA, e cada fetch devolve um subconjunto diferente → classificação/
   // nº de jogos/pontos a "saltar" após login e a estabilizar só após refresh.
   // Ordenar SEMPRE por uma chave estável (por omissão, a 1ª coluna do select).
+  // Escolhe a base da API no arranque (ver comentário no topo): tenta primeiro a
+  // ligação DIRETA ao Supabase; só se esta falhar (rede a bloquear supabase.co)
+  // é que passa a usar o proxy. Nunca deixa o site sem base utilizável.
+  async function pickApiBase() {
+    const probe = async (base) => {
+      const c = new AbortController(); const t = setTimeout(() => c.abort(), 3000);
+      try { await fetch(`${base}/auth/v1/health`, { mode: 'no-cors', cache: 'no-store', signal: c.signal }); return true; }
+      finally { clearTimeout(t); }
+    };
+    try { await probe(SB_URL_DIRECT); SB_URL = SB_URL_DIRECT; return SB_URL; } catch (e) { /* direto bloqueado */ }
+    try { await probe(SB_URL_PROXY);  SB_URL = SB_URL_PROXY;  } catch (e) { SB_URL = SB_URL_DIRECT; }
+    return SB_URL;
+  }
+
   async function rest(table, select, filter, useAuth, order) {
     const PAGE = 1000; let off = 0, out = [];
     const ord = order || String(select).split(',')[0];
@@ -1317,7 +1333,7 @@
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth, setComp, comp: () => COMP };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth, setComp, comp: () => COMP, pickBase: pickApiBase, apiBase: () => SB_URL };
 })();
 
 </script>
@@ -7853,7 +7869,9 @@ async function adminRemoveLeagueMember(lid, memberCode) {
 }
 
 updatePrebetDeadlineText();
-init();
+// Decidir a base da API (direto vs proxy) ANTES de qualquer chamada de dados.
+// Se algo correr mal na deteção, segue na mesma para o init() com a base direta.
+(async () => { try { if (window.UPSB && UPSB.pickBase) await UPSB.pickBase(); } catch (e) {} init(); })();
 
 // ════════════════════════════════════════════════
 //  SIMULADOR DE BRACKET
