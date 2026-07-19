@@ -354,8 +354,7 @@
     /* Pódio interativo */
     .pb-podium{display:flex;gap:6px;justify-content:center;align-items:flex-end;padding:16px 8px 0;background:linear-gradient(135deg,rgba(245,197,24,.09),rgba(96,165,250,.05));border:1px solid rgba(245,197,24,.22);border-radius:12px;margin-bottom:6px}
     .pb-pod-item{display:flex;flex-direction:column;align-items:center;flex:1;max-width:140px;gap:3px;cursor:pointer;transition:transform .15s}
-    .pb-pod-item:not(.ro):hover{transform:translateY(-3px)}
-    .pb-pod-item.ro{cursor:default}
+    .pb-pod-item:hover{transform:translateY(-3px)}
     .pb-pod-medal{font-size:1.15rem}
     .pb-pod-flag{margin:1px 0}
     .pb-pod-name{font-size:.66rem;font-weight:700;color:var(--text);text-align:center;line-height:1.15;font-family:'Rajdhani',sans-serif;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
@@ -5276,7 +5275,7 @@ function renderPrebets(){
   html+=`</div>`;
 
   // ── PÓDIO (Campeão / Vice / 3º) ──
-  html+=`<div class="pb-phase">🏆 Pódio Final <small>${closed?'as tuas escolhas':'toca em cada lugar para escolher'}</small></div>`;
+  html+=`<div class="pb-phase">🏆 Pódio Final <small>${closed?'toca num lugar para ver as apostas de todos':'toca em cada lugar para escolher'}</small></div>`;
   html+=renderPrebetPodium(closed);
 
   // ── MELHOR MARCADOR ──
@@ -5288,17 +5287,20 @@ function renderPrebets(){
   const scorerHit=closed&&actualScorer&&scVal===actualScorer;
   const scorerMiss=closed&&actualScorer&&!!scVal&&scVal!==actualScorer;
   const scorerBg=scorerHit?'background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.4)':scorerMiss?'background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.3)':'';
-  html+=`<div class="pb-phase">⚽ Melhor Marcador <small>${closed&&actualScorer?(scorerHit?'✓ +5 pts':'✗ 0 pts'):'+5 pts'}</small></div>
-  <div class="card" style="${scorerBg}">
+  html+=`<div class="pb-phase">⚽ Melhor Marcador <small>${closed?(actualScorer?(scorerHit?'✓ +5 pts · ver todos':'✗ 0 pts · ver todos'):'toca para ver as apostas de todos'):'+5 pts'}</small></div>
+  <div class="card" style="${scorerBg}${closed?';cursor:pointer':''}" ${closed?'onclick="openSpecialModal(\'top_scorer\')"':''}>
     <div class="form-group" style="margin:0">
-      ${closed&&scVal
+      ${closed
         ?`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
             <div>
               <div style="font-size:.7rem;color:var(--sub);margin-bottom:2px">A tua aposta</div>
-              <div style="font-weight:700;font-size:.9rem;${scorerHit?'color:var(--green)':scorerMiss?'color:#ef4444':''}">${scVal}${scorerHit?' ✓':scorerMiss?' ✗':''}</div>
+              <div style="font-weight:700;font-size:.9rem;${scorerHit?'color:var(--green)':scorerMiss?'color:#ef4444':''}">${scVal||'—'}${scorerHit?' ✓':scorerMiss?' ✗':''}</div>
               ${scorerMiss?`<div style="font-size:.7rem;color:var(--sub);margin-top:3px">Vencedor: <strong style="color:var(--text)">${actualScorer}</strong></div>`:''}
             </div>
-            ${actualScorer?`<span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;${scorerHit?'color:var(--green)':'color:#ef4444'}">${scorerHit?'+5':'0'}pts</span>`:''}
+            <div style="display:flex;align-items:center;gap:8px">
+              ${actualScorer?`<span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;${scorerHit?'color:var(--green)':'color:#ef4444'}">${scorerHit?'+5':'0'}pts</span>`:''}
+              <span class="pb-grp-hint">👆 ver todos</span>
+            </div>
           </div>`
         :`<select class="form-select" style="margin-bottom:6px" onchange="onScorerTeamChange(this.value)" ${closed?'disabled':''}>
             <option value="">— 1º Selecionar equipa —</option>
@@ -5407,7 +5409,9 @@ function renderPrebetPodium(closed){
     // Mostrar equipa real abaixo se erramos
     const actualHint=miss&&actual?`<div style="font-size:.5rem;color:var(--sub);margin-top:1px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">${actual}</div>`:'';
 
-    h+=`<div class="pb-pod-item ${s.cls}${closed?' ro':''}" style="${extraStyle}" ${closed?'':`onclick="openPodiumPicker('${s.k}')"`}>
+    if(closed)extraStyle+=(extraStyle?';':'')+'cursor:pointer';
+
+    h+=`<div class="pb-pod-item ${s.cls}${closed?' ro':''}" style="${extraStyle}" onclick="${closed?`openSpecialModal('${s.k}')`:`openPodiumPicker('${s.k}')`}">
       <div class="pb-pod-medal">${s.medal}</div>
       ${flag}
       ${name}
@@ -6695,6 +6699,87 @@ function openGroupModal(grp) {
       🏆 Pontuações calculadas após o grupo terminar.
     </div>`;
   }
+  document.getElementById('modal-body').innerHTML=html;
+  openModal();
+}
+
+// ── Modal das pré-apostas especiais (pódio + melhor marcador) ──
+// Mostra a aposta de cada participante e se acertou/falhou, no mesmo formato
+// do openGroupModal. key ∈ champion | runner_up | third | top_scorer.
+const SPECIAL_META={
+  champion :{title:'🏆 Campeão do Mundo', pts:8, team:true },
+  runner_up:{title:'🥈 Vice-Campeão',     pts:5, team:true },
+  third    :{title:'🥉 3.º Classificado',  pts:3, team:true },
+  top_scorer:{title:'⚽ Melhor Marcador',  pts:5, team:false}
+};
+function openSpecialModal(key){
+  const meta=SPECIAL_META[key]; if(!meta)return;
+  const actual=(S.specials&&S.specials[key])||null;
+  const done=!!actual;
+
+  document.getElementById('modal-title').textContent=`Pré-Apostas — ${meta.title}`;
+  document.getElementById('modal-subtitle').textContent=done
+    ? `Resultado: ${actual}`
+    : `Ainda por decidir · vale ${meta.pts} pts`;
+
+  const rawUsers=S.demoMode?DEMO_USERS:(S.lb.length?S.lb:S.participants);
+
+  // Aposta de um user para esta chave
+  function betOf(u){
+    if(S.demoMode){
+      const seed=u.code.split('').reduce((a,c)=>a+c.charCodeAt(0)*17,3);
+      const rnd=seededRng(seed+key.length*911);
+      return meta.team?ALL_TEAMS[Math.floor(rnd()*ALL_TEAMS.length)]:'';
+    }
+    const upb=(S.allPrebets&&S.allPrebets[u.code])||(S.user&&u.code===S.user.code?S.prebets:{});
+    return upb[key]||'';
+  }
+
+  // Ordenar: acertos primeiro, depois quem apostou, depois ordem do LB
+  const users=[...rawUsers].sort((a,b)=>{
+    const ha=done&&betOf(a)===actual?1:0, hb=done&&betOf(b)===actual?1:0;
+    if(ha!==hb)return hb-ha;
+    const fa=betOf(a)?1:0, fb=betOf(b)?1:0;
+    if(fa!==fb)return fb-fa;
+    return rawUsers.indexOf(a)-rawUsers.indexOf(b);
+  });
+
+  let nHit=0;
+  let html=`<table class="modal-table"><thead><tr>
+    <th class="th-left">Jogador</th>
+    <th>Aposta</th>
+    ${done?`<th style="color:var(--gold)">Pts</th>`:''}
+  </tr></thead><tbody>`;
+
+  users.forEach(u=>{
+    const bet=betOf(u);
+    const isMe=S.user&&u.name===S.user.name;
+    const hit=done&&!!bet&&bet===actual;
+    const miss=done&&!!bet&&bet!==actual;
+    if(hit)nHit++;
+    const cellStyle=!bet
+      ?`font-weight:600;font-size:.82rem;color:var(--sub)`
+      :`font-weight:700;font-size:.82rem;${hit?'color:var(--green)':miss?'color:#ef4444':''}`;
+    const flag=(meta.team&&bet)?`${pbFlag(bet,18,13)} `:'';
+    const ptsBadge=done
+      ?`<td style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;${hit?'color:var(--green)':'color:#ef4444'}">${hit?'+'+meta.pts:'0'}</td>`
+      :'';
+    html+=`<tr class="${isMe?'row-me':''}">
+      <td class="td-left">${u.name}${isMe?' <span class="me-tag">(tu)</span>':''}</td>
+      <td style="${cellStyle}"><span style="display:inline-flex;align-items:center;gap:5px">${flag}${bet||'—'}${hit?' ✓':miss?' ✗':''}</span></td>
+      ${ptsBadge}
+    </tr>`;
+  });
+
+  html+=`</tbody></table>`;
+  html+=done
+    ?`<div class="alert alert-info" style="font-size:.76rem;margin-top:14px">
+        ✅ ${nHit} de ${users.length} acertaram · ${meta.pts} pts cada.
+      </div>`
+    :`<div class="alert alert-info" style="font-size:.76rem;margin-top:14px">
+        🏆 Pontuação calculada quando o resultado for conhecido (${meta.pts} pts).
+      </div>`;
+
   document.getElementById('modal-body').innerHTML=html;
   openModal();
 }
