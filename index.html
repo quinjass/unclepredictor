@@ -1362,6 +1362,27 @@
         if (rj && rj.ok) return { success: true, ...rj };
         return { success: false, error: (rj && rj.error) || ('HTTP ' + rr.status), needsForce: !!(rj && rj.needsForce), blocking: (rj && rj.blocking) || [] };
       }
+      // Adicionar utilizador (migração 023). Cria o participante GLOBAL (se
+      // ainda não existir) e inscreve-o na competição atual. Sem conta de login
+      // -> nasce no 1º "esqueci-me da password" (forgot-ensure), como os migrados.
+      if (action === 'addUser') {
+        try {
+          const res = await rpc('rpc_admin_add_user', {
+            p_comp:  COMP,
+            p_code:  (data.code  || '').toUpperCase().trim(),
+            p_name:  (data.name  || '').trim(),
+            p_email: (data.email || '').trim().toLowerCase(),
+          }, true);
+          DB = null;
+          return { success: true, ...(res || {}) };
+        } catch (e) {
+          // Extrai a mensagem 'raise exception' do corpo PostgREST (senão vinha crua).
+          let msg = e.message || 'Erro ao adicionar.';
+          const m = msg.match(/\{[\s\S]*\}/);
+          if (m) { try { const j = JSON.parse(m[0]); if (j && j.message) msg = j.message; } catch (_) {} }
+          return { success: false, error: msg };
+        }
+      }
 
       // Password (Supabase Auth + SMTP)
       if (action === 'forgotPassword') return await forgotPassword(data);
@@ -1373,8 +1394,7 @@
       // devolvia sucesso fabricado: o UI dizia "Removido."/"Adicionado!" e nada
       // acontecia (foi assim que o removeUser passou despercebido desde o
       // cutover). Falhar em voz alta é a única forma de estes buracos aparecerem.
-      // NOTA: 'addUser' também nunca foi portado — passa a falhar visivelmente.
-      // Enquanto não for portado, usar: node manage_user.mjs add --code ...
+      // (O 'addUser' foi portado em 22 Jul — migração 023 + branch acima.)
       console.error('[Supabase] ação NÃO portada:', action);
       return { success: false, error: 'Esta ação ainda não está disponível no sistema novo (' + action + ').', _notYet: true };
     } catch (e) {
@@ -7028,7 +7048,10 @@ async function addUser(){
   try {
     const r=await api('addUser',{password:document.getElementById('admin-pw').value,name,email,code});
     if(!r.success){showToast(r.error||'Erro ao adicionar.','error');return;}
-    showToast(name+' adicionado!','success');
+    let msg=name+' adicionado!';
+    if(r.existed&&r.added_to_competition) msg=name+' já existia — inscrito nesta competição.';
+    else if(r.existed&&!r.added_to_competition) msg=name+' já existia e já era membro desta competição.';
+    showToast(msg,'success');
     document.getElementById('nu-name').value='';
     document.getElementById('nu-email').value='';
     document.getElementById('nu-code').value='';
