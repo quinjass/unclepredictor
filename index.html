@@ -681,13 +681,21 @@
     return COMP;
   }
 
-  // ── NICKNAMES (preparação p/ fase Champions) ──────────────────────────────
-  // O nickname é 1 por CONTA (participants.nickname). Nesta competição mostramos
-  // o nome próprio; na Champions basta trocar UP_DISPLAY_MODE para 'nickname'.
-  //   'name'     -> mostra o nome próprio (Mundial 2026, comportamento atual)
-  //   'nickname' -> mostra o nickname da conta (quando toda a gente já o definiu)
-  const UP_DISPLAY_MODE = 'name';
-  const dispName = (p) => (UP_DISPLAY_MODE === 'nickname' && p && p.nickname) ? p.nickname : (p ? (p.name || '') : '');
+  // ── NICKNAMES / MODO DE EXIBIÇÃO ──────────────────────────────────────────
+  // O nickname é 1 por CONTA (participants.nickname). O modo de exibição é POR
+  // COMPETIÇÃO: o Mundial mostra o NOME próprio; TODAS as outras competições
+  // mostram o NICKNAME (o nome real fica acessível ao clicar no jogador — o
+  // leaderboard transporta sempre realName).
+  //   'name'     -> nome próprio (só o Mundial, WC2026)
+  //   'nickname' -> nickname da conta (Liga PT, Premier, UCL, ...)
+  const NAME_MODE_COMPS = new Set(['WC2026']);
+  const displayMode = () => NAME_MODE_COMPS.has(COMP) ? 'name' : 'nickname';
+  const dispName = (p) => {
+    if (!p) return '';
+    if (displayMode() === 'name') return p.name || '';
+    if (p.is_bot) return p.name || p.nickname || '';      // o bot mantém o nome
+    return p.nickname || p.code || p.name || '';           // fallback: código (nunca vazio)
+  };
 
   // ---- sessão (persistida em localStorage, com refresh) ----
   let SESSION = null;
@@ -999,20 +1007,38 @@
   }
 
   async function login(data) {
-    const email = (data.email || '').toLowerCase();
+    // O identificador pode ser EMAIL ou NICKNAME. Email -> caminho direto (com
+    // JIT migrate-login). Nickname -> Edge Function login-nick, que resolve o
+    // email server-side e autentica sem o expor a passwords erradas.
+    const ident = String((data.identifier != null ? data.identifier : data.email) || '').trim();
     const password = data.password || '';
-    let j = await passwordGrant(email, password);
-    // JIT — migração de password no 1.º login (participantes importados da Sheet).
-    if (!j) {
+    const isEmail = ident.includes('@');
+    let j = null, email = isEmail ? ident.toLowerCase() : '';
+    if (isEmail) {
+      j = await passwordGrant(email, password);
+      // JIT — migração de password no 1.º login (participantes importados da Sheet).
+      if (!j) {
+        try {
+          const mr = await fetch(`${SB_URL}/functions/v1/migrate-login`, {
+            method: 'POST',
+            headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+          const mj = await mr.json().catch(() => ({}));
+          if (mj && mj.ok) j = await passwordGrant(email, password);
+        } catch (e) { /* sem rede / função indisponível -> falha de login normal */ }
+      }
+    } else {
+      // Login por nickname (não expõe o email a quem erra a password).
       try {
-        const mr = await fetch(`${SB_URL}/functions/v1/migrate-login`, {
+        const nr = await fetch(`${SB_URL}/functions/v1/login-nick`, {
           method: 'POST',
           headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ identifier: ident, password }),
         });
-        const mj = await mr.json().catch(() => ({}));
-        if (mj && mj.ok) j = await passwordGrant(email, password);
-      } catch (e) { /* sem rede / função indisponível -> falha de login normal */ }
+        const nj = await nr.json().catch(() => ({}));
+        if (nj && nj.ok && nj.token && nj.token.access_token) { j = nj.token; email = nj.email || ''; }
+      } catch (e) { /* falha de login normal */ }
     }
     if (!j || !j.access_token) return { success: false };
     const sess = { access_token: j.access_token, refresh_token: j.refresh_token,
@@ -1022,9 +1048,9 @@
     const rows = await who.json();
     if (!Array.isArray(rows) || !rows.length) return { success: false, error: 'Conta sem participante associado.' };
     sess.code = rows[0].code; sess.realName = rows[0].name; sess.nickname = rows[0].nickname || null;
-    sess.name = dispName({ name: rows[0].name, nickname: sess.nickname }); sess.email = data.email;
+    sess.name = dispName({ name: rows[0].name, nickname: sess.nickname }); sess.email = email || '';
     saveSession(sess); DB = null;
-    return { success: true, code: sess.code, name: sess.name, nickname: sess.nickname, email: data.email };
+    return { success: true, code: sess.code, name: sess.name, realName: sess.realName, nickname: sess.nickname, email: sess.email };
   }
 
   // ---- RECUPERAÇÃO / ALTERAÇÃO de password (Supabase Auth + SMTP) -----------
@@ -1161,7 +1187,7 @@
     sess.code = row.code; sess.realName = row.name; sess.nickname = row.nickname || null;
     sess.name = dispName({ name: row.name, nickname: sess.nickname }); sess.email = email;
     saveSession(sess); DB = null;
-    return { success: true, code: sess.code, name: sess.name, nickname: sess.nickname, email };
+    return { success: true, code: sess.code, name: sess.name, realName: sess.realName, nickname: sess.nickname, email };
   }
 
   // ---- ESCRITAS do loop de apostas (RLS valida ownership/membership/prazo) ----
@@ -1565,6 +1591,19 @@
   </div>
 </div>
 
+<!-- Nickname obrigatório (competições não-Mundial) -->
+<div class="switcher-overlay" id="nick-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">🏷️ Escolhe o teu nickname</div>
+    <div style="font-size:.8rem;color:var(--sub);margin-bottom:16px;line-height:1.5">Nesta competição os jogadores aparecem pelo <strong>nickname</strong> (o teu nome só fica visível ao clicar no teu perfil). Escolhe o teu para continuar.</div>
+    <div class="form-group"><label class="form-label">Nickname <span style="color:var(--sub);font-weight:400">(3–20 caracteres: letras, números, . _ -)</span></label>
+      <input class="form-input" id="nick-input" type="text" maxlength="20" placeholder="ex.: rui_10" autocomplete="off" onkeydown="if(event.key==='Enter')saveNick()"></div>
+    <div id="nick-error" style="display:none" class="alert alert-error"></div>
+    <button class="btn btn-primary btn-full" onclick="saveNick()" id="nick-save-btn">Guardar e entrar</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.8rem" onclick="cancelNick()">Cancelar</button>
+  </div>
+</div>
+
 <!-- Bottom Nav (6 tabs) -->
 <nav class="bottom-nav" id="bottom-nav" style="display:none">
   <button class="nav-btn" onclick="showView('leaderboard')" id="nav-leaderboard">
@@ -1636,8 +1675,8 @@
       <img src="https://unclepredictor.pt/logo.png" alt="Uncle Predictor" class="logo-img">
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
       <div class="card" style="text-align:left">
-        <div class="form-group"><label class="form-label">Email</label>
-          <input class="form-input" id="login-email" type="email" name="username" placeholder="o-teu@email.com" autocomplete="off" onkeydown="if(event.key==='Enter'){loginReady=true;login();}"></div>
+        <div class="form-group"><label class="form-label">Email ou nickname</label>
+          <input class="form-input" id="login-email" type="text" name="username" placeholder="o-teu@email.com ou o teu nickname" autocomplete="off" onkeydown="if(event.key==='Enter'){loginReady=true;login();}"></div>
         <div class="form-group" style="margin-bottom:6px"><label class="form-label">Password</label>
           <input class="form-input" id="login-pw" type="password" name="password" placeholder="A tua password" autocomplete="off" onkeydown="if(event.key==='Enter'){loginReady=true;login();}"></div>
         <div style="text-align:right;margin-bottom:16px">
@@ -2960,7 +2999,7 @@ async function init() {
       history.replaceState({}, '', window.location.pathname);
       const r = await UPSB.completeOAuth(_h.get('access_token'), _h.get('refresh_token') || '', _h.get('expires_in'));
       if (r && r.success) {
-        localStorage.setItem('up26_user', JSON.stringify({ name: r.name, code: r.code, email: r.email }));
+        localStorage.setItem('up26_user', JSON.stringify({ name: r.name, realName: r.realName||r.name, nickname: r.nickname||null, code: r.code, email: r.email }));
         track('login',{method:'google'});
       } else {
         setTimeout(() => showLoginErr((r && r.error) || 'Falha no login com Google.'), 400);
@@ -2989,6 +3028,12 @@ async function init() {
   if (saved) {
     loginReady = true; // sessão restaurada automaticamente — flag não é necessária
     S.user = JSON.parse(saved);
+    // Enriquecer sessões antigas (podem não ter realName/nickname guardados) a
+    // partir da sessão do adapter, para o display por-competição funcionar.
+    if(S.user){
+      if(S.user.realName==null) S.user.realName=S.user.name;
+      if(S.user.nickname===undefined){ try{ const _s=window.UPSB&&UPSB.session(); S.user.nickname=(_s&&_s.nickname)||null; }catch(e){ S.user.nickname=null; } }
+    }
     const sp = localStorage.getItem('up26_preds_'+S.user.code);
     if (sp) S.preds = JSON.parse(sp);
     const sc = localStorage.getItem('up26_saved_'+S.user.code);
@@ -3044,15 +3089,15 @@ async function init() {
 // ════════════════════════════════════════════════
 async function login() {
   if (!loginReady) return;
-  const email = document.getElementById('login-email').value.trim();
+  const ident = document.getElementById('login-email').value.trim();
   const pw    = document.getElementById('login-pw').value;
-  if (!email || !pw) { showLoginErr('Preenche o email e a password.'); return; }
+  if (!ident || !pw) { showLoginErr('Preenche o email/nickname e a password.'); return; }
   const btn = document.getElementById('login-btn');
   btn.textContent = 'A verificar...'; btn.disabled = true;
   try {
-    const r = await api('login', {email, password: pw});
+    const r = await api('login', {identifier: ident, password: pw});
     if (r.success) {
-      S.user = {name: r.name, code: r.code, email: r.email};
+      S.user = {name: r.name, realName: r.realName||r.name, nickname: r.nickname||null, code: r.code, email: r.email};
       setGaUser(S.user.code); track('login',{method:'manual'});
       localStorage.setItem('up26_user', JSON.stringify(S.user));
       const sc = localStorage.getItem('up26_saved_'+S.user.code);
@@ -3062,7 +3107,7 @@ async function login() {
       loadData();         // buscar em paralelo (atualiza o nº de inscritos)
       loadMyLeagues();
     } else {
-      showLoginErr('Email ou password incorretos.');
+      showLoginErr('Email/nickname ou password incorretos.');
     }
   } catch(e) { showLoginErr('Erro de ligação.'); }
   btn.textContent = 'Entrar no jogo'; btn.disabled = false;
@@ -3210,10 +3255,12 @@ async function submitResetPw() {
 }
 
 function showAccountMenu(){
-  document.getElementById('account-name').textContent=S.user?S.user.name:'—';
+  // O menu da conta é o perfil do próprio — mostra sempre o NOME real (+ nickname).
+  document.getElementById('account-name').textContent=S.user?(S.user.realName||S.user.name):'—';
   const infoEl=document.getElementById('account-info');
+  const nickLine=(S.user&&S.user.nickname)?('@'+S.user.nickname+' · '):'';
   const emailLine=S.user&&S.user.email?S.user.email+' · ':'';
-  infoEl.textContent=emailLine+'Liga: '+(S.curLeague?S.curLeague.name:'Global');
+  infoEl.textContent=nickLine+emailLine+'Liga: '+(S.curLeague?S.curLeague.name:'Global');
   document.getElementById('account-menu-overlay').classList.add('open');
 }
 function closeAccountMenu(){document.getElementById('account-menu-overlay').classList.remove('open');}
@@ -3473,15 +3520,35 @@ const isLeagueComp=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !
 // Competições cujo formato ainda não tem vista construída (só o Mundial 'cup' tem).
 const compHasNoView=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !!(c&&c.format&&c.format!=='cup');};
 const UP_DEV=()=>{try{return /[?#&]dev\b/.test(location.href)||localStorage.getItem('up_dev')==='1';}catch(e){return /[?#&]dev\b/.test(location.href);}};
+// ── Nome de exibição do PRÓPRIO consoante a competição atual ────────────────
+// Mundial (WC2026) -> nome real; restantes -> nickname (fallback: código). O
+// S.user.name é mantido em sincronia com o modo da competição para que a
+// deteção de "sou eu" na classificação (que compara nomes) continue a bater.
+function isNameModeComp(){ try{ return !window.UPSB || UPSB.comp()==='WC2026'; }catch(e){ return true; } }
+function selfDisplayName(){
+  if(!S.user) return '';
+  if(isNameModeComp()) return S.user.realName||S.user.name||'';
+  return S.user.nickname||S.user.code||S.user.realName||'';
+}
+function refreshSelfName(){
+  if(!S.user) return;
+  S.user.name=selfDisplayName();
+  try{ localStorage.setItem('up26_user',JSON.stringify(S.user)); }catch(e){}
+  try{ const up=document.getElementById('user-pill'); if(up) up.textContent='👤 '+S.user.name; }catch(e){}
+  try{ const cup=document.getElementById('comp-user-pill'); if(cup) cup.textContent='👤 '+S.user.name; }catch(e){}
+}
 function showCompetitions(){
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-competitions').classList.add('active');
   document.getElementById('header').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
   S.curView='competitions';
-  const first=S.user&&S.user.name?S.user.name.split(' ')[0]:'';
-  document.getElementById('comp-hello').textContent=first||(S.user?S.user.name:'');
-  document.getElementById('comp-user-pill').textContent='👤 '+(S.user?S.user.name:'');
+  // A página de seleção é o "hub" da conta — mostra SEMPRE o nome real (não o
+  // nickname), independentemente da última competição visitada.
+  const _disp=S.user?(S.user.realName||S.user.name||''):'';
+  const first=_disp?_disp.split(' ')[0]:'';
+  document.getElementById('comp-hello').textContent=first||_disp;
+  document.getElementById('comp-user-pill').textContent='👤 '+_disp;
   renderCompetitions(); // render imediato (cache/defaults)
   // dados frescos do backend (estado de inscrição + nº de inscritos por competição)
   if(!S.demoMode && S.user && S.user.code){
@@ -3538,6 +3605,13 @@ async function enterCompetition(id){
   S.leagueMode=compHasNoView(S.competition); // liga/híbrido → GAMES vem da BD
   // aponta o motor de dados à competição escolhida (Mundial = no-op)
   try{ if(window.UPSB&&UPSB.setComp) UPSB.setComp(COMP_DB_ID[S.competition]||'WC2026'); }catch(e){}
+  // Competições que não o Mundial mostram o NICKNAME. Obriga a defini-lo (uma
+  // vez por conta) antes de entrar. Se o utilizador cancelar, volta ao hub.
+  if(!isNameModeComp() && S.user && !S.user.nickname){
+    const ok=await ensureNickname();
+    if(!ok){ showCompetitions(); return; }
+  }
+  refreshSelfName(); // nome do próprio passa a nickname (ou volta a nome no Mundial)
   if(!S.leagueMode) GAMES=_GAMES_WC;
   S.curMD = S.leagueMode ? 1 : (S.curMD||1);
   // Ao trocar de competição, as ligas privadas são POR competição — limpa a
@@ -3546,6 +3620,41 @@ async function enterCompetition(id){
   try{ await loadData(); }catch(e){}
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
+}
+// ── Nickname obrigatório (modal bloqueante; devolve Promise<boolean>) ────────
+let _nickResolve=null;
+function ensureNickname(){
+  return new Promise(resolve=>{
+    _nickResolve=resolve;
+    const inp=document.getElementById('nick-input');
+    if(inp) inp.value=(S.user&&S.user.nickname)?S.user.nickname:'';
+    const err=document.getElementById('nick-error'); if(err) err.style.display='none';
+    document.getElementById('nick-overlay').classList.add('open');
+    setTimeout(()=>{try{inp&&inp.focus();}catch(e){}},50);
+  });
+}
+async function saveNick(){
+  const v=(document.getElementById('nick-input').value||'').trim();
+  const err=document.getElementById('nick-error');
+  if(!/^[A-Za-z0-9_.\-]{3,20}$/.test(v)){ err.textContent='Usa 3–20 caracteres: letras, números, . _ -'; err.style.display='block'; return; }
+  const btn=document.getElementById('nick-save-btn'); btn.disabled=true; btn.textContent='A guardar...';
+  try{
+    const r=await api('saveNickname',{nickname:v});
+    if(r&&r.success){
+      S.user.nickname=r.nickname||v;
+      try{ localStorage.setItem('up26_user',JSON.stringify(S.user)); }catch(e){}
+      document.getElementById('nick-overlay').classList.remove('open');
+      btn.disabled=false; btn.textContent='Guardar e entrar';
+      if(_nickResolve){ _nickResolve(true); _nickResolve=null; }
+    } else {
+      err.textContent=(r&&r.error)||'Não foi possível guardar. Tenta outro.'; err.style.display='block';
+      btn.disabled=false; btn.textContent='Guardar e entrar';
+    }
+  }catch(e){ err.textContent='Erro de ligação.'; err.style.display='block'; btn.disabled=false; btn.textContent='Guardar e entrar'; }
+}
+function cancelNick(){
+  document.getElementById('nick-overlay').classList.remove('open');
+  if(_nickResolve){ _nickResolve(false); _nickResolve=null; }
 }
 async function registerToCompetition(id){
   const c=(S.competitions||[]).find(x=>x.id===id);
@@ -6304,7 +6413,15 @@ function openPlayerModal(playerName) {
   const _fromModal=document.getElementById('modal-overlay').classList.contains('open');
   const isMe = S.user && playerName.toLowerCase()===S.user.name.toLowerCase();
   document.getElementById('modal-title').textContent = isMe ? 'As minhas apostas' : `Apostas de ${playerName}`;
-  document.getElementById('modal-subtitle').textContent = 'Jogos terminados e jogos com apostas já fechadas';
+  // Em competições por nickname, revela o NOME real no subtítulo (só ao clicar).
+  let _sub = 'Jogos terminados e jogos com apostas já fechadas';
+  try{
+    if(!isMe && !isNameModeComp()){
+      const _e=(S.lb||[]).find(p=>p.name&&p.name.toLowerCase()===playerName.toLowerCase());
+      if(_e&&_e.realName&&_e.realName.toLowerCase()!==String(playerName).toLowerCase()) _sub='👤 '+_e.realName+' · '+_sub;
+    }
+  }catch(_){}
+  document.getElementById('modal-subtitle').textContent = _sub;
   document.getElementById('modal-body').innerHTML = buildPlayerBetsHtml(playerName);
   _modalNavTrack(_fromModal,()=>openPlayerModal(playerName));
   openModal();
@@ -7351,9 +7468,10 @@ async function api(action,data){
 
 function mockApi(action,data){
   if(action==='login'){
-    // Em modo demo: aceita qualquer email com password >= 6 chars
-    if(!data.email||!data.password||data.password.length<6)return{success:false};
-    const username=(data.email.split('@')[0]||'demo').replace(/[^a-zA-Z]/g,'').toLowerCase();
+    // Em modo demo: aceita qualquer email/nickname com password >= 6 chars
+    const _id=data.identifier||data.email||'';
+    if(!_id||!data.password||data.password.length<6)return{success:false};
+    const username=(_id.split('@')[0]||'demo').replace(/[^a-zA-Z]/g,'').toLowerCase();
     const match=DEMO_USERS.find(u=>u.name.toLowerCase()===username||u.code.toLowerCase().startsWith(username));
     const u=match||DEMO_USERS[0];
     return{success:true,name:u.name,code:u.code,email:data.email};
