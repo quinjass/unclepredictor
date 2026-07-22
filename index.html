@@ -1291,7 +1291,25 @@
       if (action === 'getSimState') { const db = await loadDB(); return { state: null }; }
       if (action === 'getJoinRequests') { const requests = await rpc('rpc_join_requests', { p_comp: COMP }, true); DB = null; return { requests: requests || [] }; }
       if (action === 'getLeagueInvites') return { invites: [] };
-      if (action === 'getCompetitions') return { success: true }; // sem chave 'competitions' -> frontend mantém a sua lista default
+      // Estado real das competições (status, nº inscritos, se o user está inscrito).
+      // O frontend funde isto na sua lista (mantém metadados: emblema, subtítulo…).
+      if (action === 'getCompetitions') {
+        try { const state = await rpc('rpc_competitions_state', {}, true); return { success: true, state: state || [] }; }
+        catch (e) { return { success: true, state: [] }; }
+      }
+      // Inscrição do próprio numa competição ativa (migração 025). p_comp = id da BD.
+      if (action === 'registerCompetition') {
+        try {
+          const res = await rpc('rpc_join_competition', { p_comp: (data.competition_id || '').toString() }, true);
+          DB = null;
+          return { success: true, ...(res || {}) };
+        } catch (e) {
+          let msg = e.message || 'Não foi possível inscrever.';
+          const m = msg.match(/\{[\s\S]*\}/);
+          if (m) { try { const j = JSON.parse(m[0]); if (j && j.message) msg = j.message; } catch (_) {} }
+          return { success: false, error: msg };
+        }
+      }
 
       // ---- LIGAS ----
       if (action === 'createLeague') { const league = await rpc('rpc_create_league', { p_comp: COMP, p_name: data.name }, true); DB = null; return { success: true, league }; }
@@ -2925,7 +2943,7 @@ const S = {
   notifs:[], allPreds:{}, allPrebets:{}, notifPrefs:{}, lockedResults:[],
   competition:'mundial2026',
   competitions:[
-    {id:'mundial2026',format:'cup',name:'Mundial 2026',status:'active',subtitle:'11 Jun – 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
+    {id:'mundial2026',format:'cup',name:'Mundial 2026',status:'finished',subtitle:'11 Jun – 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
     {id:'ucl2627',format:'hybrid',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0},
     {id:'ligapt2627',format:'league',name:'Liga Portugal Betclic 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0},
     {id:'pl2627',format:'league',name:'Premier League 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0}
@@ -3547,17 +3565,31 @@ function showCompetitions(){
   document.getElementById('header').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
   S.curView='competitions';
-  // A página de seleção é o "hub" da conta — mostra SEMPRE o nome real (não o
-  // nickname), independentemente da última competição visitada.
-  const _disp=S.user?(S.user.realName||S.user.name||''):'';
-  const first=_disp?_disp.split(' ')[0]:'';
-  document.getElementById('comp-hello').textContent=first||_disp;
-  document.getElementById('comp-user-pill').textContent='👤 '+_disp;
+  // Saudação com o 1º nome real (acolhimento pessoal); o botão de utilizador
+  // (canto sup. direito) mostra o NICKNAME — é a identidade pública da conta.
+  const _real=S.user?(S.user.realName||S.user.name||''):'';
+  const _pill=S.user?(S.user.nickname||_real):'';
+  const first=_real?_real.split(' ')[0]:'';
+  document.getElementById('comp-hello').textContent=first||_real;
+  document.getElementById('comp-user-pill').textContent='👤 '+_pill;
   renderCompetitions(); // render imediato (cache/defaults)
-  // dados frescos do backend (estado de inscrição + nº de inscritos por competição)
+  // dados frescos do backend (estado de inscrição + nº de inscritos por competição).
+  // Funde o estado da BD (por DB id) na lista do frontend, mantendo os metadados
+  // (emblema, subtítulo, stats). Status: 'active'|'finished' sobrepõem; 'draft'
+  // ou inexistente na BD -> mantém o 'soon' do default (inscrições ainda fechadas).
   if(!S.demoMode && S.user && S.user.code){
     api('getCompetitions',{code:S.user.code}).then(r=>{
-      if(r&&r.competitions){ S.competitions=r.competitions; if(S.curView==='competitions')renderCompetitions(); }
+      if(r&&r.state&&r.state.length){
+        const byId={}; r.state.forEach(s=>{ if(s&&s.id) byId[s.id]=s; });
+        (S.competitions||[]).forEach(c=>{
+          const s=byId[COMP_DB_ID[c.id]]; if(!s)return;
+          c.registered=!!s.registered;
+          c.participants=s.participants||0;
+          if(s.status==='active') c.status='active';
+          else if(s.status==='finished') c.status='finished';
+        });
+        if(S.curView==='competitions')renderCompetitions();
+      }
     }).catch(()=>{});
   }
   window.scrollTo(0,0);
@@ -3569,12 +3601,25 @@ function compCard(c){
   </div>`;
   const badge=c.status==='active'
     ?`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(39,174,96,.16);color:#4ade80;border:1px solid rgba(39,174,96,.4)">● A decorrer</span>`
+    :c.status==='finished'
+    ?`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(245,197,24,.16);color:var(--gold);border:1px solid rgba(245,197,24,.45)">✓ Terminado</span>`
     :`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(122,155,181,.14);color:var(--sub);border:1px solid var(--border)">Brevemente</span>`;
   const head=`<div style="display:flex;align-items:center;gap:14px">${emblem}
     <div style="flex:1;min-width:0">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.22rem;line-height:1.1">${c.name} &nbsp;${badge}</div>
       <div style="color:var(--sub);font-size:.8rem;margin-top:3px">${c.subtitle||''}</div>
     </div></div>`;
+  // Terminada: mostra o cartão com badge "Terminado" e deixa entrar para ver o
+  // histórico/classificação final. Sem inscrição.
+  if(c.status==='finished'){
+    const stF=c.stats||{};
+    const statF=(v,l)=>`<div><b style="display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">${v}</b>${l}</div>`;
+    const statsF=`<div style="display:flex;gap:16px;font-size:.74rem;color:var(--sub)">
+      ${statF(c.participants||0,'inscritos')}${stF.teams?statF(stF.teams,'seleções'):''}${stF.games?statF(stF.games,'jogos'):''}
+    </div>`;
+    return `<div onclick="enterCompetition('${c.id}')" style="position:relative;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;cursor:pointer">${head}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">${statsF}<button class="btn btn-outline" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();enterCompetition('${c.id}')">Ver classificação →</button></div></div>`;
+  }
   if(c.status!=='active'){
     const devBtn=UP_DEV()?`<div style="margin-top:12px"><button class="btn btn-outline" style="font-size:.75rem;padding:7px 14px" onclick="event.stopPropagation();enterCompetition('${c.id}')">🧪 Entrar (teste)</button></div>`:'';
     return `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:14px;opacity:${UP_DEV()?'.85':'.62'}">${head}
@@ -3595,16 +3640,19 @@ function compCard(c){
 function renderCompetitions(){
   const list=S.competitions||[];
   const active=list.filter(c=>c.status==='active');
-  const soon=list.filter(c=>c.status!=='active');
+  const finished=list.filter(c=>c.status==='finished');
+  const soon=list.filter(c=>c.status!=='active'&&c.status!=='finished');
   const label=t=>`<div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:8px 4px 10px">${t}</div>`;
   let html='';
   if(active.length){ html+=label('A decorrer'); active.forEach(c=>html+=compCard(c)); }
+  if(finished.length){ html+=label('Terminadas'); finished.forEach(c=>html+=compCard(c)); }
   if(soon.length){ html+=label('Em breve'); soon.forEach(c=>html+=compCard(c)); }
   const el=document.getElementById('competitions-list'); if(el)el.innerHTML=html;
 }
 async function enterCompetition(id){
   const c=(S.competitions||[]).find(x=>x.id===id);
-  if(c && c.status!=='active' && !UP_DEV())return; // só entra se ativa (ou modo dev p/ teste)
+  // Entra se ativa OU terminada (ver histórico). 'soon'/'draft' só em modo dev.
+  if(c && c.status!=='active' && c.status!=='finished' && !UP_DEV())return;
   S.competition=id||'mundial2026';
   S.leagueMode=compHasNoView(S.competition); // liga/híbrido → GAMES vem da BD
   // aponta o motor de dados à competição escolhida (Mundial = no-op)
@@ -3662,9 +3710,10 @@ async function registerToCompetition(id){
   const c=(S.competitions||[]).find(x=>x.id===id);
   if(c && c.status!=='active'){showToast('As inscrições para esta competição ainda não abriram.','error');return;}
   try{
-    const r=await api('registerCompetition',{code:S.user.code,competition_id:id});
+    // envia o id da BASE DE DADOS (a RPC valida por current_code(), não confia no cliente)
+    const r=await api('registerCompetition',{competition_id:COMP_DB_ID[id]||id});
     if(r&&r.success===false){showToast(r.error||'Não foi possível inscrever.','error');return;}
-    if(c)c.registered=true;
+    if(c){c.registered=true; c.participants=(c.participants||0)+1;}
     showToast('Inscrição feita! Bem-vindo à competição.','success');
     enterCompetition(id);
   }catch(e){showToast('Erro de ligação.','error');}
