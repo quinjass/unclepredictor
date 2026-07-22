@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Uncle Predictor — Mundial 2026</title>
+  <title>Uncle Predictor</title>
 
   <!-- Google AdSense — verificação de propriedade + loader (ca-pub-7065183055996289).
        As unidades de anúncio serão colocadas depois e só renderizam no browser (não na app). -->
@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 
   <!-- Open Graph (WhatsApp, Facebook, iMessage, etc.) -->
-  <meta property="og:title" content="Uncle Predictor — Mundial 2026">
+  <meta property="og:title" content="Uncle Predictor">
   <meta property="og:description" content="Faz as tuas previsões, ganha pontos, lidera a classificação.">
   <meta property="og:image" content="https://unclepredictor.pt/logo.png">
   <meta property="og:url" content="https://unclepredictor.pt/">
@@ -23,7 +23,7 @@
 
   <!-- Twitter/X card -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Uncle Predictor — Mundial 2026">
+  <meta name="twitter:title" content="Uncle Predictor">
   <meta name="twitter:description" content="Faz as tuas previsões, ganha pontos, lidera a classificação.">
   <meta name="twitter:image" content="https://unclepredictor.pt/logo.png">
 
@@ -1637,7 +1637,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Apostas
   </button>
   <button class="nav-btn" onclick="showView('mundial')" id="nav-mundial">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Mundial
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Real
   </button>
   <button class="nav-btn" onclick="showView('sim')" id="nav-sim">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Simul.
@@ -1882,7 +1882,7 @@
           </div>
 
           <div class="card">
-            <div class="rules-subtitle">🌎 Formato Mundial 2026</div>
+            <div class="rules-subtitle" id="rules-sub-1">🌎 Formato Mundial 2026</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
               <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center">
                 <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">48</div>
@@ -2083,7 +2083,7 @@
   <div class="view" id="view-mundial">
     <div class="section-title">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-      Mundial 2026
+      <span id="view-mundial-title">Mundial 2026</span>
     </div>
     <div class="alert alert-info" style="font-size:.74rem;margin-bottom:12px">📡 Classificações e bracket calculados a partir dos resultados oficiais — a mesma fonte das pontuações das apostas.</div>
     <div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:8px">📊 Classificação por Grupo</div>
@@ -2281,7 +2281,7 @@
 
     <!-- Formato do torneio -->
     <div class="card">
-      <div class="rules-subtitle">🌎 Formato Mundial 2026</div>
+      <div class="rules-subtitle" id="rules-sub-2">🌎 Formato Mundial 2026</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
         <div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center">
           <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:var(--gold)">48</div>
@@ -3409,7 +3409,11 @@ async function adminLogin() {
 // "Mundial" para um rótulo genérico (rename definitivo p/ "Real" num incremento futuro).
 function setupLeagueNav(){
   const sim=document.getElementById('nav-sim'); if(sim) sim.style.display=S.leagueMode?'none':'';
-  const mnav=document.getElementById('nav-mundial'); if(mnav&&mnav.lastChild&&mnav.lastChild.nodeType===3) mnav.lastChild.textContent=S.leagueMode?'Real':'Mundial';
+  const mnav=document.getElementById('nav-mundial'); if(mnav&&mnav.lastChild&&mnav.lastChild.nodeType===3) mnav.lastChild.textContent='Real';
+  // Branding condicionado por competição: a palavra "Mundial" só aparece na competição WC2026.
+  const subMundial='🌎 Formato Mundial 2026', subLiga='⚽ Formato da competição';
+  ['rules-sub-1','rules-sub-2'].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent=S.leagueMode?subLiga:subMundial;});
+  const vh=document.getElementById('view-mundial-title'); if(vh) vh.textContent=S.leagueMode?'Classificação':'Mundial 2026';
 }
 function showApp() {
   // Ligas/UCL reutilizam a app do Mundial (Incremento 1): mesmas tabs, cards e
