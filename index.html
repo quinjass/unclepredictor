@@ -2204,7 +2204,7 @@
     </div>
 
     <!-- Duelos -->
-    <div class="card">
+    <div class="card" id="rules-duels-card">
       <div class="rules-subtitle">⚔️ Duelos Head-to-Head</div>
       <div style="font-size:.8rem;line-height:1.7;color:var(--text)">
         <div style="padding:5px 0;border-bottom:1px solid var(--border)">⚔️ Em cada jornada (J1–J3 e cada ronda KO) és <strong>sorteado contra outro membro da tua liga</strong>. O sorteio é aleatório mas igual para todos — podes ver o teu adversário na Classificação antes da jornada começar.</div>
@@ -3452,6 +3452,8 @@ async function adminLogin() {
 // "Mundial" para um rótulo genérico (rename definitivo p/ "Real" num incremento futuro).
 function setupLeagueNav(){
   const sim=document.getElementById('nav-sim'); if(sim) sim.style.display=S.leagueMode?'none':'';
+  const dnav=document.getElementById('nav-duels'); if(dnav) dnav.style.display=S.leagueMode?'none':''; // Duelos só no Mundial
+  const drul=document.getElementById('rules-duels-card'); if(drul) drul.style.display=S.leagueMode?'none':'';
   const mnav=document.getElementById('nav-mundial'); if(mnav&&mnav.lastChild&&mnav.lastChild.nodeType===3) mnav.lastChild.textContent='Real';
   // Branding condicionado por competição: a palavra "Mundial" só aparece na competição WC2026.
   const subMundial='🌎 Formato Mundial 2026', subLiga='⚽ Formato da competição';
@@ -3812,6 +3814,7 @@ function showLeaguePicker() {
 
 function showView(v) {
   if(v==='sim' && S.leagueMode) v='bets'; // Simulador não se aplica a ligas
+  if(v==='duels' && S.leagueMode) v='leaderboard'; // Duelos só no Mundial (WC2026)
   if(S.curView==='bets' && v!=='bets' && S.pending){
     // AUTOSAVE (Sessão B): dispara já o que está em debounce (grava em fundo);
     // só avisa se ficarem apostas INCOMPLETAS (falta um dos resultados)
