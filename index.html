@@ -2000,7 +2000,7 @@
         <div style="display:flex;align-items:center;gap:9px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem">
           <span style="width:30px;height:30px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#10202f">⚽</span> Uncle Predictor
         </div>
-        <span id="comp-user-pill" style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-size:.78rem;color:var(--sub)">👤</span>
+        <span id="comp-user-pill" onclick="showAccountMenu()" style="cursor:pointer;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-size:.78rem;color:var(--sub)">👤</span>
       </div>
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;margin:14px 2px 2px">Olá, <span id="comp-hello" style="color:var(--gold)">—</span> 👋</div>
       <div style="color:var(--sub);font-size:.9rem;margin:0 2px 18px;line-height:1.5">Escolhe a competição em que queres jogar. Cada uma tem a sua própria classificação, ligas e apostas.</div>
@@ -3342,34 +3342,77 @@ function buildPalmaresStats(){
   const total=lb.filter(p=>p.code!=='BOT_IA').length; // inscritos (humanos)
   return {rank:meIdx+1,total,points:me.total||0,games:me.games!==undefined?me.games:0,gold,silver,bronze};
 }
-function showPalmares(){
-  const list=(S.competitions||[]).filter(c=>c.registered);
-  const stats=buildPalmaresStats();
+// Standing (posição/pontos/jogos) de UM leaderboard qualquer, sem medalhas.
+// Usado para as competições que não são a atualmente carregada.
+function palmStandingFrom(lb){
+  if(!lb||!lb.length||!S.user)return null;
+  const sorted=[...lb].sort(lbCompare);
+  const meIdx=sorted.findIndex(p=>p.code===S.user.code);
+  if(meIdx<0)return null;
+  const me=sorted[meIdx];
+  const total=lb.filter(p=>p.code!=='BOT_IA').length;
+  return {rank:meIdx+1,total,points:me.total||0,games:me.games!==undefined?me.games:0};
+}
+// Vai buscar o leaderboard de uma competição (por dbId) sem perturbar o estado
+// visível da app: comuta o COMP no adapter, lê, e restaura logo a seguir.
+// Cache por sessão para não repetir leituras pesadas.
+async function palmFetchStanding(dbId){
+  S._palmCache=S._palmCache||{};
+  if(Object.prototype.hasOwnProperty.call(S._palmCache,dbId)) return S._palmCache[dbId];
+  const prev=(window.UPSB&&UPSB.comp)?UPSB.comp():null;
+  let st=null;
+  try{
+    if(window.UPSB&&UPSB.setComp) UPSB.setComp(dbId);
+    const r=await api('getData',{code:S.user.code});
+    st=palmStandingFrom(r&&r.lb);
+  }catch(e){ st=null; }
+  finally{
+    try{ if(window.UPSB&&UPSB.setComp&&prev) UPSB.setComp(prev); if(window.UPSB&&UPSB.invalidate)UPSB.invalidate(); }catch(e){}
+  }
+  S._palmCache[dbId]=st;
+  return st;
+}
+// Corpo (números + medalhas) de um cartão de Palmarés a partir de um stats.
+function palmStatBody(st){
   const stat=(v,l)=>`<div style="text-align:center"><div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.4rem;color:var(--gold)">${v}</div><div style="font-size:.7rem;color:var(--sub)">${l}</div></div>`;
+  const medals=(st.gold||st.silver||st.bronze)
+    ?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.8rem;color:var(--text)">Troféus de jornada: ${st.gold?`🥇×${st.gold} `:''}${st.silver?`🥈×${st.silver} `:''}${st.bronze?`🥉×${st.bronze}`:''}</div>`
+    :'';
+  return `<div style="display:flex;justify-content:space-around;gap:8px;margin-top:12px">
+    ${stat(st.rank+'º','de '+st.total)}${stat(st.points,'pontos')}${stat(st.games,'jogos')}
+  </div>${medals}`;
+}
+async function showPalmares(){
+  const list=(S.competitions||[]).filter(c=>c.registered);
+  const curId=S.competition;                 // competição atualmente carregada (se houver)
+  const curStats=buildPalmaresStats();        // stats da atual (com medalhas de jornada)
+  const loading=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">A carregar…</div>`;
   let html='';
   list.forEach(c=>{
-    const active=c.status==='active';
+    const started=(c.status==='active'||c.status==='finished');
     let body;
-    if(active&&stats){
-      const medals=(stats.gold||stats.silver||stats.bronze)
-        ?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.8rem;color:var(--text)">Troféus de jornada: ${stats.gold?`🥇×${stats.gold} `:''}${stats.silver?`🥈×${stats.silver} `:''}${stats.bronze?`🥉×${stats.bronze}`:''}</div>`
-        :`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.76rem;color:var(--sub)">Ainda sem troféus de jornada.</div>`;
-      body=`<div style="display:flex;justify-content:space-around;gap:8px;margin-top:12px">
-        ${stat(stats.rank+'º','de '+stats.total)}${stat(stats.points,'pontos')}${stat(stats.games,'jogos')}
-      </div>${medals}`;
-    } else if(active){
-      body=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">Entra na competição para veres o teu histórico aqui.</div>`;
-    } else {
-      body=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">🔒 Competição ainda não iniciada.</div>`;
-    }
+    if(c.id===curId&&curStats){ body=palmStatBody(curStats); }
+    else if(started){ body=loading; }               // será preenchido com os dados reais
+    else { body=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">🔒 Competição ainda não iniciada.</div>`; }
     html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem">${c.name}</div>
-      ${body}</div>`;
+      <div id="palm-body-${c.id}">${body}</div></div>`;
   });
   if(!list.length) html=`<div class="alert alert-info" style="font-size:.82rem">Ainda não estás inscrito em nenhuma competição.</div>`;
   html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:4px">As novas competições em que participares aparecem aqui.</div>`;
   document.getElementById('palmares-list').innerHTML=html;
   document.getElementById('palmares-overlay').classList.add('open');
+  // Carrega o standing das competições já iniciadas (a atual já está feita acima).
+  for(const c of list){
+    if(c.id===curId&&curStats) continue;
+    if(c.status!=='active'&&c.status!=='finished') continue;
+    const dbId=COMP_DB_ID[c.id]; if(!dbId) continue;
+    let st=null; try{ st=await palmFetchStanding(dbId); }catch(e){}
+    const el=document.getElementById('palm-body-'+c.id); if(!el) continue;
+    if(st){ el.innerHTML=palmStatBody(st); }
+    else if(c.status==='finished'){ el.innerHTML=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">✓ Terminada — sem participação registada.</div>`; }
+    else { el.innerHTML=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">Entra na competição para veres o teu histórico aqui.</div>`; }
+  }
 }
 function closePalmares(){document.getElementById('palmares-overlay').classList.remove('open');}
 async function saveNotifPrefs(){
