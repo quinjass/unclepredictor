@@ -634,52 +634,145 @@
       border-color: rgba(37,58,80,0.5);
     }
 
-    /* ══ HERO PRÉ-LOGIN: pitch à esquerda, login à direita ══ */
-    #view-login { justify-content: flex-start; padding-top: 22px; }
-    .hero-wrap {
-      width: 100%; max-width: 1040px; margin: 0 auto;
-      display: grid; grid-template-columns: 1fr 380px;
-      gap: 34px; align-items: start;
+    /* ══════════════ LANDING PÚBLICA (pré-login) ══════════════ */
+    #view-login {
+      justify-content: flex-start;
+      padding: 0;
+      margin: -16px;
     }
-    .hero-pitch { text-align: left; padding-top: 8px; }
-    .hero-h1 {
+    #view-login > * { width: 100%; }
+
+    /* barra superior */
+    .up-topbar {
+      position: sticky; top: 0; z-index: 30;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      max-width: 1080px; margin: 0 auto; padding: 10px 18px;
+      background: rgba(9, 19, 31, .82);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      width: 100%;
+    }
+    .up-brand { display: flex; align-items: center; gap: 9px; text-decoration: none; }
+    .up-brand img { height: 32px; width: auto; display: block; }
+    .up-brand span {
+      font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.1rem;
+      letter-spacing: .5px; color: var(--gold);
+    }
+    .up-topnav { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; margin-left: auto; }
+    .up-topnav a {
+      color: #b9cdde; text-decoration: none; font-size: .8rem; font-weight: 500;
+      padding: 6px 10px; border-radius: 7px;
+    }
+    .up-topnav a:hover { color: #fff; background: rgba(255,255,255,.07); }
+    .up-topnav a.up-enter {
+      background: var(--gold); color: #12202f; font-weight: 700; margin-left: 6px;
+    }
+    .up-topnav a.up-enter:hover { background: #ffd633; color: #12202f; }
+
+    /* hero */
+    .up-hero {
+      max-width: 760px; margin: 0 auto; padding: 46px 20px 34px; text-align: center;
+    }
+    .up-hero-logo {
+      height: 96px; width: auto; margin-bottom: 18px;
+      filter: drop-shadow(0 8px 34px rgba(245,197,24,.45));
+    }
+    .up-hero-h1 {
       font-family: 'Rajdhani', sans-serif; font-weight: 700;
-      font-size: 2.5rem; line-height: 1.1; margin: 0 0 14px; color: #fff;
-      text-shadow: 0 2px 18px rgba(0,0,0,.55);
+      font-size: 2.4rem; line-height: 1.12; margin: 0 0 14px; color: #fff;
+      text-shadow: 0 2px 20px rgba(0,0,0,.6);
     }
-    .hero-sub { font-size: 1rem; line-height: 1.7; color: #cfe0ee; margin: 0 0 18px; }
-    .hero-sub strong { color: #fff; }
-    .hero-bullets { list-style: none; padding: 0; margin: 0 0 18px; }
-    .hero-bullets li {
-      position: relative; padding: 7px 0 7px 26px;
-      font-size: .9rem; line-height: 1.6; color: #dbe7f0;
-      border-bottom: 1px solid rgba(255,255,255,.07);
+    .up-hero-sub {
+      font-size: .96rem; line-height: 1.7; color: #cfe0ee;
+      margin: 0 auto 22px; max-width: 580px;
     }
-    .hero-bullets li:last-child { border-bottom: 0; }
-    .hero-bullets li::before {
-      content: '▸'; position: absolute; left: 4px; top: 7px;
-      color: var(--gold); font-weight: 700;
-    }
-    .hero-bullets strong { color: #fff; }
-    .hero-links { display: flex; flex-wrap: wrap; gap: 8px; }
-    .hero-links a {
-      font-size: .8rem; color: var(--gold); text-decoration: none; font-weight: 600;
-      padding: 6px 12px; border: 1px solid rgba(245,197,24,.28);
-      border-radius: 8px; background: rgba(13,27,42,.35);
-    }
-    .hero-links a:hover { background: rgba(245,197,24,.12); }
+    .up-hero-sub strong { color: #fff; }
+    .up-hero-cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .up-hero-cta .btn { text-decoration: none; }
 
-    @media (max-width: 900px) {
-      .hero-wrap { grid-template-columns: 1fr; gap: 22px; max-width: 520px; }
-      #view-login .login-box { order: 1; }   /* no telemóvel o login fica por cima */
-      .hero-pitch { order: 2; }
-      .hero-h1 { font-size: 1.85rem; text-align: center; }
-      .hero-sub { font-size: .92rem; }
+    /* blocos de mecânicas */
+    .up-blocks {
+      max-width: 1000px; margin: 0 auto; padding: 8px 18px 10px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 14px;
+    }
+    .up-block {
+      background: rgba(22, 32, 50, .72);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(37,58,80,.6); border-radius: 12px;
+      padding: 16px 17px; text-align: left;
+    }
+    .up-block-ico { font-size: 1.5rem; line-height: 1; margin-bottom: 7px; }
+    .up-block h2 {
+      font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.05rem;
+      margin: 0 0 5px; color: var(--gold);
+    }
+    .up-block p { margin: 0; font-size: .845rem; line-height: 1.62; color: #cbdae7; }
+
+    .up-note {
+      max-width: 700px; margin: 22px auto 0; padding: 0 18px 6px; text-align: center;
+    }
+    .up-note p { font-size: .87rem; line-height: 1.7; color: #cfe0ee; margin: 0 0 14px; }
+    .up-note a { color: var(--gold); }
+    .up-note .btn { text-decoration: none; }
+
+    /* rodapé */
+    .up-foot {
+      margin-top: 34px; padding: 26px 18px 34px;
+      background: rgba(6, 14, 24, .78);
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .up-foot-cols {
+      max-width: 1000px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 22px;
+      text-align: left;
+    }
+    .up-foot h4 {
+      font-size: .74rem; text-transform: uppercase; letter-spacing: .6px;
+      color: var(--gold); margin: 0 0 9px;
+    }
+    .up-foot ul { list-style: none; padding: 0; margin: 0; }
+    .up-foot li { margin: 5px 0; }
+    .up-foot a { color: #9fb6c9; text-decoration: none; font-size: .83rem; }
+    .up-foot a:hover { color: #fff; }
+    .up-foot-legal {
+      max-width: 1000px; margin: 22px auto 0; padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      font-size: .76rem; color: #7f97ab; line-height: 1.65; text-align: left;
     }
 
-    /* App nativa (Capacitor): o pré-login mostra SÓ o login, sem marketing */
+    /* login em modal — escondido até se clicar em Entrar */
+    #login-modal { display: none; }
+    body.up-show-login #login-modal {
+      display: block; position: fixed; inset: 0; z-index: 9000;
+      background: rgba(6, 14, 24, .88);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      overflow-y: auto; padding: 30px 16px 40px;
+    }
+    #login-close {
+      display: none; position: fixed; top: 14px; right: 16px; z-index: 9001;
+      width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18);
+      color: #fff; font-size: 1.5rem; line-height: 1;
+    }
+    body.up-show-login #login-close { display: block; }
+    #login-close:hover { background: rgba(255,255,255,.18); }
+
+    @media (max-width: 720px) {
+      .up-hero { padding: 30px 18px 26px; }
+      .up-hero-logo { height: 74px; }
+      .up-hero-h1 { font-size: 1.75rem; }
+      .up-hero-sub { font-size: .9rem; }
+      .up-topnav a { font-size: .76rem; padding: 5px 8px; }
+      .up-brand span { font-size: 1rem; }
+    }
+
+    /* ══ App nativa (Capacitor): só o login, sem landing ══ */
     html.up-native .up-marketing { display: none !important; }
-    html.up-native #view-login { justify-content: center; padding-top: 0; }
+    html.up-native #view-login { justify-content: center; padding: 0 16px; margin: -16px; }
+    html.up-native #login-modal {
+      display: block !important; position: static; background: none;
+      padding: 0; overflow: visible; backdrop-filter: none;
+    }
   </style>
 
 <script>
@@ -702,6 +795,34 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', apply, { once: true });
   }
+})();
+
+/* Abrir/fechar a caixa de login. No browser a página inicial é a landing e o
+   login só aparece ao clicar em "Entrar"; na app nativa (html.up-native) o
+   CSS já o mostra sempre, por isso estas funções são inofensivas lá. */
+function openLoginBox(){
+  document.body.classList.add('up-show-login');
+  var el = document.getElementById('login-email');
+  if (el) { try { el.focus({ preventScroll: true }); } catch(e) { el.focus(); } }
+}
+function closeLoginBox(){
+  document.body.classList.remove('up-show-login');
+}
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' && document.body.classList.contains('up-show-login')) closeLoginBox();
+});
+/* Se o URL trouxer #entrar (ou vier de um fluxo de OAuth/recuperação), abre já. */
+(function(){
+  function maybeOpen(){
+    var h = (location.hash || '').toLowerCase();
+    if (h.indexOf('entrar') > -1 || h.indexOf('access_token') > -1 ||
+        h.indexOf('type=recovery') > -1 || h.indexOf('error') > -1) {
+      document.body.classList.add('up-show-login');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', maybeOpen, { once: true });
+  } else { maybeOpen(); }
 })();
 </script>
 <script>
@@ -1762,30 +1883,129 @@
 
   <!-- ═══════════════ LOGIN ═══════════════ -->
   <div class="view active" id="view-login">
-    <!-- ═══════ HERO — pitch à esquerda, login à direita ═══════ -->
-    <div class="hero-wrap">
 
-      <div class="hero-pitch up-marketing">
-        <h1 class="hero-h1">Prevê o resultado exato.<br>Ganha pontos. Sobe na tabela.</h1>
-        <p class="hero-sub">
-          Um jogo de prognósticos de futebol entre amigos — Premier League, Liga dos Campeões
-          e Mundial. Aqui não apostas quem ganha: apostas o <strong>resultado</strong>. Sem
-          dinheiro e sem prémios monetários, só pontos e a classificação.
-        </p>
-        <ul class="hero-bullets">
-          <li><strong>O resultado exato vale mais</strong> — acertar 2-1 num jogo que acaba 2-1 vale o triplo de acertar só o vencedor.</li>
-          <li><strong>Joker ×2</strong> — uma vez por jornada, dobra os pontos do jogo que escolheres. Mas não protege erros.</li>
-          <li><strong>Bónus de raridade</strong> — quanto menos gente arriscou o teu resultado, mais pontos extra levas.</li>
-          <li><strong>Ligas privadas e duelos</strong> — uma tabela só para o teu grupo e um adversário sorteado a cada jornada.</li>
-        </ul>
-        <div class="hero-links">
-          <a href="como-funciona.html">Como funciona</a>
-          <a href="regras.html">Regras e pontuação</a>
-          <a href="competicoes.html">Competições</a>
-          <a href="guias/">Guias de estratégia</a>
+    <!-- ═══════ BARRA SUPERIOR PÚBLICA ═══════ -->
+    <header class="up-topbar up-marketing">
+      <a class="up-brand" href="/">
+        <img src="https://unclepredictor.pt/logo.png" alt="Uncle Predictor">
+        <span>Uncle Predictor</span>
+      </a>
+      <nav class="up-topnav">
+        <a href="como-funciona.html">Como funciona</a>
+        <a href="regras.html">Regras</a>
+        <a href="competicoes.html">Competições</a>
+        <a href="premium.html">Premium</a>
+        <a href="app.html">App</a>
+        <a class="up-enter" href="#" onclick="openLoginBox();return false;">Entrar</a>
+      </nav>
+    </header>
+
+    <!-- ═══════ HERO ═══════ -->
+    <section class="up-hero up-marketing">
+      <img class="up-hero-logo" src="https://unclepredictor.pt/logo.png" alt="Uncle Predictor">
+      <h1 class="up-hero-h1">Prevê o resultado. Ganha pontos.<br>Sobe na classificação.</h1>
+      <p class="up-hero-sub">
+        Um jogo de prognósticos de futebol entre amigos. Aqui não apostas quem ganha —
+        apostas o <strong>resultado</strong>. Sem dinheiro e sem prémios monetários:
+        joga-se por pontos e pela classificação.
+      </p>
+      <div class="up-hero-cta">
+        <a class="btn btn-primary" href="#" onclick="openLoginBox();return false;">Entrar ou criar conta</a>
+        <a class="btn btn-outline" href="como-funciona.html">Como funciona</a>
+      </div>
+    </section>
+
+    <!-- ═══════ MECÂNICAS ═══════ -->
+    <section class="up-blocks up-marketing">
+      <div class="up-block">
+        <div class="up-block-ico">🎯</div>
+        <h2>O resultado exato vale mais</h2>
+        <p>Acertar quem ganha dá pontos. Acertar o resultado certo dá bastante mais. É o que
+        separa quem arrisca de quem joga pelo seguro.</p>
+      </div>
+      <div class="up-block">
+        <div class="up-block-ico">🃏</div>
+        <h2>Joker</h2>
+        <p>Uma vez por jornada podes dobrar os pontos de um jogo à tua escolha. Mas não
+        protege erros: se falhares, continua a valer zero.</p>
+      </div>
+      <div class="up-block">
+        <div class="up-block-ico">💎</div>
+        <h2>Bónus de raridade</h2>
+        <p>Se acertares um resultado que quase ninguém arriscou, levas pontos extra. Apostar
+        sempre o resultado óbvio é seguro — e raramente ganha competições.</p>
+      </div>
+      <div class="up-block">
+        <div class="up-block-ico">🏆</div>
+        <h2>Ligas privadas</h2>
+        <p>Cria uma tabela fechada para os amigos, a família ou os colegas. Apostas uma vez
+        e conta para a geral e para todas as tuas ligas.</p>
+      </div>
+      <div class="up-block">
+        <div class="up-block-ico">⏱️</div>
+        <h2>Prazos automáticos</h2>
+        <p>As apostas fecham antes do apito inicial e o jogo avisa-te antes. Sem boletins
+        em papel, sem folhas de cálculo, sem discussões sobre quem entregou a tempo.</p>
+      </div>
+      <div class="up-block">
+        <div class="up-block-ico">📊</div>
+        <h2>Tudo ao vivo</h2>
+        <p>Os resultados entram sozinhos e a classificação mexe enquanto a bola rola.
+        Depois do prazo, vês o que cada participante apostou.</p>
+      </div>
+    </section>
+
+    <section class="up-note up-marketing">
+      <p>Cada competição tem a sua própria classificação e as suas regras de pontuação.
+      Consulta as <a href="regras.html">regras</a> para perceberes como funciona, e as
+      <a href="competicoes.html">competições</a> disponíveis.</p>
+      <p><a class="btn btn-primary" href="#" onclick="openLoginBox();return false;">Criar conta — é gratuito</a></p>
+    </section>
+
+    <!-- ═══════ RODAPÉ ═══════ -->
+    <footer class="up-foot up-marketing">
+      <div class="up-foot-cols">
+        <div>
+          <h4>O jogo</h4>
+          <ul>
+            <li><a href="como-funciona.html">Como funciona</a></li>
+            <li><a href="regras.html">Regras e pontuação</a></li>
+            <li><a href="competicoes.html">Competições</a></li>
+            <li><a href="ligas-privadas.html">Ligas privadas</a></li>
+            <li><a href="premium.html">Premium</a></li>
+            <li><a href="app.html">App</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Aprender</h4>
+          <ul>
+            <li><a href="guias/">Guias de estratégia</a></li>
+            <li><a href="faq.html">Perguntas frequentes</a></li>
+            <li><a href="palmares.html">Palmarés</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Uncle Predictor</h4>
+          <ul>
+            <li><a href="sobre.html">Sobre o projeto</a></li>
+            <li><a href="contactos.html">Contactos</a></li>
+            <li><a href="termos.html">Termos de utilização</a></li>
+            <li><a href="privacidade.html">Privacidade e cookies</a></li>
+            <li><a href="eliminar-conta.html">Eliminar conta</a></li>
+          </ul>
         </div>
       </div>
-    <div class="login-box">
+      <div class="up-foot-legal">
+        Uncle Predictor — jogo de prognósticos de futebol entre amigos, sem apostas em
+        dinheiro e sem prémios monetários. Não somos afiliados da FIFA, UEFA ou Premier League.
+      </div>
+    </footer>
+
+    <!-- ═══════ LOGIN (modal no browser, direto na app) ═══════ -->
+    <div id="login-modal">
+      <button id="login-close" class="up-marketing" onclick="closeLoginBox()" aria-label="Fechar">×</button>
+      <div class="login-box">
+
       <img src="https://unclepredictor.pt/logo.png" alt="Uncle Predictor" class="logo-img">
       <div id="demo-notice" style="display:none" class="alert-demo">⚠️ MODO DEMO — backend não configurado. Os dados não são partilhados.</div>
       <div class="card" style="text-align:left">
@@ -1812,88 +2032,10 @@
         <span style="font-size:.78rem;color:var(--sub)">Não tens conta? </span>
         <a href="#" onclick="showRegister();return false;" style="font-size:.78rem;color:var(--gold);text-decoration:none;font-weight:600">Criar conta</a>
       </div>
-        <div style="text-align:center;margin-top:16px">
-          <a class="btn btn-outline" href="regras.html" style="font-size:.74rem;padding:5px 14px;text-decoration:none">📋 Ver as regras</a>
-        </div>
       </div><!-- /login-box -->
+    </div><!-- /login-modal -->
 
-    </div><!-- /hero-wrap -->
-
-    <!-- ═══════ CONTEÚDO PÚBLICO (visível sem login, indexável) ═══════ -->
-    <div id="public-intro" class="up-marketing" style="max-width:640px;margin:34px auto 0;padding:0 4px;text-align:left;line-height:1.7;font-size:.88rem;color:var(--text)">
-
-      <div class="card" style="text-align:left">
-        <div class="rules-subtitle">Como se ganham pontos</div>
-        <div class="scoring-grid">
-          <div class="scoring-cell sc-win">
-            <div class="scoring-pts">3</div>
-            <div class="scoring-label">✅ Resultado exato</div>
-            <div class="scoring-sub">Apostaste 2-1,<br>saiu 2-1</div>
-          </div>
-          <div class="scoring-cell sc-draw">
-            <div class="scoring-pts">1</div>
-            <div class="scoring-label">☑️ Só a tendência</div>
-            <div class="scoring-sub">Acertaste o vencedor,<br>falhaste o resultado</div>
-          </div>
-        </div>
-        <div style="font-size:.78rem;line-height:1.65;color:var(--text);margin-top:8px">
-          <div style="padding:4px 0;border-bottom:1px solid var(--border)">🔥 Na <strong>fase a eliminar</strong> vale mais: 5 pelo exato, 2 pela tendência, +1 se falhares por um golo</div>
-          <div style="padding:4px 0;border-bottom:1px solid var(--border)"><strong style="color:#00bcd4">JOKER ×2</strong> — uma vez por jornada, dobra os pontos do jogo que escolheres</div>
-          <div style="padding:4px 0;border-bottom:1px solid var(--border)">🌟 <strong>Bónus de raridade</strong> — até <strong style="color:#00bcd4">+6</strong> se acertares um resultado que menos de 5% arriscou</div>
-          <div style="padding:4px 0">🏆 <strong>Pré-apostas</strong> — campeão, pódio e melhor marcador, até 69 pontos num torneio</div>
-        </div>
-        <div style="margin-top:10px;text-align:center">
-          <a href="regras.html" style="font-size:.8rem;color:var(--gold);text-decoration:none;font-weight:600">Ver as regras completas →</a>
-        </div>
-      </div>
-
-      <div class="card" style="text-align:left">
-        <div class="rules-subtitle">O que torna este jogo diferente</div>
-        <div style="font-size:.8rem;line-height:1.7;color:var(--text)">
-          <p style="margin:0 0 8px"><strong>Arriscar é premiado.</strong> Apostar 1-0 em tudo é
-          seguro e nunca ganha nada: se meia liga escreveu o mesmo, acertar não te aproxima de
-          ninguém. Quem ganha competições é quem acerta o resultado que os outros não arriscaram.</p>
-          <p style="margin:0 0 8px"><strong>Duelos por jornada.</strong> Em cada jornada és
-          sorteado contra outro participante — tabela paralela, com campeão próprio no fim.</p>
-          <p style="margin:0 0 8px"><strong>Ligas privadas.</strong> Cria um grupo fechado com
-          os amigos, a família ou os colegas. Apostas uma vez e conta para todas as tabelas.</p>
-          <p style="margin:0"><strong>Tudo automático.</strong> Resultados ao vivo, pontuações
-          calculadas na hora e avisos antes de cada deadline. Sem folhas de Excel, sem cartões
-          de papel — que foi como isto começou, em 2014.</p>
-        </div>
-      </div>
-
-      <div class="card" style="text-align:left">
-        <div class="rules-subtitle">Saber mais</div>
-        <div style="font-size:.82rem;line-height:2">
-          <div><a href="como-funciona.html" style="color:var(--gold);text-decoration:none">Como funciona</a> <span style="color:var(--sub)">— do registo à primeira aposta</span></div>
-          <div><a href="regras.html" style="color:var(--gold);text-decoration:none">Regras e pontuação</a> <span style="color:var(--sub)">— o sistema completo</span></div>
-          <div><a href="competicoes.html" style="color:var(--gold);text-decoration:none">Competições</a> <span style="color:var(--sub)">— formatos e calendários</span></div>
-          <div><a href="guias/" style="color:var(--gold);text-decoration:none">Guias de estratégia</a> <span style="color:var(--sub)">— como pontuar mais</span></div>
-          <div><a href="ligas-privadas.html" style="color:var(--gold);text-decoration:none">Ligas privadas</a> <span style="color:var(--sub)">— jogar com o teu grupo</span></div>
-          <div><a href="palmares.html" style="color:var(--gold);text-decoration:none">Palmarés</a> <span style="color:var(--sub)">— edições encerradas</span></div>
-          <div><a href="premium.html" style="color:var(--gold);text-decoration:none">Premium</a> <span style="color:var(--sub)">— o que acrescenta</span></div>
-          <div><a href="app.html" style="color:var(--gold);text-decoration:none">App no telemóvel</a> <span style="color:var(--sub)">— Android e iPhone</span></div>
-          <div><a href="faq.html" style="color:var(--gold);text-decoration:none">Perguntas frequentes</a></div>
-          <div><a href="sobre.html" style="color:var(--gold);text-decoration:none">Sobre o projeto</a></div>
-        </div>
-      </div>
-
-      <div style="border-top:1px solid var(--border);margin-top:22px;padding:16px 0 28px;font-size:.74rem;color:var(--sub);line-height:1.7">
-        <div style="margin-bottom:8px">
-          <a href="contactos.html" style="color:var(--sub);text-decoration:none">Contactos</a> ·
-          <a href="termos.html" style="color:var(--sub);text-decoration:none">Termos de utilização</a> ·
-          <a href="privacidade.html" style="color:var(--sub);text-decoration:none">Privacidade e cookies</a> ·
-          <a href="eliminar-conta.html" style="color:var(--sub);text-decoration:none">Eliminar conta</a>
-        </div>
-        Uncle Predictor — jogo de prognósticos de futebol entre amigos, sem apostas em dinheiro
-        e sem prémios monetários. Não somos afiliados da FIFA, UEFA ou Premier League.
-      </div>
-
-    </div>
-    <!-- ═══════ fim do conteúdo público ═══════ -->
-
-  </div>
+  </div><!-- /view-login -->
 
   <!-- ═══════════════ LIGA PICKER (pós-login) ═══════════════ -->
   <div class="view" id="view-league-picker">
