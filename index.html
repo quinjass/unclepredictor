@@ -643,30 +643,28 @@
     #view-login > * { width: 100%; }
 
     /* barra superior */
+    /* igual ao .site-header das páginas internas (up.css) */
     .up-topbar {
-      position: sticky; top: 0; z-index: 30;
+      position: sticky; top: 0; z-index: 30; width: 100%;
+      background: rgba(13,27,42,.92);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      max-width: 1080px; margin: 0 auto; padding: 10px 18px;
-      background: rgba(9, 19, 31, .82);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(255,255,255,.08);
-      width: 100%;
+      max-width: 820px; margin: 0 auto; padding: 10px 18px;
     }
-    .up-brand { display: flex; align-items: center; gap: 9px; text-decoration: none; }
-    .up-brand img { height: 32px; width: auto; display: block; }
+    .up-brand { display: flex; align-items: center; gap: 9px; text-decoration: none; color: var(--text); }
+    .up-brand img { height: 34px; width: auto; display: block; }
     .up-brand span {
-      font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.1rem;
+      font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.15rem;
       letter-spacing: .5px; color: var(--gold);
     }
-    .up-topnav { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; margin-left: auto; }
+    .up-topnav { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
     .up-topnav a {
-      color: #b9cdde; text-decoration: none; font-size: .8rem; font-weight: 500;
-      padding: 6px 10px; border-radius: 7px;
+      color: var(--sub); text-decoration: none; font-size: .82rem; font-weight: 500;
+      padding: 5px 9px; border-radius: 7px;
     }
-    .up-topnav a:hover { color: #fff; background: rgba(255,255,255,.07); }
-    .up-topnav a.up-enter {
-      background: var(--gold); color: #12202f; font-weight: 700; margin-left: 6px;
-    }
+    .up-topnav a:hover { color: var(--text); background: var(--bg2); }
+    .up-topnav a.up-enter { background: var(--gold); color: #12202f; font-weight: 700; }
     .up-topnav a.up-enter:hover { background: #ffd633; color: #12202f; }
 
     /* hero */
@@ -692,21 +690,21 @@
 
     /* blocos de mecânicas */
     .up-blocks {
-      max-width: 1000px; margin: 0 auto; padding: 8px 18px 10px;
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 14px;
+      max-width: 820px; margin: 0 auto; padding: 8px 18px 10px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(238px, 1fr)); gap: 14px;
     }
     .up-block {
       background: rgba(22, 32, 50, .72);
       backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       border: 1px solid rgba(37,58,80,.6); border-radius: 12px;
-      padding: 16px 17px; text-align: left;
+      padding: 18px 17px 16px; text-align: center;
     }
-    .up-block-ico { font-size: 1.5rem; line-height: 1; margin-bottom: 7px; }
+    .up-block-ico { font-size: 1.6rem; line-height: 1; margin-bottom: 8px; text-align: center; }
     .up-block h2 {
-      font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.05rem;
-      margin: 0 0 5px; color: var(--gold);
+      font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.02rem;
+      margin: 0 0 6px; color: var(--gold); text-align: center;
     }
-    .up-block p { margin: 0; font-size: .845rem; line-height: 1.62; color: #cbdae7; }
+    .up-block p { margin: 0; font-size: .82rem; line-height: 1.6; color: #cbdae7; text-align: left; }
 
     .up-note {
       max-width: 700px; margin: 22px auto 0; padding: 0 18px 6px; text-align: center;
@@ -722,7 +720,7 @@
       border-top: 1px solid rgba(255,255,255,.08);
     }
     .up-foot-cols {
-      max-width: 1000px; margin: 0 auto;
+      max-width: 820px; margin: 0 auto;
       display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 22px;
       text-align: left;
     }
@@ -735,7 +733,7 @@
     .up-foot a { color: #9fb6c9; text-decoration: none; font-size: .83rem; }
     .up-foot a:hover { color: #fff; }
     .up-foot-legal {
-      max-width: 1000px; margin: 22px auto 0; padding-top: 16px;
+      max-width: 820px; margin: 22px auto 0; padding-top: 16px;
       border-top: 1px solid rgba(255,255,255,.08);
       font-size: .76rem; color: #7f97ab; line-height: 1.65; text-align: left;
     }
@@ -1911,7 +1909,6 @@ document.addEventListener('keydown', function(e){
       </p>
       <div class="up-hero-cta">
         <a class="btn btn-primary" href="#" onclick="openLoginBox();return false;">Entrar ou criar conta</a>
-        <a class="btn btn-outline" href="como-funciona.html">Como funciona</a>
       </div>
     </section>
 
@@ -1959,7 +1956,6 @@ document.addEventListener('keydown', function(e){
       <p>Cada competição tem a sua própria classificação e as suas regras de pontuação.
       Consulta as <a href="regras.html">regras</a> para perceberes como funciona, e as
       <a href="competicoes.html">competições</a> disponíveis.</p>
-      <p><a class="btn btn-primary" href="#" onclick="openLoginBox();return false;">Criar conta — é gratuito</a></p>
     </section>
 
     <!-- ═══════ RODAPÉ ═══════ -->
@@ -1981,7 +1977,6 @@ document.addEventListener('keydown', function(e){
           <ul>
             <li><a href="guias/">Guias de estratégia</a></li>
             <li><a href="faq.html">Perguntas frequentes</a></li>
-            <li><a href="palmares.html">Palmarés</a></li>
           </ul>
         </div>
         <div>
