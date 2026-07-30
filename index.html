@@ -395,6 +395,7 @@
     .timeline-item{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
     .timeline-item:last-child{border-bottom:none}
     .timeline-dot{width:28px;height:28px;border-radius:50%;background:rgba(245,197,24,.15);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;margin-top:1px}
+    .up-av{margin-right:5px;font-size:.95em;line-height:1}
     .tiebreak-row{display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:.82rem}
     .tiebreak-row:last-child{border-bottom:none}
     .tb-num{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--gold);min-width:20px}
@@ -1112,7 +1113,7 @@ document.addEventListener('keydown', function(e){
       }
       const prebets_pts = leaguePrebetsCfg ? calcLeaguePrebetPoints(userPrebets, specials, leaguePrebetsCfg) : calcPrebetPoints(userPrebets, specials, gs);
       const total = groupPts + koPts + joker_pts + rarity_pts + prebets_pts + default_pts;
-      return { name:dispName(p), realName:p.name, nickname:p.nickname||null, code:p.code, total, wins, draws, ko_wins, ko_draws, group_pts:groupPts, ko_pts:koPts, approx_pts, joker_pts, prebets_pts, rarity_pts, jp, games:gamesBet, default_pts, defaults:default_used };
+      return { name:dispName(p), realName:p.name, nickname:p.nickname||null, avatar:p.avatar||null, code:p.code, total, wins, draws, ko_wins, ko_draws, group_pts:groupPts, ko_pts:koPts, approx_pts, joker_pts, prebets_pts, rarity_pts, jp, games:gamesBet, default_pts, defaults:default_used };
     });
     return { players, rarityMap };
   }
@@ -1140,7 +1141,7 @@ document.addEventListener('keydown', function(e){
   }
   async function loadDBFetch() {
     const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, duels, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
-      rest('v_participants', 'code,name,is_bot,nickname', ''),
+      rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
       rest('results', 'game_id,t1,t2,pen', CF),
@@ -1270,10 +1271,10 @@ document.addEventListener('keydown', function(e){
       headers: { apikey: SB_KEY, Authorization: 'Bearer ' + sess.access_token, 'Content-Type': 'application/json' }, body: '{}' });
     const rows = await who.json();
     if (!Array.isArray(rows) || !rows.length) return { success: false, error: 'Conta sem participante associado.' };
-    sess.code = rows[0].code; sess.realName = rows[0].name; sess.nickname = rows[0].nickname || null;
+    sess.code = rows[0].code; sess.realName = rows[0].name; sess.nickname = rows[0].nickname || null; sess.avatar = rows[0].avatar || null;
     sess.name = dispName({ name: rows[0].name, nickname: sess.nickname }); sess.email = email || '';
     saveSession(sess); DB = null;
-    return { success: true, code: sess.code, name: sess.name, realName: sess.realName, nickname: sess.nickname, email: sess.email };
+    return { success: true, code: sess.code, name: sess.name, realName: sess.realName, nickname: sess.nickname, avatar: sess.avatar, email: sess.email };
   }
 
   // ---- RECUPERAÇÃO / ALTERAÇÃO de password (Supabase Auth + SMTP) -----------
@@ -1407,10 +1408,10 @@ document.addEventListener('keydown', function(e){
     } catch (e) { /* email fica vazio; não é bloqueante */ }
     const sess = { access_token, refresh_token: refresh_token || '',
                    expires_at: Math.floor(realNowMs() / 1000) + (Number(expires_in) || 3600) };
-    sess.code = row.code; sess.realName = row.name; sess.nickname = row.nickname || null;
+    sess.code = row.code; sess.realName = row.name; sess.nickname = row.nickname || null; sess.avatar = row.avatar || null;
     sess.name = dispName({ name: row.name, nickname: sess.nickname }); sess.email = email;
     saveSession(sess); DB = null;
-    return { success: true, code: sess.code, name: sess.name, realName: sess.realName, nickname: sess.nickname, email };
+    return { success: true, code: sess.code, name: sess.name, realName: sess.realName, nickname: sess.nickname, avatar: sess.avatar, email };
   }
 
   // ---- ESCRITAS do loop de apostas (RLS valida ownership/membership/prazo) ----
@@ -1502,6 +1503,7 @@ document.addEventListener('keydown', function(e){
       }
       if (action === 'getSocial') { const db = await loadDB(); const lid = data.league_id; const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji })); const comments = db.comments.filter(c => c.league_id === lid).map(c => ({ jornada:String(c.jornada||''), code:(c.code||'').toUpperCase(), name:c.name, text:c.text, at:c.created_at })); const duelRosters = {}; db.duels.filter(d => d.league_id === lid).forEach(d => { duelRosters[String(d.jornada)] = String(d.codes||'').split(',').map(s => s.trim()).filter(Boolean); }); return { reactions, comments, duelRosters }; }
       if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:dispName(p), realName:p.name, nickname:p.nickname||null })) }; }
+      if (action === 'saveAvatar') { const av = await rpc('rpc_set_avatar', { p_avatar: data.avatar || '' }, true); DB = null; if (SESSION) { SESSION.avatar = av || null; saveSession(SESSION); } return { success: true, avatar: av || null }; }
       if (action === 'saveNickname') { const nick = await rpc('rpc_set_nickname', { p_nick: data.nickname || '' }, true); DB = null; if (SESSION) { SESSION.nickname = nick || null; SESSION.name = dispName({ name: SESSION.realName || SESSION.name, nickname: nick || null }); saveSession(SESSION); } return { success: true, nickname: nick || null }; }
       if (action === 'getLive') {
         // Lê o store escrito pela Edge Function live-fetch (migration 009).
@@ -1716,6 +1718,7 @@ document.addEventListener('keydown', function(e){
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
     <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
+    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showAvatarPicker()">😀 Escolher avatar</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showChangePw()">🔑 Alterar password</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showNotifPrefs()">🔔 Gerir notificações</button>
     <button class="btn btn-danger btn-full" onclick="logout()">↩ Terminar sessão</button>
@@ -1723,6 +1726,17 @@ document.addEventListener('keydown', function(e){
   </div>
 </div>
 <!-- ── Gerir notificações ── -->
+<div class="switcher-overlay" id="avatar-overlay" onclick="if(event.target===this)closeAvatarPicker()">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:4px">😀 Escolhe o teu avatar</div>
+    <div style="font-size:.76rem;color:var(--sub);margin-bottom:12px;line-height:1.5">Aparece ao lado do teu nickname nas classificações. Podes mudar quando quiseres.</div>
+    <div id="avatar-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;max-height:44vh;overflow-y:auto;margin-bottom:12px"></div>
+    <div id="avatar-msg" style="display:none;font-size:.76rem;margin-bottom:8px" class="alert alert-error"></div>
+    <button class="btn btn-outline btn-full" style="margin-bottom:8px;font-size:.78rem" onclick="pickAvatar('')">Sem avatar</button>
+    <button class="btn btn-outline btn-full" style="font-size:.78rem" onclick="closeAvatarPicker()">Fechar</button>
+  </div>
+</div>
+
 <div class="switcher-overlay" id="notifprefs-overlay" onclick="closeNotifPrefs()">
   <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
     <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">🔔 Gerir notificações</div>
@@ -2168,7 +2182,7 @@ document.addEventListener('keydown', function(e){
     <div style="max-width:520px;margin:0 auto">
       <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 2px 4px">
         <div style="display:flex;align-items:center;gap:9px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem">
-          <span style="width:30px;height:30px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#10202f">⚽</span> Uncle Predictor
+          <img src="https://unclepredictor.pt/logo.png" alt="" style="width:30px;height:30px;border-radius:8px;object-fit:contain;display:block"> Uncle Predictor
         </div>
         <span id="comp-user-pill" onclick="showAccountMenu()" style="cursor:pointer;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-size:.78rem;color:var(--sub)">👤</span>
       </div>
@@ -3521,9 +3535,10 @@ function buildPalmaresStats(){
 }
 // Standing (posição/pontos/jogos) de UM leaderboard qualquer, sem medalhas.
 // Usado para as competições que não são a atualmente carregada.
-function palmStandingFrom(lb){
+function palmStandingFrom(lb,dbId){
   if(!lb||!lb.length||!S.user)return null;
-  const sorted=[...lb].sort(lbCompare);
+  const cmp = dbId ? function(a,b){ return lbCompareCore(a,b, dbId === 'WC2026'); } : lbCompare;
+  const sorted=[...lb].sort(cmp);
   const meIdx=sorted.findIndex(p=>p.code===S.user.code);
   if(meIdx<0)return null;
   const me=sorted[meIdx];
@@ -3541,7 +3556,7 @@ async function palmFetchStanding(dbId){
   try{
     if(window.UPSB&&UPSB.setComp) UPSB.setComp(dbId);
     const r=await api('getData',{code:S.user.code});
-    st=palmStandingFrom(r&&r.lb);
+    st=palmStandingFrom(r&&r.lb, dbId);
   }catch(e){ st=null; }
   finally{
     try{ if(window.UPSB&&UPSB.setComp&&prev) UPSB.setComp(prev); if(window.UPSB&&UPSB.invalidate)UPSB.invalidate(); }catch(e){}
@@ -3636,7 +3651,7 @@ function setupLeagueNav(){
   const subMundial='🌎 Formato Mundial 2026', subLiga='⚽ Formato da competição';
   ['rules-sub-1','rules-sub-2'].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent=S.leagueMode?subLiga:subMundial;});
   // Nota do desempate: só aparece no Mundial, que mantém os critérios antigos.
-  { const n=document.getElementById('tb-wc-note'); if(n) n.style.display = (COMP==='WC2026') ? 'block' : 'none'; }
+  { const n=document.getElementById('tb-wc-note'); if(n) n.style.display = (lbDbId()==='WC2026') ? 'block' : 'none'; }
   const vh=document.getElementById('view-mundial-title'); if(vh) vh.textContent=S.leagueMode?'Classificação':'Mundial 2026';
 }
 function showApp() {
@@ -3907,6 +3922,49 @@ function ensureNickname(){
     setTimeout(()=>{try{inp&&inp.focus();}catch(e){}},50);
   });
 }
+// ══════════════ AVATAR DO PARTICIPANTE ══════════════
+// Catálogo fechado (sem upload). Guardado em participants.avatar via
+// rpc_set_avatar (migração 028). O emoji é 1 por CONTA, não por competição.
+const AVATARS = [
+  '⚽','🥅','🧤','👟','🏆','🥇','🎯','🔮',
+  '🦁','🐯','🐺','🦅','🐉','🦈','🐐','🦉',
+  '🚀','⚡','🔥','💎','🌟','🎲','🃏','🧠',
+  '👑','🎩','🕶️','🧢','🥸','🤖','👻','🦾',
+  '🍀','🌵','🌊','🏔️','🎸','🎺','☕','🍕',
+  '🇵🇹','🇬🇧','🇪🇸','🇫🇷','🇩🇪','🇮🇹','🇧🇷','🇦🇷'
+];
+
+function showAvatarPicker(){
+  const grid=document.getElementById('avatar-grid');
+  if(!grid) return;
+  const cur=(S.user&&S.user.avatar)||'';
+  grid.innerHTML=AVATARS.map(a=>{
+    const sel = a===cur ? 'border-color:var(--gold);background:rgba(245,197,24,.16)' : '';
+    return `<button type="button" onclick="pickAvatar('${a}')" title="${a}" style="font-size:1.35rem;line-height:1;padding:7px 0;border:1px solid var(--border);background:var(--bg2);border-radius:9px;cursor:pointer;${sel}">${a}</button>`;
+  }).join('');
+  const m=document.getElementById('avatar-msg'); if(m) m.style.display='none';
+  document.getElementById('avatar-overlay').classList.add('open');
+}
+function closeAvatarPicker(){
+  const el=document.getElementById('avatar-overlay'); if(el) el.classList.remove('open');
+}
+async function pickAvatar(a){
+  const m=document.getElementById('avatar-msg');
+  try{
+    const r=await api('saveAvatar',{avatar:a||''});
+    if(r&&r.success){
+      if(S.user){ S.user.avatar=r.avatar||null;
+        try{ localStorage.setItem('up26_user',JSON.stringify(S.user)); }catch(e){} }
+      // o avatar vem dentro do leaderboard -> recarregar para refletir em todo o lado
+      try{ if(window.UPSB&&UPSB.invalidate) UPSB.invalidate(); }catch(e){}
+      closeAvatarPicker();
+      try{ if(typeof loadData==='function') await loadData(); }catch(e){}
+    } else if(m){
+      m.textContent=(r&&r.error)||'Não foi possível guardar o avatar.'; m.style.display='block';
+    }
+  }catch(e){ if(m){ m.textContent='Erro de ligação.'; m.style.display='block'; } }
+}
+
 async function saveNick(){
   const v=(document.getElementById('nick-input').value||'').trim();
   const err=document.getElementById('nick-error');
@@ -4149,13 +4207,25 @@ async function resyncLocalPreds(){
 //   4) maior número de acertos no resultado exato
 // O Mundial 2026 está fechado e mantém os critérios com que foi disputado:
 //   joker+raridade → acertos exatos → tendência.
-function lbCompare(a,b){
+// ⚠️ NÃO usar COMP aqui: essa variável vive no bloco <script> do adapter e não
+// existe neste âmbito (dava ReferenceError e partia a classificação/palmarés).
+// A competição resolve-se por S.competition -> COMP_DB_ID, com fallback seguro.
+function lbDbId(compKey){
+  try { return COMP_DB_ID[compKey || S.competition] || ''; } catch(e){ return ''; }
+}
+function lbCompareFor(compKey){
+  const isWC = lbDbId(compKey) === 'WC2026';
+  return function(a,b){ return lbCompareCore(a,b,isWC); };
+}
+function lbCompare(a,b){ return lbCompareCore(a,b, lbDbId() === 'WC2026'); }
+
+function lbCompareCore(a,b,isWC){
   if(b.total!==a.total)return b.total-a.total;
 
   const exact = p => (p.wins||0)+(p.ko_wins||0);
   const trend = p => (p.draws||0)+(p.ko_draws||0);
 
-  if(COMP === 'WC2026'){
+  if(isWC){
     const jA=(a.joker_pts||0)+(a.rarity_pts||0), jB=(b.joker_pts||0)+(b.rarity_pts||0);
     if(jB!==jA)return jB-jA;
     if(exact(b)!==exact(a))return exact(b)-exact(a);
@@ -4224,7 +4294,7 @@ function renderLB() {
   const trophySyms=['🥇','🥈','🥉'];
   const posSyms=['👑','🥈','🥉'];
   const isBot=p=>p.code==='BOT_IA';
-  const playerLabel=p=>isBot(p)?'🤖 IA':p.name;
+  const playerLabel=p=>isBot(p)?'🤖 IA':(p.avatar?`<span class="up-av">${escapeHtml(p.avatar)}</span>`:'')+p.name;
   const ligaHdr='';
 
   // ── Dados por jornada (jp vem do backend) ──
