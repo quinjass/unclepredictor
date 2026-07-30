@@ -1709,7 +1709,8 @@ document.addEventListener('keydown', function(e){
 <div class="switcher-overlay" id="account-menu-overlay" onclick="closeAccountMenu()">
   <div class="switcher-box" onclick="event.stopPropagation()">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-      <div style="width:48px;height:48px;border-radius:50%;background:rgba(245,197,24,.1);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">👤</div>
+      <div id="account-avatar" onclick="closeAccountMenu();showAvatarPicker()" title="Mudar avatar"
+           style="width:48px;height:48px;border-radius:50%;background:rgba(245,197,24,.1);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;cursor:pointer;position:relative">👤<span style="position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#12202f;font-size:.62rem;display:flex;align-items:center;justify-content:center;font-weight:700">✎</span></div>
       <div>
         <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.2rem" id="account-name">-</div>
         <div style="font-size:.75rem;color:var(--sub);margin-top:2px" id="account-info">-</div>
@@ -1718,7 +1719,6 @@ document.addEventListener('keydown', function(e){
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
     <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
-    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showAvatarPicker()">😀 Escolher avatar</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showChangePw()">🔑 Alterar password</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showNotifPrefs()">🔔 Gerir notificações</button>
     <button class="btn btn-danger btn-full" onclick="logout()">↩ Terminar sessão</button>
@@ -3474,6 +3474,12 @@ function showAccountMenu(){
   const nickLine=(S.user&&S.user.nickname)?('@'+S.user.nickname+' · '):'';
   const emailLine=S.user&&S.user.email?S.user.email+' · ':'';
   infoEl.textContent=nickLine+emailLine+'Liga: '+(S.curLeague?S.curLeague.name:'Global');
+  // Círculo do avatar: mostra o emoji escolhido (ou 👤) e serve de botão para o trocar.
+  const avEl=document.getElementById('account-avatar');
+  if(avEl){
+    const av=(S.user&&S.user.avatar)||'';
+    avEl.firstChild.nodeValue = av || '👤';
+  }
   document.getElementById('account-menu-overlay').classList.add('open');
 }
 function closeAccountMenu(){document.getElementById('account-menu-overlay').classList.remove('open');}
@@ -3931,7 +3937,7 @@ const AVATARS = [
   '🚀','⚡','🔥','💎','🌟','🎲','🃏','🧠',
   '👑','🎩','🕶️','🧢','🥸','🤖','👻','🦾',
   '🍀','🌵','🌊','🏔️','🎸','🎺','☕','🍕',
-  '🇵🇹','🇬🇧','🇪🇸','🇫🇷','🇩🇪','🇮🇹','🇧🇷','🇦🇷'
+  '🦄','🐼','🦊','🐸','🐙','🦖','🍺','🎧'
 ];
 
 function showAvatarPicker(){
@@ -4294,7 +4300,7 @@ function renderLB() {
   const trophySyms=['🥇','🥈','🥉'];
   const posSyms=['👑','🥈','🥉'];
   const isBot=p=>p.code==='BOT_IA';
-  const playerLabel=p=>isBot(p)?'🤖 IA':(p.avatar?`<span class="up-av">${escapeHtml(p.avatar)}</span>`:'')+p.name;
+  const playerLabel=p=>isBot(p)?'🤖 IA':p.name;
   const ligaHdr='';
 
   // ── Dados por jornada (jp vem do backend) ──
@@ -6784,7 +6790,15 @@ function openBotModal() {
 function openPlayerModal(playerName) {
   const _fromModal=document.getElementById('modal-overlay').classList.contains('open');
   const isMe = S.user && playerName.toLowerCase()===S.user.name.toLowerCase();
-  document.getElementById('modal-title').textContent = isMe ? 'As minhas apostas' : `Apostas de ${playerName}`;
+  {
+    // Avatar do participante: visível só aqui e no menu de conta, nunca na classificação.
+    let _av='';
+    try{
+      if(isMe) _av=(S.user&&S.user.avatar)||'';
+      else { const _p=(S.lb||[]).find(x=>x.name&&x.name.toLowerCase()===String(playerName).toLowerCase()); _av=(_p&&_p.avatar)||''; }
+    }catch(_){}
+    document.getElementById('modal-title').textContent = (_av?_av+' ':'') + (isMe ? 'As minhas apostas' : `Apostas de ${playerName}`);
+  }
   // Em competições por nickname, revela o NOME real no subtítulo (só ao clicar).
   let _sub = 'Jogos terminados e jogos com apostas já fechadas';
   try{
