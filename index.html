@@ -788,6 +788,23 @@
       .up-brand span { font-size: 1rem; }
     }
 
+    /* ══ Rodapé compacto da app ══
+       Deliberadamente pequeno: existe para cumprir os requisitos de transparência
+       (termos, privacidade/cookies, contactos, eliminar conta) e dar saída para o
+       site, sem competir com a navegação inferior. */
+    #app-foot{margin:26px -16px 0;padding:16px 16px calc(18px + env(safe-area-inset-bottom,0px));
+      border-top:1px solid var(--border);background:var(--bg2);text-align:center}
+    #app-foot .af-links{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 12px;margin-bottom:10px}
+    #app-foot .af-links a{font-size:.68rem;color:var(--sub);text-decoration:none;line-height:1.5}
+    #app-foot .af-links a:hover{color:var(--gold)}
+    #app-foot .af-icons{display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:10px}
+    #app-foot .af-icons a{color:var(--sub);display:inline-flex;align-items:center;gap:5px;text-decoration:none;font-size:.66rem}
+    #app-foot .af-icons a:hover{color:var(--gold)}
+    #app-foot .af-store{border:1px solid var(--border);border-radius:6px;padding:3px 8px}
+    #app-foot .af-legal{font-size:.6rem;color:var(--sub);opacity:.7;line-height:1.5;max-width:520px;margin:0 auto}
+    /* Na app nativa a Play Store não faz sentido (já lá está instalada). */
+    html.up-native #app-foot .af-store{display:none}
+
     /* ══ App nativa (Capacitor): só o login, sem landing ══ */
     html.up-native .up-marketing { display: none !important; }
     html.up-native #view-login { justify-content: center; padding: 0 16px; margin: -16px; }
@@ -1010,21 +1027,50 @@ document.addEventListener('keydown', function(e){
   // são FD<n> e não têm o prefixo R16_/QF_). Fallback ao prefixo do id (Mundial).
   function isKoGame(gid) { const st = GAME_STAGE[gid]; if (st) return KO_STAGE_SET.has(st); return /^(R32|R16|QF|SF|F3|FIN)_/.test(String(gid)); }
   function jornadaKeyOf(g) { const st = GAME_STAGE[g]; if (st && KO_STAGE_SET.has(st)) return st; if (GAME_MD[g] != null) return GAME_MD[g]; const m = String(g).match(/^(R32|R16|QF|SF|F3|FIN)_/); if (m) return m[1]; const n = parseInt(String(g).slice(1), 10); if (!n) return null; return String(Math.min(3, Math.ceil(n / 2))); }
-  function getRarityBonus(e, t) { if (!t || !e) return 0; const p = e / t; if (p < 0.05) return 6; if (p < 0.15) return 4; if (p <= 0.30) return 2; return 0; }
-  // A aproximação (+1 por falhar o exato por um golo) vale em TODAS as fases.
-  // Exceção histórica: o Mundial 2026 correu com aproximação só no mata-mata e
-  // está fechado - a sua pontuação não pode mudar retroativamente.
-  function approxApplies(isKO) { return COMP === 'WC2026' ? !!isKO : true; }
+  // ---- TABELA DE PONTUAÇÃO POR COMPETIÇÃO ----------------------------------
+  // ⚠️ O Mundial 2026 está ENCERRADO. Correu com 1/3 nos grupos, 2/5 no mata-mata,
+  // aproximação só no KO e raridade 6/4/2 @ 5/15/30. Esses valores NÃO podem mudar
+  // retroativamente, por isso vivem num perfil próprio.
+  // Todas as competições novas (UCL2627, PL2627, futuras) usam a escala uniforme:
+  // tendência 2 · resultado exato 5 · aproximação +1 em qualquer fase, e raridade
+  // 3/2/1 nas bandas <5% / <12% / <=20% (calibrada em analise_raridade_mundial2026).
+  // Esta é a ÚNICA fonte de verdade da pontuação - as Regras leem daqui.
+  const SCORING_PROFILES = {
+    WC2026: {
+      exact: { group:3, ko:5 }, trend: { group:1, ko:2 }, approx: 1, approxKoOnly: true,
+      rarity: [[0.05,6,false],[0.15,4,false],[0.30,2,true]],
+      rarityLabels: { 6:'Ultra Raro', 4:'Muito Raro', 2:'Raro' },
+      defaultPickRatio: null, defaultPickBudget: 5, defaultPickSource: 'bot', defaultPickExact: false
+    },
+    STD: {
+      exact: { group:5, ko:5 }, trend: { group:2, ko:2 }, approx: 1, approxKoOnly: false,
+      rarity: [[0.05,3,false],[0.12,2,false],[0.20,1,true]],
+      rarityLabels: { 3:'Ultra Raro', 2:'Muito Raro', 1:'Raro' },
+      defaultPickRatio: 0.10, defaultPickBudget: null, defaultPickSource: 'crowd', defaultPickExact: true
+    }
+  };
+  function scoringOf(comp) { return SCORING_PROFILES[comp || COMP] || SCORING_PROFILES.STD; }
+  function getRarityBonus(e, t) {
+    if (!t || !e) return 0;
+    const p = e / t, bands = scoringOf().rarity;
+    for (let i = 0; i < bands.length; i++) { const b = bands[i]; if (b[2] ? p <= b[0] : p < b[0]) return b[1]; }
+    return 0;
+  }
+  function rarityLabelOf(bonus) { return scoringOf().rarityLabels[bonus] || 'Raro'; }
+  // A aproximação (+1 por falhar o exato por um golo) vale em todas as fases,
+  // exceto no Mundial 2026 (fechado), onde só contava no mata-mata.
+  function approxApplies(isKO) { const s = scoringOf(); return s.approxKoOnly ? !!isKO : true; }
 
   function calcPoints(pred, res, isKO) {
     if (pred.t1 == null || res.t1 == null) return 0;
     const pw = pred.t1 > pred.t2 ? 1 : pred.t1 < pred.t2 ? -1 : 0;
     const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0;
-    const eB = isKO ? 5 : 3, wB = isKO ? 2 : 1; let pts = 0;
+    const s = scoringOf(), ph = isKO ? 'ko' : 'group';
+    const eB = s.exact[ph], wB = s.trend[ph]; let pts = 0;
     if (pred.t1 === res.t1 && pred.t2 === res.t2) pts = eB;
     else {
       if (pw === rw) pts = wB;
-      if (approxApplies(isKO) && (Math.abs(pred.t1 - res.t1) + Math.abs(pred.t2 - res.t2)) === 1) pts += 1;
+      if (approxApplies(isKO) && (Math.abs(pred.t1 - res.t1) + Math.abs(pred.t2 - res.t2)) === 1) pts += s.approx;
     }
     return pred.joker ? pts * 2 : pts;
   }
@@ -1077,13 +1123,40 @@ document.addEventListener('keydown', function(e){
   }
   function buildLeaderboard(results, db) {
     const allPreds = db.allPreds;
-    const botPredMap = {}; allPreds.forEach(r => { if (r.code === BOT_CODE && r.t1 != null) botPredMap[r.game_id] = { t1:+r.t1, t2:+r.t2 }; });
-    const cutoffMs = new Date(DEFAULT_PICK_CUTOFF_UTC).getTime();
+    const SC = scoringOf();
+    // ── FONTE DA DEFAULT PICK ────────────────────────────────────────────────
+    // WC2026 (fechado): herdava a aposta do Bot IA.
+    // Competições novas: herda a aposta MAIS COMUM da comunidade nesse jogo
+    // (modelo "The Choice" do Superbru). O bot está excluído da contagem, tal
+    // como já estava na raridade. Empates de popularidade resolvem-se pelo
+    // resultado lexicograficamente menor, para ser determinístico.
+    const defaultPickMap = {};
+    if (SC.defaultPickSource === 'bot') {
+      allPreds.forEach(r => { if (r.code === BOT_CODE && r.t1 != null) defaultPickMap[r.game_id] = { t1:+r.t1, t2:+r.t2 }; });
+    } else {
+      const tally = {};
+      allPreds.forEach(r => {
+        if (r.t1 == null || r.code === BOT_CODE) return;
+        const k = +r.t1 + '-' + +r.t2;
+        (tally[r.game_id] = tally[r.game_id] || {})[k] = (tally[r.game_id][k] || 0) + 1;
+      });
+      Object.keys(tally).forEach(gid => {
+        let best = null, bestN = -1;
+        Object.keys(tally[gid]).sort().forEach(k => { if (tally[gid][k] > bestN) { bestN = tally[gid][k]; best = k; } });
+        if (best) { const [a, b] = best.split('-'); defaultPickMap[gid] = { t1:+a, t2:+b }; }
+      });
+    }
+    // Orçamento: fixo no Mundial (5), 10% dos jogos da competição nas restantes.
+    const totalGames = Object.keys(db.gameDatesUTC || {}).length || Object.keys(results).length;
+    const defaultBudget = SC.defaultPickRatio != null
+      ? Math.max(1, Math.round(totalGames * SC.defaultPickRatio))
+      : SC.defaultPickBudget;
+    const cutoffMs = SC.defaultPickSource === 'bot' ? new Date(DEFAULT_PICK_CUTOFF_UTC).getTime() : 0;
     const exactCountMap = {}, betCountMap = {};
     // Bot EXCLUÍDO da contagem da raridade (2 Jul) - igual ao apps-script.gs; bot continua a poder receber o bónus
     Object.keys(results).forEach(gid => { const res = results[gid]; let ex = 0, b = 0; allPreds.forEach(r => { if (r.game_id !== gid || r.t1 == null || r.code === BOT_CODE) return; b++; if (+r.t1 === res.t1 && +r.t2 === res.t2) ex++; }); exactCountMap[gid] = ex; betCountMap[gid] = b; });
     const rarityMap = {};
-    Object.keys(exactCountMap).forEach(gid => { const bonus = getRarityBonus(exactCountMap[gid], betCountMap[gid]); if (bonus > 0) rarityMap[gid] = { exactCount:exactCountMap[gid], totalPlayers:betCountMap[gid], bonus, label: bonus===6?'Ultra Raro':bonus===4?'Muito Raro':'Raro' }; });
+    Object.keys(exactCountMap).forEach(gid => { const bonus = getRarityBonus(exactCountMap[gid], betCountMap[gid]); if (bonus > 0) rarityMap[gid] = { exactCount:exactCountMap[gid], totalPlayers:betCountMap[gid], bonus, label: rarityLabelOf(bonus) }; });
     const specials = db.specials, gs = calcGroupStandings(results, db.groupGames);
     // Liga → pré-apostas config-driven; Mundial → mantém o cálculo hardcoded.
     const leaguePrebetsCfg = (() => { const v = db.config['prebets_' + COMP]; if (v == null) return null; if (typeof v !== 'string') return v; try { return JSON.parse(v); } catch (e) { return null; } })();
@@ -1107,9 +1180,23 @@ document.addEventListener('keydown', function(e){
       let default_pts = 0, default_used = 0;
       if (p.code !== BOT_CODE) {
         const bg = {}; userPreds.forEach(r => { if (r.t1 != null) bg[r.game_id] = true; });
-        const cand = Object.keys(results).filter(gid => { if (bg[gid]) return false; if (!botPredMap[gid]) return false; const k = db.gameDatesUTC[gid] ? new Date(db.gameDatesUTC[gid]).getTime() : 0; return k >= cutoffMs; });
+        const cand = Object.keys(results).filter(gid => { if (bg[gid]) return false; if (!defaultPickMap[gid]) return false; const k = db.gameDatesUTC[gid] ? new Date(db.gameDatesUTC[gid]).getTime() : 0; return k >= cutoffMs; });
         cand.sort((a, b) => { const ka = db.gameDatesUTC[a] ? new Date(db.gameDatesUTC[a]).getTime() : 0; const kb = db.gameDatesUTC[b] ? new Date(db.gameDatesUTC[b]).getTime() : 0; return ka - kb || (a < b ? -1 : a > b ? 1 : 0); });
-        for (let i = 0; i < cand.length && default_used < DEFAULT_PICK_BUDGET; i++) { const gid = cand[i]; default_used++; const res = results[gid], bp = botPredMap[gid]; const isKO = isKoGame(gid); const pw = bp.t1 > bp.t2 ? 1 : bp.t1 < bp.t2 ? -1 : 0; const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0; if (pw === rw) { const pts = isKO ? 2 : 1; default_pts += pts; const jk = jornadaKeyOf(gid); if (jk) jp[jk] = (jp[jk] || 0) + pts; } }
+        // Gastam-se por ordem cronológica, à medida que o jogador não aposta, até
+        // esgotar o orçamento. O jogador não escolhe onde aplicar.
+        // ⚠️ Só pontos "normais": tendência ou resultado exato. Sem aproximação,
+        // sem raridade e sem joker - o teto é o valor do exato.
+        for (let i = 0; i < cand.length && default_used < defaultBudget; i++) {
+          const gid = cand[i]; default_used++;
+          const res = results[gid], bp = defaultPickMap[gid];
+          const isKO = isKoGame(gid), ph = isKO ? 'ko' : 'group';
+          let pts = 0;
+          // ⚠️ No Mundial (defaultPickExact:false) a default pick valia SÓ a
+          // tendência, mesmo com resultado exato. Não mexer - está fechado.
+          if (SC.defaultPickExact && bp.t1 === res.t1 && bp.t2 === res.t2) pts = SC.exact[ph];
+          else { const pw = bp.t1 > bp.t2 ? 1 : bp.t1 < bp.t2 ? -1 : 0; const rw = res.t1 > res.t2 ? 1 : res.t1 < res.t2 ? -1 : 0; if (pw === rw) pts = SC.trend[ph]; }
+          if (pts > 0) { default_pts += pts; const jk = jornadaKeyOf(gid); if (jk) jp[jk] = (jp[jk] || 0) + pts; }
+        }
       }
       const prebets_pts = leaguePrebetsCfg ? calcLeaguePrebetPoints(userPrebets, specials, leaguePrebetsCfg) : calcPrebetPoints(userPrebets, specials, gs);
       const total = groupPts + koPts + joker_pts + rarity_pts + prebets_pts + default_pts;
@@ -1140,7 +1227,7 @@ document.addEventListener('keydown', function(e){
     return DBP;
   }
   async function loadDBFetch() {
-    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, duels, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
@@ -1151,7 +1238,6 @@ document.addEventListener('keydown', function(e){
       rest('league_members', 'league_id,user_code', '', false, 'league_id,user_code'),
       rest('reactions', 'league_id,from_code,target_code,emoji', '', true, 'league_id,from_code,target_code'),   // RLS 008: membros da liga (JWT)
       rest('comments', 'league_id,jornada,code,name,text,created_at', '', true, 'created_at,code'),
-      rest('duel_rosters', 'league_id,jornada,codes', '', true, 'league_id,jornada'),
       rest('notifications', 'id,to_code,type,text,created_at', '', true),     // RLS 008: próprio/broadcast (JWT)
       rest('blocks', 'code,blocked_code', '', true, 'code,blocked_code'),
       rest('notif_prefs', 'code,prefs', '', true),
@@ -1176,11 +1262,10 @@ document.addEventListener('keydown', function(e){
     const fmembers = members.filter(m => lset.has(m.league_id));
     const freacts = reactions.filter(r => lset.has(r.league_id));
     const fcomments = comments.filter(c => lset.has(c.league_id));
-    const fduels = duels.filter(d => lset.has(d.league_id));
     // Leaderboard só com os MEMBROS desta competição (não todos os participantes globais)
     const cmSet = new Set((compMembers || []).map(m => m.code));
     const participantsM = participants.filter(p => cmSet.has(p.code));
-    DB = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, duels: fduels, notifs, blocks, prefsMap };
+    DB = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap };
     return DB;
   }
   function shapeLeague(l, db) {
@@ -1501,7 +1586,7 @@ document.addEventListener('keydown', function(e){
         });
         return { leagues };
       }
-      if (action === 'getSocial') { const db = await loadDB(); const lid = data.league_id; const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji })); const comments = db.comments.filter(c => c.league_id === lid).map(c => ({ jornada:String(c.jornada||''), code:(c.code||'').toUpperCase(), name:c.name, text:c.text, at:c.created_at })); const duelRosters = {}; db.duels.filter(d => d.league_id === lid).forEach(d => { duelRosters[String(d.jornada)] = String(d.codes||'').split(',').map(s => s.trim()).filter(Boolean); }); return { reactions, comments, duelRosters }; }
+      if (action === 'getSocial') { const db = await loadDB(); const lid = data.league_id; const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji })); const comments = db.comments.filter(c => c.league_id === lid).map(c => ({ jornada:String(c.jornada||''), code:(c.code||'').toUpperCase(), name:c.name, text:c.text, at:c.created_at })); return { reactions, comments }; }
       if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:dispName(p), realName:p.name, nickname:p.nickname||null })) }; }
       if (action === 'saveAvatar') { const av = await rpc('rpc_set_avatar', { p_avatar: data.avatar || '' }, true); DB = null; if (SESSION) { SESSION.avatar = av || null; saveSession(SESSION); } return { success: true, avatar: av || null }; }
       if (action === 'saveNickname') { const nick = await rpc('rpc_set_nickname', { p_nick: data.nickname || '' }, true); DB = null; if (SESSION) { SESSION.nickname = nick || null; SESSION.name = dispName({ name: SESSION.realName || SESSION.name, nickname: nick || null }); saveSession(SESSION); } return { success: true, nickname: nick || null }; }
@@ -1672,7 +1757,7 @@ document.addEventListener('keydown', function(e){
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth, setComp, comp: () => COMP, pickBase: pickApiBase, apiBase: () => SB_URL };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth, setComp, comp: () => COMP, scoring: scoringOf, pickBase: pickApiBase, apiBase: () => SB_URL };
 })();
 
 </script>
@@ -1863,9 +1948,6 @@ document.addEventListener('keydown', function(e){
 <nav class="bottom-nav" id="bottom-nav" style="display:none">
   <button class="nav-btn" onclick="showView('leaderboard')" id="nav-leaderboard">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="18" y="3" width="4" height="18"/><rect x="10" y="8" width="4" height="13"/><rect x="2" y="13" width="4" height="8"/></svg>Classif.
-  </button>
-  <button class="nav-btn" onclick="showView('duels')" id="nav-duels">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/><line x1="20" y1="20" x2="4" y2="4"/></svg>Duelos
   </button>
   <button class="nav-btn" onclick="showView('prebets')" id="nav-prebets">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>Pré-Ap.
@@ -2206,19 +2288,6 @@ document.addEventListener('keydown', function(e){
     <div id="lb-content"><div class="loading-center"><div class="spinner"></div></div></div>
   </div>
 
-  <!-- ═══════════════ DUELOS ═══════════════ -->
-  <div class="view" id="view-duels">
-    <div class="section-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/><line x1="20" y1="20" x2="4" y2="4"/></svg>
-      Duelos
-    </div>
-    <div id="liga-selector-duels"></div>
-    <div style="margin-bottom:12px">
-      <button class="btn btn-outline btn-full" style="font-size:.78rem" onclick="showLeaguePicker()">🏆 Ver todas as ligas / Entrar numa nova liga</button>
-    </div>
-    <div id="duels-content"><div class="loading-center"><div class="spinner"></div></div></div>
-  </div>
-
   <!-- ═══════════════ APOSTAS ═══════════════ -->
   <div class="view" id="view-bets">
     <div class="section-title">
@@ -2289,211 +2358,9 @@ document.addEventListener('keydown', function(e){
       Regras do Jogo
     </div>
 
-    <!-- Pontuação fase de grupos -->
-    <div class="card">
-      <div class="rules-subtitle">⚽ Fase de Grupos</div>
-      <div class="scoring-grid">
-        <div class="scoring-cell sc-draw">
-          <div class="scoring-pts">1</div>
-          <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
-          <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
-        </div>
-        <div class="scoring-cell sc-win">
-          <div class="scoring-pts">3</div>
-          <div class="scoring-label">✅ Acerto no resultado</div>
-          <div class="scoring-sub">Resultado exato<br>ex: apostaste 2-1, saiu 2-1</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pontuação fase a eliminar -->
-    <div class="card">
-      <div class="rules-subtitle">🔥 Fase a Eliminar</div>
-      <div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.9">
-        <div>⏱ <strong style="color:var(--text)">Jogo com 90 min:</strong> conta o resultado ao fim do tempo regulamentar (+ descontos)</div>
-        <div>⏱⏱ <strong style="color:var(--text)">Jogo com prolongamento:</strong> conta o resultado ao fim dos 120 min (+ descontos)</div>
-        <div>🥅 <strong style="color:var(--text)">Jogo com penáltis:</strong> conta como <strong style="color:var(--gold)">empate</strong> (resultado ao fim dos 120 min (+ descontos))</div>
-      </div>
-      <div class="scoring-grid">
-        <div class="scoring-cell sc-draw">
-          <div class="scoring-pts">2</div>
-          <div class="scoring-label">☑️ Acerto no vencedor / empate</div>
-          <div class="scoring-sub">Vencedor ou empate certo,<br>resultado errado</div>
-        </div>
-        <div class="scoring-cell sc-win">
-          <div class="scoring-pts">5</div>
-          <div class="scoring-label">✅ Acerto no resultado</div>
-          <div class="scoring-sub">Resultado exato ao fim do tempo regulamentar/prolongamento</div>
-        </div>
-        <div class="scoring-cell" style="background:rgba(0,188,212,.08);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
-          <div class="scoring-pts" style="color:#00bcd4">+1</div>
-          <div class="scoring-label" style="color:#00bcd4">🎯 Aproximação <span style="font-size:.7rem;color:var(--sub);font-weight:400">(só fase a eliminar)</span></div>
-          <div class="scoring-sub">Falhaste o resultado exato mas ficaste a <strong>1 golo</strong> dele: acertas numa equipa e falhas a outra por um golo → <strong>+1 pt</strong>. Acumula com a tendência e vale mesmo que falhes a tendência.</div>
-        </div>
-      </div>
-      <div style="padding:8px 12px;background:rgba(0,188,212,.06);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:8px">
-        <div>📌 Exemplos: apostas <strong style="color:var(--text)">2-1</strong> e sai <strong style="color:var(--text)">2-0</strong> → <strong style="color:var(--text)">3 pts</strong> (2 tendência + 1 aproximação)</div>
-        <div>📌 Apostas <strong style="color:var(--text)">2-1</strong> e sai <strong style="color:var(--text)">1-1</strong> → <strong style="color:var(--text)">1 pt</strong> (0 tendência + 1 aproximação)</div>
-        <div>📌 Apostas <strong style="color:var(--text)">7-0</strong> e sai <strong style="color:var(--text)">4-2</strong> → <strong style="color:var(--text)">0 pts</strong> (longe em ambas as equipas; não conta a soma de golos)</div>
-        <div><span class="joker-badge">J</span> O <strong style="color:var(--text)">JOKER</strong> também duplica a aproximação</div>
-      </div>
-    </div>
-
-    <!-- JOKER -->
-    <div class="card">
-      <div class="rules-subtitle"><span class="joker-badge" style="font-size:.72rem;padding:2px 7px">J</span> O JOKER</div>
-      <div class="scoring-cell sc-joker" style="border-radius:10px;margin-bottom:10px;flex-direction:row;gap:14px;padding:12px 16px">
-        <div class="scoring-pts" style="font-size:2.2rem;color:#00bcd4">×2</div>
-        <div style="text-align:left">
-          <div style="font-weight:700;color:#00bcd4;font-size:.85rem;margin-bottom:3px">JOKER ATIVO</div>
-          <div style="font-size:.76rem;color:var(--sub)">Duplica os pontos desse jogo.<br>Grupos: 3→6, 1→2 &nbsp;·&nbsp; KO: 5→10, 2→4</div>
-        </div>
-      </div>
-      <div style="font-size:.82rem;line-height:1.6;color:var(--text)">
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">⚽ <strong>Grupos:</strong> 1 JOKER por jornada</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔥 <strong>Eliminatória</strong> (16-avos → R16 → QF → SF)<strong>:</strong> 1 JOKER por ronda</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🥉🏆 <strong>3º/4º lugar + Final:</strong> 1 JOKER partilhado - usa-o num dos dois jogos</div>
-        <div style="padding:5px 0">❌ <strong>JOKER não protege contra erros:</strong> se não acertares nem no resultado nem no vencedor, a pontuação é sempre 0 - independentemente da fase</div>
-      </div>
-    </div>
-
-    <!-- Raridade -->
-    <div class="card">
-      <div class="rules-subtitle">🌟 Bónus de Raridade</div>
-      <div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.6">
-        Quando acertas no resultado exato, podes ganhar pontos extra consoante a raridade da tua aposta - quanto menos jogadores apostaram o mesmo resultado, mais pontos ganhas.
-      </div>
-      <div class="scoring-grid">
-        <div class="scoring-cell" style="background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25)">
-          <div class="scoring-pts" style="color:#f39c12">+2</div>
-          <div class="scoring-label" style="color:#f39c12">⭐ RARO</div>
-          <div class="scoring-sub">15-30% apostou igual</div>
-        </div>
-        <div class="scoring-cell" style="background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25)">
-          <div class="scoring-pts" style="color:#9b59b6">+4</div>
-          <div class="scoring-label" style="color:#9b59b6">🌟 MUITO RARO</div>
-          <div class="scoring-sub">5-15% apostou igual</div>
-        </div>
-        <div class="scoring-cell" style="background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1">
-          <div class="scoring-pts" style="color:#00bcd4">+6</div>
-          <div class="scoring-label" style="color:#00bcd4">💎 ULTRA RARO</div>
-          <div class="scoring-sub">Menos de 5% apostou igual · Resultado único no grupo</div>
-        </div>
-      </div>
-      <div style="padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:2px">
-        <div>✅ Bónus aplica-se apenas a <strong style="color:var(--text)">acertos no resultado exato</strong></div>
-        <div><span class="joker-badge">J</span> O <strong style="color:var(--text)">JOKER</strong> duplica o bónus de raridade também</div>
-        <div>📊 Mais de 30% a apostar igual → sem bónus <span style="opacity:.7">(Comum)</span></div>
-      </div>
-    </div>
-
-    <!-- Duelos -->
-    <div class="card" id="rules-duels-card">
-      <div class="rules-subtitle">⚔️ Duelos Head-to-Head</div>
-      <div style="font-size:.8rem;line-height:1.7;color:var(--text)">
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">⚔️ Em cada jornada (J1-J3 e cada ronda KO) és <strong>sorteado contra outro membro da tua liga</strong>. O sorteio é aleatório mas igual para todos - podes ver o teu adversário na Classificação antes da jornada começar.</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">⏳ Até ao <strong>fecho das apostas do 1º jogo da jornada</strong> o emparelhamento é <strong>provisório</strong> (novos membros podem entrar na liga e alterar o sorteio). Nesse momento fica 🔒 <strong>fechado</strong>.</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🏅 Ganha o duelo quem fizer <strong>mais pontos nessa jornada</strong> (joker e raridade contam). Vitória <strong style="color:#e67e22">2 pts</strong> · Empate <strong>1 pt</strong> · Derrota <strong>0</strong>. Com nº ímpar de membros, quem fica de fora recebe <strong>bye = 1 pt</strong>.</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">📊 Os pontos de duelo vivem na coluna <strong style="color:#e67e22">⚔️</strong> da classificação detalhada - é uma <strong>tabela paralela</strong>, não soma ao Total.</div>
-        <div style="padding:5px 0">🏅 No fim do Mundial, quem somar mais pontos de duelo é coroado <strong style="color:#e67e22">⚔️ Campeão de Duelos</strong> da liga - um título próprio, ao lado do campeão geral. Desempate: mais vitórias em duelos → melhor posição na classificação.</div>
-      </div>
-    </div>
-
-    <!-- Default Picks -->
-    <div class="card">
-      <div class="rules-subtitle">🤖 Default Picks <span style="font-size:.78rem;color:#a78bfa;font-weight:400">rede de segurança</span></div>
-      <div style="font-size:.8rem;line-height:1.7;color:var(--text)">
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">😴 Esqueceste-te de apostar num jogo? Em vez de zero, herdas automaticamente a aposta do <strong style="color:#a78bfa">🤖 IA</strong> nesse jogo.</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🎯 A default pick conta <strong>só a tendência</strong>: se o IA acertar o vencedor/empate ganhas <strong style="color:var(--green)">1 pt</strong> (grupos) ou <strong style="color:#7986cb">2 pts</strong> (mata-mata). Se o IA falhar, ficas a <strong>0</strong> - sem penalização.</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🚫 O acerto no resultado exato <strong>não</strong> dá pontos extra, e <strong>não há joker nem raridade</strong> nas default picks (o teto é sempre o valor da tendência).</div>
-        <div style="padding:5px 0;border-bottom:1px solid var(--border)">🔢 Tens no máximo <strong>5 default picks</strong> em todo o torneio (5% dos jogos). Gastas-as pela ordem dos jogos; esgotadas, os jogos sem aposta voltam a valer 0.</div>
-        <div style="padding:5px 0">📊 Contam para o <strong>Total</strong>, MVP e Duelos, mas aparecem à parte na coluna <strong style="color:#a78bfa">D</strong> da classificação detalhada. A aposta do IA só fica visível depois do fecho do jogo.</div>
-      </div>
-    </div>
-
-    <!-- Pré-Apostas -->
-    <div class="card">
-      <div class="rules-subtitle">🏆 Pré-Apostas <span id="prebet-deadline-rules" style="font-size:.78rem;color:var(--sub);font-weight:400">1h antes do 1º jogo</span></div>
-      <div class="prebet-grid">
-        <div class="prebet-item">🥇🥈 1º e 2º de cada grupo (×24)</div><div class="prebet-pts-v">+2 pts cada</div>
-        <div class="prebet-item">🏆 Campeão do Mundo</div><div class="prebet-pts-v">+8 pts</div>
-        <div class="prebet-item">🥈 Vice-campeão</div><div class="prebet-pts-v">+5 pts</div>
-        <div class="prebet-item">🥉 3º Classificado</div><div class="prebet-pts-v">+3 pts</div>
-        <div class="prebet-item">⚽ Melhor Marcador</div><div class="prebet-pts-v">+5 pts</div>
-      </div>
-      <div style="margin-top:10px;padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.78rem;color:var(--sub);text-align:center">
-        Pontuação máxima em pré-apostas: <strong style="color:var(--gold)">69 pts</strong>
-      </div>
-      <div style="margin-top:6px;padding:6px 12px;background:rgba(231,76,60,.07);border-radius:8px;font-size:.75rem;color:var(--sub);line-height:1.5">
-        ⏰ <span id="prebet-note-rules">As pré-apostas encerram antes do 1º jogo.</span>
-      </div>
-    </div>
-
-    <!-- Deadlines -->
-    <div class="card">
-      <div class="rules-subtitle">⏰ Deadlines</div>
-      <div class="timeline-item">
-        <div class="timeline-dot">📋</div>
-        <div><strong>Até 11 Jun (1h antes do início do primeiro jogo)</strong><br><span style="font-size:.75rem;color:var(--sub)">Preenche as Pré-Apostas. Após o início do torneio ficam bloqueadas.</span></div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-dot">⏱</div>
-        <div><strong>1h antes de cada jogo</strong><br><span style="font-size:.75rem;color:var(--sub)">As apostas fecham antes do apito inicial (configurável pelo admin).</span></div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-dot">🔒</div>
-        <div><strong>Apostas fora do prazo = 0 pontos</strong><br><span style="font-size:.75rem;color:var(--sub)">Jogos não apostados até ao deadline não pontuam. Sem exceções.</span></div>
-      </div>
-    </div>
-
-    <!-- Desempates -->
-    <div class="card">
-      <div class="rules-subtitle">⚖️ Critérios de Desempate</div>
-      <div class="tiebreak-row">
-        <div class="tb-badge">1</div>
-        <div>Maior <strong>rácio de pontos por jogos apostados</strong></div>
-      </div>
-      <div class="tiebreak-row">
-        <div class="tb-badge">2</div>
-        <div>Maior soma de <strong>pontos de raridade</strong></div>
-      </div>
-      <div class="tiebreak-row">
-        <div class="tb-badge">3</div>
-        <div>Número de <strong>acertos na tendência</strong> (vencedor / empate)</div>
-      </div>
-      <div class="tiebreak-row">
-        <div class="tb-badge">4</div>
-        <div>Número de <strong>acertos no resultado exato</strong></div>
-      </div>
-      <div id="tb-wc-note" style="display:none;font-size:.7rem;color:var(--sub);line-height:1.5;margin-top:8px">
-        O Mundial 2026 foi disputado com os critérios anteriores (Joker + raridade, depois
-        acertos exatos, depois tendência) e mantém-nos, por já estar encerrado.
-      </div>
-    </div>
-
-    <!-- Formato do torneio -->
-    <div class="card">
-      <div class="rules-subtitle" id="rules-sub-2">🌎 Formato Mundial 2026</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-        <div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:var(--gold)">48</div>
-          <div style="font-size:.72rem;color:var(--sub)">Equipas</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:var(--gold)">12</div>
-          <div style="font-size:.72rem;color:var(--sub)">Grupos de 4</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:#64b5f6">32</div>
-          <div style="font-size:.72rem;color:var(--sub)">Fase R32 (inédita)</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center">
-          <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:var(--green)">104</div>
-          <div style="font-size:.72rem;color:var(--sub)">Jogos totais</div>
-        </div>
-      </div>
-      <p style="font-size:.78rem;color:var(--sub);margin:0">Os 2 primeiros de cada grupo + os 8 melhores terceiros avançam para o Round of 32 e daí para os oitavos, quartos, meias e final.</p>
-    </div>
+    <!-- Regras geradas por JS a partir do perfil de pontuação da competição ativa
+         (SCORING_PROFILES). NÃO voltar a escrever valores de pontos aqui à mão. -->
+    <div id="rules-body"></div>
   </div>
 
   <!-- ═══════════════ ADMIN ═══════════════ -->
@@ -2631,11 +2498,6 @@ document.addEventListener('keydown', function(e){
             <input class="form-input" id="cfg-apikey" type="text" placeholder="Ex: abc1234def5678...">
             <div style="font-size:.7rem;color:var(--sub);margin-top:4px">Regista-te gratuitamente em <a href="https://www.football-data.org" target="_blank" style="color:var(--gold)">football-data.org</a> para obter uma chave API gratuita.</div>
           </div>
-          <div class="form-group">
-            <label class="form-label">API Key - the-odds-api.com <span style="color:var(--sub);font-weight:400">(para apostas do Bot IA)</span></label>
-            <input class="form-input" id="cfg-oddskey" type="text" placeholder="Ex: abc1234def5678...">
-            <div style="font-size:.7rem;color:var(--sub);margin-top:4px">Regista-te em <a href="https://the-odds-api.com" target="_blank" style="color:var(--gold)">the-odds-api.com</a> (plano gratuito disponível).</div>
-          </div>
           <button class="btn btn-primary btn-full" onclick="saveConfig()">Guardar</button>
         </div>
         <div class="card" style="margin-top:12px">
@@ -2660,18 +2522,43 @@ document.addEventListener('keydown', function(e){
           <button class="btn btn-primary btn-full" style="margin-top:8px" onclick="sendBroadcast()">Enviar 📤</button>
           <div style="font-size:.7rem;color:var(--sub);margin-top:6px">A notificação aparece no sino 🔔 de todos na app. O email é enviado em BCC para os endereços registados na base de dados (ninguém vê os emails dos outros).</div>
         </div>
-        <div class="card" style="margin-top:12px">
-          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem;margin-bottom:10px">🤖 Bot IA</div>
-          <div style="font-size:.78rem;color:var(--sub);margin-bottom:12px;line-height:1.5">O Bot faz apostas automaticamente com base em odds em tempo real. Requer a API Key da the-odds-api.com configurada acima.</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-outline" style="flex:1;font-size:.78rem" onclick="runBot('preds')">⚽ Gerar Apostas</button>
-            <button class="btn btn-outline" style="flex:1;font-size:.78rem" onclick="runBot('prebets')">🏆 Gerar Pré-Apostas</button>
-          </div>
-          <div id="bot-status" style="display:none;margin-top:10px;font-size:.78rem;padding:8px 12px;background:rgba(245,197,24,.08);border-radius:8px"></div>
-        </div>
       </div>
     </div>
   </div>
+
+  <!-- ═══════════════ RODAPÉ DA APP ═══════════════
+       Fica FORA das .view, no fim do <main>: como só há uma view ativa de cada
+       vez, aparece no fim de qualquer página (seleção de competição incluída).
+       Escondido no pré-login (.up-marketing já trata da app nativa) e o botão da
+       Play Store só no browser - dentro da app não faz sentido.  -->
+  <footer id="app-foot" style="display:none">
+    <div class="af-links">
+      <a href="https://unclepredictor.pt/regras.html" target="_blank" rel="noopener">Regras</a>
+      <a href="https://unclepredictor.pt/como-funciona.html" target="_blank" rel="noopener">Como funciona</a>
+      <a href="https://unclepredictor.pt/guias/" target="_blank" rel="noopener">Guias</a>
+      <a href="https://unclepredictor.pt/faq.html" target="_blank" rel="noopener">FAQ</a>
+      <a href="https://unclepredictor.pt/premium.html" target="_blank" rel="noopener">Premium</a>
+      <a href="https://unclepredictor.pt/contactos.html" target="_blank" rel="noopener">Contactos</a>
+      <a href="https://unclepredictor.pt/termos.html" target="_blank" rel="noopener">Termos</a>
+      <a href="https://unclepredictor.pt/privacidade.html" target="_blank" rel="noopener">Privacidade e cookies</a>
+      <a href="https://unclepredictor.pt/eliminar-conta.html" target="_blank" rel="noopener">Eliminar conta</a>
+    </div>
+    <div class="af-icons">
+      <a href="https://www.facebook.com/unclepredictor" target="_blank" rel="noopener" title="Facebook" aria-label="Facebook">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.51 1.5-3.9 3.79-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12z"/></svg>
+      </a>
+      <a href="https://www.instagram.com/unclepredictor/" target="_blank" rel="noopener" title="Instagram" aria-label="Instagram">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zm0 5.17A4.67 4.67 0 1 0 16.67 12 4.67 4.67 0 0 0 12 7.33zm0 7.71A3.04 3.04 0 1 1 15.04 12 3.04 3.04 0 0 1 12 15.04zm5.95-7.9a1.09 1.09 0 1 1-1.09-1.09 1.09 1.09 0 0 1 1.09 1.09z"/></svg>
+      </a>
+      <a class="af-store" href="https://play.google.com/store/apps/details?id=pt.unclepredictor" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M3.6 1.8a1 1 0 0 0-.5.9v18.6a1 1 0 0 0 .5.9l10-10.2-10-10.2zm11.1 9.3 2.9-3-9.7-5.5 6.8 8.5zm0 1.8-6.8 8.5 9.7-5.5-2.9-3zm5.2-2.5-2.2-1.2-3.1 3.2 3.1 3.2 2.2-1.2a1.4 1.4 0 0 0 0-4z"/></svg>Google Play
+      </a>
+    </div>
+    <div class="af-legal">
+      Uncle Predictor - jogo de prognósticos de futebol entre amigos, sem apostas em
+      dinheiro e sem prémios monetários. Não somos afiliados da FIFA, UEFA ou Premier League.
+    </div>
+  </footer>
 
 </main>
 
@@ -3066,11 +2953,24 @@ function computeMatchdayTrophies(mdPts) {
 }
 
 // ════════════════════════════════════════════════
-//  JORNADAS - helpers (MVP, duelos, evolução, card)
+//  JORNADAS - helpers (MVP, evolução, card)
 // ════════════════════════════════════════════════
-const JORNADA_SEQ=['1','2','3','R32','R16','QF','SF','F3','FIN'];
-const JORNADA_NAMES={'1':'Jornada 1','2':'Jornada 2','3':'Jornada 3',R32:'16-avos',R16:'Oitavos',QF:'Quartos',SF:'Meias-Finais',F3:'3º/4º Lugar',FIN:'Final'};
-const JORNADA_SHORT={'1':'J1','2':'J2','3':'J3',R32:'R32',R16:'R16',QF:'QF',SF:'SF',F3:'3º/4º',FIN:'FIN'};
+// ⚠️ A sequência de jornadas NÃO pode ser fixa: o Mundial tem 3 + KO, a UCL tem 8
+// de fase de liga + KO e a Premier tem 38. Deriva-se sempre de GAMES, que já vem
+// filtrado pela competição ativa. Só os nomes das rondas KO são tabelados.
+const KO_JORNADA_NAMES={R32:'16-avos',R16:'Oitavos',QF:'Quartos',SF:'Meias-Finais',F3:'3º/4º Lugar',FIN:'Final'};
+const KO_JORNADA_SHORT={R32:'R32',R16:'R16',QF:'QF',SF:'SF',F3:'3º/4º',FIN:'FIN'};
+function jornadaName(j){ j=String(j); return KO_JORNADA_NAMES[j]||('Jornada '+j); }
+function jornadaShort(j){ j=String(j); return KO_JORNADA_SHORT[j]||('J'+j); }
+// Jornadas numéricas por ordem crescente, depois as rondas KO pela ordem do bracket.
+function jornadaSeq(){
+  const nums=new Set(), kos=new Set();
+  (GAMES||[]).forEach(g=>{ const j=String(g.md==null?'':g.md); if(!j) return;
+    if(KO_JORNADA_SHORT[j]) kos.add(j); else if(/^\d+$/.test(j)) nums.add(j); });
+  const seq=[...nums].sort((a,b)=>+a-+b);
+  ['R32','R16','QF','SF','F3','FIN'].forEach(k=>{ if(kos.has(k)) seq.push(k); });
+  return seq;
+}
 function jornadaOfGame(g){return g.ko?String(g.md):String(g.md);}
 function jornadaGames(j){return GAMES.filter(g=>jornadaOfGame(g)===String(j));}
 function activeResults(){return (S.demoMode&&!Object.keys(S.results).length)?DEMO_RESULTS:S.results;}
@@ -3078,40 +2978,9 @@ function jornadaComplete(j){
   const gs=jornadaGames(j),R=activeResults();
   return gs.length>0&&gs.every(g=>R[g.id]&&R[g.id].t1!==undefined);
 }
-function completeJornadas(){return JORNADA_SEQ.filter(jornadaComplete);}
-function nextJornada(){return JORNADA_SEQ.find(j=>!jornadaComplete(j))||null;}
+function completeJornadas(){return jornadaSeq().filter(jornadaComplete);}
+function nextJornada(){return jornadaSeq().find(j=>!jornadaComplete(j))||null;}
 
-function duelHash(str){let h=0;for(let i=0;i<str.length;i++){h=(Math.imul(31,h)+str.charCodeAt(i))|0;}return h>>>0;}
-// Emparelhamento aleatório determinístico (seed = liga + jornada) - igual para todos
-function duelPairs(leagueId,j,codes){
-  const arr=[...codes].sort();
-  const rnd=seededRng(duelHash(leagueId+'|'+j)||1);
-  for(let i=arr.length-1;i>0;i--){const k=Math.floor(rnd()*(i+1));[arr[i],arr[k]]=[arr[k],arr[i]];}
-  const pairs=[];
-  for(let i=0;i+1<arr.length;i+=2)pairs.push([arr[i],arr[i+1]]);
-  if(arr.length%2)pairs.push([arr[arr.length-1],null]); // bye
-  return pairs;
-}
-// Pontos de duelo por jogador: vitória 2 · empate 1 · derrota 0 · bye 1
-// rosterOf(j): membros congelados para essa jornada (snapshot no deadline); fallback = membros atuais
-function computeDuels(leagueId,codes,jpOf,rosterOf){
-  const pts={},record={};
-  const ensure=c=>{if(pts[c]===undefined){pts[c]=0;record[c]={v:0,e:0,d:0};}};
-  codes.forEach(ensure);
-  completeJornadas().forEach(j=>{
-    const roster=(rosterOf?rosterOf(j):codes)||codes;
-    if(roster.length<2)return;
-    roster.forEach(ensure);
-    duelPairs(leagueId,j,roster).forEach(([a,b])=>{
-      if(b===null){pts[a]+=1;return;}
-      const pa=jpOf(a,j),pb=jpOf(b,j);
-      if(pa>pb){pts[a]+=2;record[a].v++;record[b].d++;}
-      else if(pb>pa){pts[b]+=2;record[b].v++;record[a].d++;}
-      else{pts[a]+=1;pts[b]+=1;record[a].e++;record[b].e++;}
-    });
-  });
-  return {pts,record};
-}
 function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 // ════════════════════════════════════════════════
@@ -3131,7 +3000,7 @@ const S = {
   prebetPending:false,
   specials:{},
   social:null, socialLeague:null, socialLoading:false,
-  reactFor:null, duelsOpen:false, mvpJ:null, rankHist:{}, _cardData:null,
+  reactFor:null, mvpJ:null, cardJ:null, rankHist:{}, lbPage:0, realMd:null,
   notifs:[], allPreds:{}, allPrebets:{}, notifPrefs:{}, lockedResults:[],
   competition:'mundial2026',
   competitions:[
@@ -3483,6 +3352,13 @@ function showAccountMenu(){
   document.getElementById('account-menu-overlay').classList.add('open');
 }
 function closeAccountMenu(){document.getElementById('account-menu-overlay').classList.remove('open');}
+// Rodapé da app: visível em tudo o que seja pós-login (seleção de competição,
+// picker de ligas e todas as tabs do jogo). No ecrã de login fica escondido -
+// aí quem manda é a landing, que já tem o seu próprio rodapé.
+function syncAppFooter(){
+  const f=document.getElementById('app-foot');
+  if(f) f.style.display = (S.user? '' : 'none');
+}
 function logout(){closeAccountMenu();if(!confirm('Sair?'))return;localStorage.removeItem('up26_user');location.reload();}
 
 // ── Gerir notificações (opt-in/out por tipo; mandatórias sempre ativas) ──
@@ -3650,15 +3526,13 @@ async function adminLogin() {
 // "Mundial" para um rótulo genérico (rename definitivo p/ "Real" num incremento futuro).
 function setupLeagueNav(){
   const sim=document.getElementById('nav-sim'); if(sim) sim.style.display=S.leagueMode?'none':'';
-  const dnav=document.getElementById('nav-duels'); if(dnav) dnav.style.display=S.leagueMode?'none':''; // Duelos só no Mundial
-  const drul=document.getElementById('rules-duels-card'); if(drul) drul.style.display=S.leagueMode?'none':'';
   const mnav=document.getElementById('nav-mundial'); if(mnav&&mnav.lastChild&&mnav.lastChild.nodeType===3) mnav.lastChild.textContent='Real';
-  // Branding condicionado por competição: a palavra "Mundial" só aparece na competição WC2026.
-  const subMundial='🌎 Formato Mundial 2026', subLiga='⚽ Formato da competição';
-  ['rules-sub-1','rules-sub-2'].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent=S.leagueMode?subLiga:subMundial;});
-  // Nota do desempate: só aparece no Mundial, que mantém os critérios antigos.
-  { const n=document.getElementById('tb-wc-note'); if(n) n.style.display = (lbDbId()==='WC2026') ? 'block' : 'none'; }
-  const vh=document.getElementById('view-mundial-title'); if(vh) vh.textContent=S.leagueMode?'Classificação':'Mundial 2026';
+  // As regras são geradas por renderRules() a partir do perfil da competição -
+  // já não há ids estáticos (rules-sub-*, tb-wc-note) para ajustar aqui.
+  if(S.curView==='rules') renderRules();
+  const vh=document.getElementById('view-mundial-title');
+  if(vh){ const c=(S.competitions||[]).find(x=>x.id===S.competition);
+    vh.textContent = S.leagueMode ? ((c&&c.name)||'Competição') : 'Mundial 2026'; }
 }
 function showApp() {
   // Ligas/UCL reutilizam a app do Mundial (Incremento 1): mesmas tabs, cards e
@@ -3667,6 +3541,7 @@ function showApp() {
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('header').style.display='';
   document.getElementById('bottom-nav').style.display='';
+  syncAppFooter();
   setupLeagueNav();
   document.getElementById('user-pill').textContent='👤 '+S.user.name;
   updateLeaguePill();
@@ -3736,7 +3611,10 @@ function renderLeagueView(){
     const dt=g.kickoff_utc?new Date(g.kickoff_utc).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'data por confirmar';
     const t1v=p.t1!=null?p.t1:'', t2v=p.t2!=null?p.t2:'';
     let ptsHtml='';
-    if(res){ const pts=(typeof calcPoints==='function')?calcPoints({t1:p.t1,t2:p.t2,joker:jok},res,false):0;
+    // ⚠️ Era `typeof calcPoints==='function'` - calcPoints vive dentro do IIFE do
+    // adapter e NUNCA está visível aqui, por isso os pontos saíam sempre 0.
+    // calcPts é o espelho deste bloco. isKO tem de vir do stage (KO da UCL).
+    if(res){ const pts=calcPts({t1:p.t1,t2:p.t2,joker:jok},res,KO_STAGE_LIST.indexOf(g.stage)>=0);
       ptsHtml=`<div style="font-size:.7rem;color:var(--sub);text-align:center;margin-top:7px">Resultado <b style="color:var(--text)">${res.t1}-${res.t2}</b> · ${p.t1!=null?`aposta ${p.t1}-${p.t2} → <b style="color:var(--gold)">${pts} pts</b>`:'sem aposta'}</div>`; }
     cards+=`<div style="background:var(--card);border:1px solid ${jok?'var(--gold)':'var(--border)'};border-radius:12px;padding:12px;margin-bottom:10px">
       <div style="font-size:.68rem;color:var(--sub);text-align:center;margin-bottom:8px">${dt}${locked&&!res?' · 🔒 fechado':''}</div>
@@ -3813,6 +3691,7 @@ function showCompetitions(){
   document.getElementById('view-competitions').classList.add('active');
   document.getElementById('header').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
+  syncAppFooter();
   S.curView='competitions';
   // Saudação com o 1º nome real (acolhimento pessoal); o botão de utilizador
   // (canto sup. direito) mostra o NICKNAME - é a identidade pública da conta.
@@ -3886,6 +3765,162 @@ function compCard(c){
   return `<div ${click} style="position:relative;background:var(--card);border:1px solid rgba(245,197,24,.5);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 0 1px rgba(245,197,24,.15)${c.registered?';cursor:pointer':''}">${head}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">${stats}${action}</div></div>`;
 }
+// ════════════════════════════════════════════════
+//  REGRAS - geradas a partir de SCORING_PROFILES
+// ════════════════════════════════════════════════
+// ⚠️ Nunca escrever valores de pontuação à mão no HTML das regras. Tudo o que
+// aqui aparece vem de scoringLocal() e de S.leaguePrebetsCfg, para que as regras
+// não possam divergir do que o motor faz (foi assim que a Champions ficou meses
+// a anunciar raridade 2/4/6 quando já se tinha decidido 1/2/3).
+function renderRules(){
+  const el=document.getElementById('rules-body'); if(!el) return;
+  const SC=scoringLocal(), isWC=lbDbId()==='WC2026';
+  const uniform = SC.exact.group===SC.exact.ko && SC.trend.group===SC.trend.ko;
+  const card=(t,b)=>`<div class="card"><div class="rules-subtitle">${t}</div>${b}</div>`;
+  const cell=(pts,lbl,sub,cls,style='')=>`<div class="scoring-cell ${cls||''}" style="${style}">
+      <div class="scoring-pts">${pts}</div><div class="scoring-label">${lbl}</div>
+      <div class="scoring-sub">${sub}</div></div>`;
+  const row=(txt,last)=>`<div style="padding:5px 0${last?'':';border-bottom:1px solid var(--border)'}">${txt}</div>`;
+  let h='';
+
+  // ── 1. Pontuação ────────────────────────────────────────────────────────
+  const koNote=`<div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.9">
+      <div>⏱ <strong style="color:var(--text)">Jogo com 90 min:</strong> conta o resultado ao fim do tempo regulamentar (+ descontos)</div>
+      <div>⏱⏱ <strong style="color:var(--text)">Jogo com prolongamento:</strong> conta o resultado ao fim dos 120 min (+ descontos)</div>
+      <div>🥅 <strong style="color:var(--text)">Jogo com penáltis:</strong> conta como <strong style="color:var(--gold)">empate</strong> (resultado ao fim dos 120 min)</div>
+    </div>`;
+  const approxCell=cell(`+${SC.approx}`,
+    `🎯 Aproximação${SC.approxKoOnly?' <span style="font-size:.7rem;color:var(--sub);font-weight:400">(só fase a eliminar)</span>':''}`,
+    `Falhaste o resultado exato mas ficaste a <strong>1 golo</strong> dele → <strong>+${SC.approx} pt</strong>. Acumula com a tendência e vale mesmo que falhes a tendência.`,
+    '','background:rgba(0,188,212,.08);border:1px solid rgba(0,188,212,.25);grid-column:1/-1');
+  const examples=`<div style="padding:8px 12px;background:rgba(0,188,212,.06);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:8px">
+      <div>📌 Apostas <strong style="color:var(--text)">2-1</strong> e sai <strong style="color:var(--text)">2-0</strong> → <strong style="color:var(--text)">${SC.trend.group+SC.approx} pts</strong> (${SC.trend.group} tendência + ${SC.approx} aproximação)</div>
+      <div>📌 Apostas <strong style="color:var(--text)">2-1</strong> e sai <strong style="color:var(--text)">1-1</strong> → <strong style="color:var(--text)">${SC.approx} pt</strong> (0 tendência + ${SC.approx} aproximação)</div>
+      <div>📌 Apostas <strong style="color:var(--text)">7-0</strong> e sai <strong style="color:var(--text)">4-2</strong> → <strong style="color:var(--text)">${SC.trend.group} pts</strong> (a tendência está certa; longe demais para a aproximação)</div>
+      <div>📌 Apostas <strong style="color:var(--text)">2-1</strong> e sai <strong style="color:var(--text)">0-3</strong> → <strong style="color:var(--text)">0 pts</strong> (tendência errada e a 4 golos do exato)</div>
+      <div><span class="joker-badge">J</span> O <strong style="color:var(--text)">JOKER</strong> também duplica a aproximação</div>
+    </div>`;
+  if(uniform){
+    h+=card('⚽ Pontuação',
+      `<div class="scoring-grid">
+         ${cell(SC.trend.group,'☑️ Acerto no vencedor / empate','Vencedor ou empate certo,<br>resultado errado','sc-draw')}
+         ${cell(SC.exact.group,'✅ Acerto no resultado','Resultado exato<br>ex: apostaste 2-1, saiu 2-1','sc-win')}
+         ${approxCell}
+       </div>${examples}
+       <div style="margin-top:8px;font-size:.76rem;color:var(--sub);line-height:1.6">A pontuação é <strong style="color:var(--text)">igual em todas as fases</strong>${jornadaSeq().some(j=>KO_JORNADA_SHORT[j])?', incluindo o mata-mata.':'.'}</div>`);
+    if(jornadaSeq().some(j=>KO_JORNADA_SHORT[j])) h+=card('🔥 Fase a Eliminar',koNote);
+  } else {
+    h+=card('⚽ Fase de Grupos',
+      `<div class="scoring-grid">
+         ${cell(SC.trend.group,'☑️ Acerto no vencedor / empate','Vencedor ou empate certo,<br>resultado errado','sc-draw')}
+         ${cell(SC.exact.group,'✅ Acerto no resultado','Resultado exato<br>ex: apostaste 2-1, saiu 2-1','sc-win')}
+       </div>`);
+    h+=card('🔥 Fase a Eliminar',
+      `${koNote}<div class="scoring-grid">
+         ${cell(SC.trend.ko,'☑️ Acerto no vencedor / empate','Vencedor ou empate certo,<br>resultado errado','sc-draw')}
+         ${cell(SC.exact.ko,'✅ Acerto no resultado','Resultado exato ao fim do tempo regulamentar/prolongamento','sc-win')}
+         ${approxCell}
+       </div>${examples}`);
+  }
+
+  // ── 2. Joker ────────────────────────────────────────────────────────────
+  const jokerScale=uniform
+    ? `${SC.exact.group}→${SC.exact.group*2}, ${SC.trend.group}→${SC.trend.group*2}`
+    : `Grupos: ${SC.exact.group}→${SC.exact.group*2}, ${SC.trend.group}→${SC.trend.group*2} &nbsp;·&nbsp; KO: ${SC.exact.ko}→${SC.exact.ko*2}, ${SC.trend.ko}→${SC.trend.ko*2}`;
+  h+=card('<span class="joker-badge" style="font-size:.72rem;padding:2px 7px">J</span> O JOKER',
+    `<div class="scoring-cell sc-joker" style="border-radius:10px;margin-bottom:10px;flex-direction:row;gap:14px;padding:12px 16px">
+       <div class="scoring-pts" style="font-size:2.2rem;color:#00bcd4">×2</div>
+       <div style="text-align:left"><div style="font-weight:700;color:#00bcd4;font-size:.85rem;margin-bottom:3px">JOKER ATIVO</div>
+       <div style="font-size:.76rem;color:var(--sub)">Duplica os pontos desse jogo.<br>${jokerScale}</div></div>
+     </div>
+     <div style="font-size:.82rem;line-height:1.6;color:var(--text)">
+       ${row('⚽ <strong>1 JOKER por jornada</strong> da fase regular')}
+       ${row('🔥 <strong>1 JOKER por ronda</strong> na fase a eliminar')}
+       ${row('❌ <strong>JOKER não protege contra erros:</strong> se não acertares nem no resultado nem no vencedor, a pontuação é sempre 0',true)}
+     </div>`);
+
+  // ── 3. Raridade ─────────────────────────────────────────────────────────
+  const B=SC.rarity, pct=v=>Math.round(v*100);
+  h+=card('🌟 Bónus de Raridade',
+    `<div style="font-size:.78rem;color:var(--sub);margin-bottom:10px;line-height:1.6">Quando acertas no resultado exato, ganhas pontos extra consoante a raridade da tua aposta - quanto menos jogadores apostaram o mesmo resultado, mais pontos ganhas.</div>
+     <div class="scoring-grid">
+       ${cell('+'+B[2][1],'⭐ RARO',`${pct(B[1][0])}-${pct(B[2][0])}% apostou igual`,'','background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25);color:#f39c12')}
+       ${cell('+'+B[1][1],'🌟 MUITO RARO',`${pct(B[0][0])}-${pct(B[1][0])}% apostou igual`,'','background:rgba(155,89,182,.1);border:1px solid rgba(155,89,182,.25);color:#9b59b6')}
+       ${cell('+'+B[0][1],'💎 ULTRA RARO',`Menos de ${pct(B[0][0])}% apostou igual`,'','background:rgba(0,188,212,.1);border:1px solid rgba(0,188,212,.25);grid-column:1/-1;color:#00bcd4')}
+     </div>
+     <div style="padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.76rem;color:var(--sub);line-height:1.7;margin-top:2px">
+       <div>✅ Aplica-se apenas a <strong style="color:var(--text)">acertos no resultado exato</strong></div>
+       <div><span class="joker-badge">J</span> O <strong style="color:var(--text)">JOKER</strong> duplica o bónus de raridade</div>
+       <div>📊 Mais de ${pct(B[2][0])}% a apostar igual → sem bónus <span style="opacity:.7">(Comum)</span></div>
+     </div>`);
+
+  // ── 4. Default picks ────────────────────────────────────────────────────
+  const nGames=(GAMES||[]).length;
+  const budget=SC.defaultPickRatio!=null?Math.max(1,Math.round(nGames*SC.defaultPickRatio)):SC.defaultPickBudget;
+  const pctTxt=SC.defaultPickRatio!=null?` (${Math.round(SC.defaultPickRatio*100)}% dos jogos)`:'';
+  const valTxt=SC.defaultPickExact
+    ? `vale os <strong>pontos normais</strong>: <strong style="color:var(--green)">${SC.trend.group} pt</strong> pela tendência ou <strong style="color:var(--green)">${SC.exact.group} pts</strong> pelo resultado exato`
+    : `conta <strong>só a tendência</strong>: <strong style="color:var(--green)">${SC.trend.group} pt</strong> (grupos) ou <strong style="color:#7986cb">${SC.trend.ko} pts</strong> (mata-mata)`;
+  h+=card(`${dpickIcon()} Default Picks <span style="font-size:.78rem;color:#a78bfa;font-weight:400">rede de segurança</span>`,
+    `<div style="font-size:.8rem;line-height:1.7;color:var(--text)">
+       ${row(`😴 Esqueceste-te de apostar num jogo? Em vez de zero, herdas automaticamente a <strong style="color:#a78bfa">${dpickWord()}</strong> nesse jogo.`)}
+       ${row(`🎯 A default pick ${valTxt}. Se falhar, ficas a <strong>0</strong> - sem penalização.`)}
+       ${row(`🚫 <strong>Não há joker, raridade nem aproximação</strong> nas default picks - o teto é o valor do acerto normal.`)}
+       ${row(`🔢 Tens no máximo <strong>${budget} default picks</strong> em toda a competição${pctTxt}. <strong>Não escolhes onde as aplicar</strong>: gastam-se sozinhas, por ordem dos jogos, sempre que não apostas. Esgotadas, os jogos sem aposta voltam a valer 0.`)}
+       ${row(`📊 Contam para o <strong>Total</strong> e para o MVP, mas aparecem à parte na coluna <strong style="color:#a78bfa">D</strong> da classificação detalhada. <strong>Não contam</strong> para o número de jogos apostados.`,true)}
+     </div>`);
+
+  // ── 5. Pré-apostas ──────────────────────────────────────────────────────
+  const cfg=S.leaguePrebetsCfg;
+  let pbItems='', pbMax=0;
+  if(cfg&&cfg.length){
+    cfg.forEach(it=>{
+      const each=it.type==='multi';
+      const n=each?(it.count||1):1, v=each?(it.pts_each||0):(it.pts||0);
+      pbMax+=n*v;
+      pbItems+=`<div class="prebet-item">${escapeHtml(it.label||it.key)}${each?` (×${n})`:''}</div><div class="prebet-pts-v">+${v} pts${each?' cada':''}</div>`;
+    });
+  } else if(isWC){
+    [['🥇🥈 1º e 2º de cada grupo (×24)',2,24],['🏆 Campeão do Mundo',8,1],['🥈 Vice-campeão',5,1],['🥉 3º Classificado',3,1],['⚽ Melhor Marcador',5,1]]
+      .forEach(([l,v,n])=>{ pbMax+=v*n; pbItems+=`<div class="prebet-item">${l}</div><div class="prebet-pts-v">+${v} pts${n>1?' cada':''}</div>`; });
+  }
+  if(pbItems){
+    h+=card(`🏆 Pré-Apostas <span id="prebet-deadline-rules" style="font-size:.78rem;color:var(--sub);font-weight:400">1h antes do 1º jogo</span>`,
+      `<div class="prebet-grid">${pbItems}</div>
+       <div style="margin-top:10px;padding:8px 12px;background:rgba(245,197,24,.07);border-radius:8px;font-size:.78rem;color:var(--sub);text-align:center">Pontuação máxima em pré-apostas: <strong style="color:var(--gold)">${pbMax} pts</strong></div>
+       <div style="margin-top:6px;padding:6px 12px;background:rgba(231,76,60,.07);border-radius:8px;font-size:.75rem;color:var(--sub);line-height:1.5">⏰ <span id="prebet-note-rules">As pré-apostas encerram antes do 1º jogo.</span></div>`);
+  }
+
+  // ── 6. Deadlines ────────────────────────────────────────────────────────
+  h+=card('⏰ Deadlines',
+    `<div class="timeline-item"><div class="timeline-dot">📋</div><div><strong>Antes do 1º jogo</strong><br><span style="font-size:.75rem;color:var(--sub)">Preenche as Pré-Apostas. Depois do arranque ficam bloqueadas.</span></div></div>
+     <div class="timeline-item"><div class="timeline-dot">⏱</div><div><strong>1h antes de cada jogo</strong><br><span style="font-size:.75rem;color:var(--sub)">As apostas fecham antes do apito inicial.</span></div></div>
+     <div class="timeline-item"><div class="timeline-dot">🔒</div><div><strong>Apostas fora do prazo = 0 pontos</strong><br><span style="font-size:.75rem;color:var(--sub)">Salvo se ainda tiveres default picks disponíveis.</span></div></div>`);
+
+  // ── 7. Desempates ───────────────────────────────────────────────────────
+  const tb=isWC
+    ? ['Maior soma de <strong>Joker + raridade</strong>','Número de <strong>acertos no resultado exato</strong>','Número de <strong>acertos na tendência</strong>']
+    : ['Maior <strong>rácio de pontos por jogos apostados</strong>','Maior soma de <strong>pontos de raridade</strong>','Número de <strong>acertos na tendência</strong> (vencedor / empate)','Número de <strong>acertos no resultado exato</strong>'];
+  h+=card('⚖️ Critérios de Desempate',
+    tb.map((t,i)=>`<div class="tiebreak-row"><div class="tb-badge">${i+1}</div><div>${t}</div></div>`).join('')+
+    (isWC?`<div style="font-size:.7rem;color:var(--sub);line-height:1.5;margin-top:8px">O Mundial 2026 está encerrado e mantém os critérios com que foi disputado.</div>`:''));
+
+  // ── 8. Formato ──────────────────────────────────────────────────────────
+  const nJ=jornadaSeq().filter(j=>!KO_JORNADA_SHORT[j]).length;
+  const nKO=jornadaSeq().filter(j=>KO_JORNADA_SHORT[j]).length;
+  const compName=((S.competitions||[]).find(c=>c.id===S.competition)||{}).name||'Competição';
+  const box=(v,l,col)=>`<div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center"><div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:${col}">${v}</div><div style="font-size:.72rem;color:var(--sub)">${l}</div></div>`;
+  if(nGames) h+=card(`🌎 Formato · ${escapeHtml(compName)}`,
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+       ${box(nGames,'Jogos totais','var(--green)')}${box(nJ,'Jornadas','var(--gold)')}
+       ${nKO?box(nKO,'Rondas a eliminar','#64b5f6'):''}${box(budget,'Default picks','#a78bfa')}
+     </div>`);
+
+  el.innerHTML=h;
+  // Reaplica o texto do deadline: os spans são recriados a cada render.
+  try{ updatePrebetDeadlineText(); }catch(e){}
+}
+
 function renderCompetitions(){
   const list=S.competitions||[];
   const active=list.filter(c=>c.status==='active');
@@ -3912,6 +3947,7 @@ async function enterCompetition(id){
   // Ao trocar de competição, as ligas privadas são POR competição - limpa a
   // seleção e recarrega para não mostrar as ligas de outra competição (cache).
   S.curLeague=null;
+  S.lbPage=0; S.realMd=null; S.mvpJ=null; S.cardJ=null;
   try{ await loadData(); }catch(e){}
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
@@ -4043,6 +4079,7 @@ function showLeaguePicker() {
   document.getElementById('view-league-picker').classList.add('active');
   document.getElementById('header').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
+  syncAppFooter();
   // Garantir que o painel principal está visível e o de gestão escondido
   document.getElementById('league-picker-main').style.display='block';
   document.getElementById('league-manage-panel').style.display='none';
@@ -4057,7 +4094,6 @@ function showLeaguePicker() {
 
 function showView(v) {
   if(v==='sim' && S.leagueMode) v='bets'; // Simulador não se aplica a ligas
-  if(v==='duels' && S.leagueMode) v='leaderboard'; // Duelos só no Mundial (WC2026)
   if(S.curView==='bets' && v!=='bets' && S.pending){
     // AUTOSAVE (Sessão B): dispara já o que está em debounce (grava em fundo);
     // só avisa se ficarem apostas INCOMPLETAS (falta um dos resultados)
@@ -4077,13 +4113,13 @@ function showView(v) {
   // Restaurar header/nav se estávamos na league-picker
   document.getElementById('header').style.display='';
   document.getElementById('bottom-nav').style.display='';
+  syncAppFooter();
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   const nb=document.getElementById('nav-'+v); if(nb)nb.classList.add('active');
   S.curView=v;
   if(v==='leaderboard')renderLB();
-  if(v==='duels')renderDuels();
   if(v==='bets'){
     // Auto-navegar para a jornada do jogo em curso/próximo sempre que se abre a tab,
     // exceto se houver edição pendente (não "salta" enquanto o user está a editar).
@@ -4095,6 +4131,7 @@ function showView(v) {
     renderBets();
   }
   if(v==='prebets')renderPrebets();
+  if(v==='rules')renderRules();
   if(v==='mundial')renderMundial();
   if(v==='sim'){renderSim();showSimToast();}
   renderLiveBanner();
@@ -4157,7 +4194,7 @@ async function loadData() {
     if(r.results)S.results=r.results;
     S.koTeams=r.koTeams||{}; // equipas KO resolvidas automaticamente pelo backend
     // LIGAS: GAMES é construído da BD (fase de liga, jornadas por md). O Mundial
-    // mantém o array fixo. Assim as tabs Apostas/Classificação/Duelos e os cards
+    // mantém o array fixo. Assim as tabs Apostas/Classificação e os cards
     // reutilizam-se tal e qual, com toda a polish do Mundial.
     if(S.leagueMode){ GAMES = buildLeagueGamesFrom(r.dbGames);
       const uniq=[...new Set(GAMES.map(g=>g.md))];
@@ -4303,11 +4340,42 @@ function renderLB() {
   const playerLabel=p=>isBot(p)?'🤖 IA':p.name;
   const ligaHdr='';
 
+  // ── PAGINAÇÃO (20 por página) ─────────────────────────────────────────────
+  // Com milhares de inscritos não faz sentido despejar a tabela toda. Mostra-se
+  // uma página de 20 e, se o próprio jogador não estiver nessa página, junta-se
+  // a linha dele destacada no fim. Se estiver, aparece integrado e sem repetição.
+  // ⚠️ Isto resolve o RENDER, não o TRANSPORTE: buildLeaderboard continua a
+  // receber todas as apostas de todos. Ver nota em LB_PAGE_SIZE.
+  const LB_PAGE_SIZE=20;
+  const pageCount=Math.max(1,Math.ceil(showData.length/LB_PAGE_SIZE));
+  if(S.lbPage==null) S.lbPage=0;
+  // Ao mudar de competição/liga a página pode ficar fora de alcance.
+  if(S.lbPage>=pageCount) S.lbPage=pageCount-1;
+  if(S.lbPage<0) S.lbPage=0;
+  const myCode=(S.user&&S.user.code||'').toUpperCase();
+  const myIdx=showData.findIndex(p=>(p.code||'').toUpperCase()===myCode);
+  const pageStart=S.lbPage*LB_PAGE_SIZE;
+  // [{p, rank}] da página atual + (opcional) a linha do próprio, fora da página.
+  const pageRows=showData.slice(pageStart,pageStart+LB_PAGE_SIZE).map((p,i)=>({p,rank:pageStart+i+1}));
+  const myRow=(myIdx>=0 && (myIdx<pageStart || myIdx>=pageStart+LB_PAGE_SIZE))
+    ? {p:showData[myIdx], rank:myIdx+1} : null;
+  const pagerHtml=(cols)=>{
+    if(pageCount<=1) return '';
+    const btn=(lbl,pg,dis)=>`<button ${dis?'disabled':''} onclick="event.stopPropagation();S.lbPage=${pg};renderLB()" style="background:none;border:1px solid var(--border);border-radius:6px;color:${dis?'var(--border)':'var(--sub)'};cursor:${dis?'default':'pointer'};font-size:.72rem;padding:4px 9px;font-family:'Inter',sans-serif">${lbl}</button>`;
+    const opts=Array.from({length:pageCount},(_,i)=>`<option value="${i}" ${i===S.lbPage?'selected':''}>${i*LB_PAGE_SIZE+1}-${Math.min((i+1)*LB_PAGE_SIZE,showData.length)}</option>`).join('');
+    return `<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${btn('◀',S.lbPage-1,S.lbPage===0)}
+      <select onchange="S.lbPage=+this.value;renderLB()" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.72rem;padding:4px 8px;font-family:'Inter',sans-serif">${opts}</select>
+      ${btn('▶',S.lbPage+1,S.lbPage>=pageCount-1)}
+      <span style="font-size:.68rem;color:var(--sub)">${showData.length} jogadores</span>
+    </div>`;
+  };
+
   // ── Dados por jornada (jp vem do backend) ──
   const hasJP=data.some(p=>p.jp&&Object.keys(p.jp).length);
   const compJs=hasJP?completeJornadas():[];
   const humans=data.filter(p=>!isBot(p));
-  const jLabel=j=>JORNADA_NAMES[j]||j;
+  const jLabel=j=>jornadaName(j);
 
   // ── Troféus de jornada (recalculados no contexto atual: liga ou global) ──
   let trophyMap=null;
@@ -4319,36 +4387,10 @@ function renderLB() {
   S.trophyMap=trophyMap; // contexto atual (liga selecionada ou global) - usado no card do jogador
   const trophyHtml=p=>{
     const ts=trophyMap?(trophyMap[p.name]||[]):(p.mdTrophies||[]);
-    return ts.map(t=>`<span class="md-trophy" title="${t.rank===1?'MVP':'Pódio'} ${jLabel(t.md)}">${trophySyms[t.rank-1]}${JORNADA_SHORT[t.md]||'J'+t.md}</span>`).join('');
+    return ts.map(t=>`<span class="md-trophy" title="${t.rank===1?'MVP':'Pódio'} ${jLabel(t.md)}">${trophySyms[t.rank-1]}${jornadaShort(t.md)}</span>`).join('');
   };
 
-  // ── MVP da jornada (#8) + card partilhável (#13) ──
-  S._cardData=null;
-  let mvpHtml='';
-  if(hasJP&&compJs.length&&humans.length){
-    if(!S.mvpJ||!compJs.includes(S.mvpJ))S.mvpJ=compJs[compJs.length-1];
-    const j=S.mvpJ;
-    const ranked=humans.map(p=>({name:p.name,code:p.code,pts:(p.jp&&p.jp[j])||0})).sort((a,b)=>b.pts-a.pts);
-    const winners=ranked.filter(r=>r.pts===ranked[0].pts);
-    const nj=nextJornada();
-    mvpHtml=`<div style="background:rgba(245,197,24,.06);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:1.5rem">🏆</span>
-      <div style="flex:1">
-        <div style="font-size:.62rem;letter-spacing:1.5px;color:var(--gold);font-family:'Rajdhani',sans-serif;font-weight:700">MVP · ${jLabel(j).toUpperCase()}</div>
-        <div style="font-size:.95rem;font-weight:700">${winners.map(w=>w.name).join(' & ')} · <span style="color:var(--gold)">${ranked[0].pts} pts</span></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${JORNADA_SEQ.map(jj=>{
-      const comp=compJs.includes(jj);
-      if(!comp&&jj!==nj)return'';
-      if(!comp)return`<span style="border:1px dashed var(--border);border-radius:10px;padding:2px 8px;font-size:.62rem;color:var(--sub)">${JORNADA_SHORT[jj]} · -</span>`;
-      const rk=[...humans].sort((a,b)=>((b.jp&&b.jp[jj])||0)-((a.jp&&a.jp[jj])||0));
-      const nm=rk[0]?rk[0].name.split(' ')[0]:'-';
-      const sel=jj===j;
-      return`<span onclick="S.mvpJ='${jj}';renderLB()" style="cursor:pointer;border:1px solid ${sel?'var(--gold)':'var(--border)'};border-radius:10px;padding:2px 8px;font-size:.62rem;color:${sel?'var(--gold)':'var(--sub)'};background:var(--bg2)">${JORNADA_SHORT[jj]} · ${nm}</span>`;
-    }).join('')}</div>`;
-    S._cardData={j,league:S.curLeague?S.curLeague.name:'Geral',top:ranked.slice(0,3),worst:ranked.length>3?ranked[ranked.length-1]:null};
-  }
+
 
   // ── Campeão geral (fim do Mundial) ──
   let champHtml='';
@@ -4373,19 +4415,19 @@ function renderLB() {
     });
   }
 
-  // ── Social: reações (#6A) + rosters de duelos - lazy-load por liga ──
+  // ── Social: reações (#6A) - lazy-load por liga ──
   if(S.curLeague&&S.socialLeague!==S.curLeague.id&&!S.socialLoading)loadSocial();
   const social=(S.curLeague&&S.social&&S.socialLeague===S.curLeague.id)?S.social:null;
 
-  // Duelos passaram para o tab próprio (renderDuels) - a coluna ⚔️ saiu da Classificação.
-  const duelData=null;
   const reactAgg={};
   if(social)social.reactions.forEach(r=>{const t=(r.target||'').toUpperCase();if(!reactAgg[t])reactAgg[t]={};reactAgg[t][r.emoji]=(reactAgg[t][r.emoji]||0)+1;});
   // Reações removidas da classificação (13 Jul) - baixa aderência. Backend intacto.
   const reactHtml=code=>'';
   const reactPickerRow=(code,colspan)=>'';
 
-  let html = ligaHdr + champHtml + mvpHtml;
+  // O MVP e o card da jornada passaram para BAIXO da tabela, com dropdown de
+  // jornada em vez de um chip por jornada - insustentável com 38 jornadas.
+  let html = ligaHdr + champHtml;
   // Toggle row
   html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
     <div style="font-size:.7rem;color:var(--sub)">Clica num jogador para ver apostas</div>
@@ -4410,35 +4452,40 @@ function renderLB() {
         <th title="Jogos terminados em que apostou">J</th>
         <th title="Total de pontos" style="color:var(--gold)">Pts</th>
       </tr></thead><tbody>`;
-    showData.forEach((p,i)=>{
-      const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
+    const simpleRow=(p,rank,sep)=>{
+      const rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
       const bot=isBot(p);
       const add=S.liveLB?(liveAdd[p.code]||0):0;
-      html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
+      let r='';
+      if(sep) r+=`<tr><td colspan="4" style="padding:3px 0;text-align:center;color:var(--sub);font-size:.7rem;letter-spacing:.2em">···</td></tr>`;
+      r+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos">${rank<=3?posSyms[rank-1]:rank}${S.liveLB?'':posArrow(p.code,rank)}</td>
         <td class="td-name">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}</td>
         <td>${p.games!==undefined?p.games:finishedGames}</td>
         <td class="td-pts">${S.liveLB?`${p.total+add}${add?` <span class="live-dot" style="animation:none;font-size:.62rem">+${add}</span>`:''}`:p.total}</td>
       </tr>`;
-      if(!bot)html+=reactPickerRow(p.code,4);
-    });
-    html+=`</tbody></table></div>`;
+      if(!bot&&!sep)r+=reactPickerRow(p.code,4);
+      return r;
+    };
+    pageRows.forEach(r=>{ html+=simpleRow(r.p,r.rank,false); });
+    if(myRow) html+=simpleRow(myRow.p,myRow.rank,true);
+    html+=`</tbody></table></div>`+pagerHtml(4);
   } else {
     // ── MODO DETALHADO ──
     // % explícitas a somar 100% - sem scroll horizontal, sem col auto
     const thS='padding:5px 3px;font-size:.62rem';
     const tdN='font-family:\'Rajdhani\',sans-serif;font-weight:700;padding:9px 3px;text-align:center';
-    const nCols=duelData?16:15;
+    const nCols=15;
     html+=`<div class="standings-wrap"><table class="standings-table standings-detailed" style="table-layout:fixed;width:100%">
       <colgroup>
         <col style="width:5%">
-        <col style="width:${duelData?'13':'18'}%">
+        <col style="width:18%">
         <col style="width:5%">
         <col style="width:5%">
         <col style="width:6%"><col style="width:7%"><col style="width:7%">
         <col style="width:6%"><col style="width:7%"><col style="width:7%">
-        <col style="width:6%"><col style="width:5%"><col style="width:5%">${duelData?'<col style="width:5%">':''}<col style="width:8%">
+        <col style="width:6%"><col style="width:5%"><col style="width:5%"><col style="width:8%">
       </colgroup>
       <thead>
         <tr>
@@ -4452,7 +4499,6 @@ function renderLB() {
           <th rowspan="2" title="Aproximação (só KO): +1 por errar só 1 golo no total. Faz parte da base do KO, aqui destacada." style="${thS};vertical-align:bottom;color:#1abc9c;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem;cursor:help">Apr</th>
           <th rowspan="2" title="Bónus de raridade (acertos exatos pouco comuns)" style="${thS};vertical-align:bottom;color:#f39c12;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">⭐</th>
           <th rowspan="2" title="Bónus do joker - duplica a base e a raridade do jogo onde foi usado" style="${thS};vertical-align:bottom;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem">J</th>
-          ${duelData?`<th rowspan="2" title="Duelos head-to-head - tabela paralela, não soma ao Total" style="${thS};color:#e67e22;vertical-align:bottom;cursor:help">⚔️</th>`:''}
           <th rowspan="2" title="Total" style="${thS};color:var(--gold);vertical-align:bottom">Total</th>
         </tr>
         <tr>
@@ -4464,15 +4510,17 @@ function renderLB() {
           <th title="Pontos KO" style="${thS};color:#7986cb">Pts</th>
         </tr>
       </thead><tbody>`;
-    data.forEach((p,i)=>{
-      const rank=i+1,rankClass=rank<=3?'rank-'+rank:'';
+    const detailRow=(p,rank,sep)=>{
+      const rankClass=rank<=3?'rank-'+rank:'';
       const me=S.user&&p.name.toLowerCase()===S.user.name.toLowerCase();
       const bot=isBot(p);
+      let html='';
+      if(sep) html+=`<tr><td colspan="${nCols}" style="padding:3px 0;text-align:center;color:var(--sub);font-size:.7rem;letter-spacing:.2em">···</td></tr>`;
       html+=`<tr class="${rankClass}${me?' row-me':''}${bot?' row-bot':''}" onclick="${bot?'openBotModal()':` openPlayerModal('${p.name}')`}">
         <td class="td-pos" style="padding:9px 3px 9px 6px;font-size:.9rem">${rank<=3?posSyms[rank-1]:rank}${posArrow(p.code,rank)}</td>
         <td class="td-name" style="padding:9px 3px 9px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;font-size:.82rem">${playerLabel(p)}${me?'<span class="me-tag">(tu)</span>':''}</td>
         <td style="${tdN};color:var(--sub)">${p.games!==undefined?p.games:finishedGames}</td>
-        <td style="${tdN};color:#a78bfa" title="Default picks usadas">${p.defaults?('🤖'+p.defaults):'-'}</td>
+        <td style="${tdN};color:#a78bfa" title="Default picks usadas">${p.defaults?('🛟'+p.defaults):'-'}</td>
         <td style="${tdN};color:var(--green)">${p.wins||0}</td>
         <td style="${tdN};color:#f39c12">${p.draws||0}</td>
         <td style="${tdN};color:var(--green)">${p.group_pts||0}</td>
@@ -4483,12 +4531,14 @@ function renderLB() {
         <td style="${tdN};color:#1abc9c">${p.approx_pts||0}</td>
         <td style="${tdN};color:#f39c12">${p.rarity_pts||0}</td>
         <td style="${tdN};color:#00bcd4">${p.joker_pts||0}</td>
-        ${duelData?`<td style="${tdN};color:#e67e22">${bot?'-':(duelData.pts[p.code]||0)}</td>`:''}
         <td class="td-pts" style="padding:9px 4px">${p.total}</td>
       </tr>`;
-      if(!bot)html+=reactPickerRow(p.code,nCols);
-    });
-    html+=`</tbody></table></div>
+      if(!bot&&!sep)html+=reactPickerRow(p.code,nCols);
+      return html;
+    };
+    pageRows.forEach(r=>{ html+=detailRow(r.p,r.rank,false); });
+    if(myRow) html+=detailRow(myRow.p,myRow.rank,true);
+    html+=`</tbody></table></div>`+pagerHtml(nCols)+`
     <div class="lb-legend" style="margin-top:8px;flex-wrap:wrap;font-size:.67rem;gap:8px 12px">
       <span class="leg-v" style="white-space:nowrap">R = Acerto resultado</span>
       <span class="leg-e" style="white-space:nowrap">V/E = Venc/Emp</span>
@@ -4496,36 +4546,56 @@ function renderLB() {
       <span style="white-space:nowrap;color:#1abc9c">Apr = Aproximação (KO)</span>
       <span style="white-space:nowrap;color:#f39c12">⭐ = Raridade</span>
       <span style="white-space:nowrap;color:#00bcd4;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem">J = Joker</span>
-      <span style="white-space:nowrap;color:#a78bfa">🤖 D = Default picks (IA)</span>
-      ${duelData?'<span style="white-space:nowrap;color:#e67e22">⚔️ = Duelos (paralelo)</span>':''}
+      <span style="white-space:nowrap;color:#a78bfa">${dpickIcon()} D = Default picks</span>
     </div>`;
   }
   html+=`<div style="display:flex;justify-content:center;align-items:center;gap:14px;font-size:.7rem;color:var(--sub);margin-top:10px">
     <button onclick="loadData()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:.7rem">↻ Atualizar</button>
   </div>`;
 
-  // ── Histórico de cards de jornadas (colapsável) - pódio partilhável de cada jornada/eliminatória ──
-  if(compJs.length){
+  // ── MVP da jornada + card descarregável ───────────────────────────────────
+  // ⚠️ Antes: o MVP vinha ACIMA da tabela com um chip por jornada, e os cards
+  // eram uma lista com TODAS as jornadas renderizadas em canvas de uma vez.
+  // Com 38 jornadas na Premier isso era inutilizável (e pesadíssimo). Agora é
+  // um bloco só, abaixo da tabela, com um dropdown e um card de cada vez.
+  if(compJs.length&&humans.length){
+    if(!S.mvpJ||!compJs.includes(S.mvpJ))S.mvpJ=compJs[compJs.length-1];
+    if(!S.cardJ||!compJs.includes(S.cardJ))S.cardJ=S.mvpJ;
+    const jSel=(id,cur,fn)=>`<select id="${id}" onchange="${fn}" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.74rem;padding:4px 8px;font-family:'Inter',sans-serif;max-width:150px">
+      ${[...compJs].reverse().map(jj=>`<option value="${jj}" ${jj===cur?'selected':''}>${jLabel(jj)}</option>`).join('')}
+    </select>`;
+
+    const ranked=humans.map(p=>({name:p.name,code:p.code,pts:(p.jp&&p.jp[S.mvpJ])||0})).sort((a,b)=>b.pts-a.pts);
+    const winners=ranked.filter(r=>r.pts===ranked[0].pts);
+    const pod=ranked.slice(0,3);
     html+=`<div class="card" style="margin-top:14px;padding:12px">
-      <div onclick="S.cardHistOpen=!S.cardHistOpen;renderLB()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.84rem">
-        <span>📤 CARDS DAS JORNADAS</span><span style="font-size:.7rem;color:var(--sub)">${S.cardHistOpen?'▲ esconder':'▼ ver'}</span>
-      </div>`;
-    if(S.cardHistOpen){
-      html+=`<div style="font-size:.66rem;color:var(--sub);margin-top:6px">Pódio de cada jornada/eliminatória - toca em <strong>Partilhar</strong> para enviar a imagem.</div>
-      <div style="margin-top:10px;display:flex;flex-direction:column;gap:14px">`;
-      [...compJs].reverse().forEach(j=>{
-        const d=cardDataFor(j);
-        if(!d)return;
-        let url='';
-        try{url=drawCardCanvas(d).toDataURL('image/png');}catch(e){}
-        html+=`<div>
-          ${url?`<img src="${url}" loading="lazy" style="width:100%;display:block;border-radius:10px;border:1px solid var(--border)" alt="Card ${jLabel(j)}">`:''}
-          <button onclick="shareCardFor('${j}')" style="margin-top:6px;width:100%;background:none;border:1px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;font-size:.74rem;padding:6px">📤 Partilhar ${jLabel(j)}</button>
-        </div>`;
-      });
-      html+=`</div>`;
-    }
-    html+=`</div>`;
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+        <span style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.84rem">🏆 MVP DA JORNADA</span>
+        ${jSel('mvp-sel',S.mvpJ,"S.mvpJ=this.value;renderLB()")}
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(245,197,24,.06);border:1px solid var(--gold);border-radius:10px;padding:10px 12px">
+        <span style="font-size:1.5rem">🏆</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.62rem;letter-spacing:1.5px;color:var(--gold);font-family:'Rajdhani',sans-serif;font-weight:700">${String(jLabel(S.mvpJ)).toUpperCase()}</div>
+          <div style="font-size:.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis">${winners.map(w=>escapeHtml(w.name)).join(' & ')} · <span style="color:var(--gold)">${ranked[0].pts} pts</span></div>
+        </div>
+      </div>
+      ${pod.length>1?`<div style="display:flex;gap:8px;margin-top:8px;font-size:.72rem;color:var(--sub)">
+        ${pod.map((r,i)=>`<span style="flex:1;text-align:center;background:var(--bg2);border-radius:6px;padding:5px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${trophySyms[i]} ${escapeHtml(r.name.split(' ')[0])} · <b style="color:var(--text)">${r.pts}</b></span>`).join('')}
+      </div>`:''}
+    </div>`;
+
+    let cardUrl='';
+    try{ const d=cardDataFor(S.cardJ); if(d) cardUrl=drawCardCanvas(d).toDataURL('image/png'); }catch(e){}
+    html+=`<div class="card" style="margin-top:12px;padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+        <span style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.84rem">🖼️ CARD DA JORNADA</span>
+        ${jSel('jcard-sel',S.cardJ,"setCardJornada(this.value)")}
+      </div>
+      ${cardUrl?`<img id="jcard-img" src="${cardUrl}" loading="lazy" style="width:100%;max-width:340px;margin:0 auto;display:block;border-radius:10px;border:1px solid var(--border)" alt="Card ${jLabel(S.cardJ)}">`:'<div style="font-size:.74rem;color:var(--sub);text-align:center;padding:10px">Ainda não há pódio para esta jornada.</div>'}
+      <button id="jcard-dl" onclick="downloadCardFor('${S.cardJ}')" style="margin-top:8px;width:100%;background:none;border:1px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;font-size:.74rem;padding:7px">📥 Descarregar card</button>
+      <div style="font-size:.64rem;color:var(--sub);text-align:center;margin-top:5px">Depois de descarregar, partilha onde quiseres.</div>
+    </div>`;
   }
 
   // ── Bancada (#6B) - feed de comentários da liga ──
@@ -4547,7 +4617,7 @@ function renderLB() {
             if(isLgAdmin)act+=`<span onclick="deleteComment('${cc}','${at}')" title="Apagar" style="cursor:pointer;margin-left:4px">🗑️</span>`;
           }
           return `<div>
-          <div style="font-size:.62rem;color:var(--sub)">${escapeHtml(c.name)}${c.jornada?` · ${JORNADA_SHORT[c.jornada]||escapeHtml(c.jornada)}`:''}${c.at?` · ${new Date(c.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}${act}</div>
+          <div style="font-size:.62rem;color:var(--sub)">${escapeHtml(c.name)}${c.jornada?` · ${jornadaShort(c.jornada)}`:''}${c.at?` · ${new Date(c.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}${act}</div>
           <div style="font-size:.8rem;line-height:1.4">${highlightMentions(escapeHtml(c.text))}</div>
         </div>`;}).join(''):'<div style="font-size:.75rem;color:var(--sub)">Ainda ninguém falou. Sê o primeiro a mandar bitaites! 😏</div>'}
       </div>
@@ -4564,194 +4634,6 @@ function renderLB() {
   if(bl)bl.scrollTop=bl.scrollHeight;
 }
 
-// ════════════════════════════════════════════════
-//  DUELOS - tab próprio (da liga selecionada)
-// ════════════════════════════════════════════════
-function renderDuels(){
-  renderLigaSelector();
-  const el=document.getElementById('duels-content');
-  if(!el)return;
-
-  // Sem liga selecionada (Global) → estado vazio
-  if(!S.curLeague){
-    el.innerHTML=`<div class="alert alert-info" style="font-size:.82rem">⚔️ Os duelos vivem <strong>dentro de cada liga</strong>. Escolhe uma liga acima - ou entra/cria uma em <strong>🏆 Ver todas as ligas</strong> - para veres os teus confrontos.</div>`;
-    return;
-  }
-
-  // Base de dados igual à da Classificação (filtrada por liga)
-  let raw=S.lb.length?S.lb:(S.demoMode&&S.user?calcDemoLB():[]);
-  const mc=(S.curLeague.members||[]).map(m=>(m||'').toUpperCase());
-  if(mc.length)raw=raw.filter(p=>mc.includes((p.code||'').toUpperCase()));
-  if(!raw.length){el.innerHTML=S.lbReady?'<div class="alert alert-info">Ainda sem dados desta liga.</div>':'<div class="loading-center"><div class="spinner"></div></div>';return;}
-  const data=[...raw].sort((a,b)=>(b.total||0)-(a.total||0));
-  const isBot=p=>p.code==='BOT_IA';
-  const humans=data.filter(p=>!isBot(p));
-  if(humans.length<2){
-    el.innerHTML=`<div class="alert alert-info" style="font-size:.82rem">Esta liga precisa de pelo menos <strong>2 jogadores</strong> para haver duelos.</div>`;
-    return;
-  }
-
-  // Snapshot dos emparelhamentos por jornada (lazy-load por liga)
-  if(S.socialLeague!==S.curLeague.id&&!S.socialLoading)loadSocial();
-  const social=(S.social&&S.socialLeague===S.curLeague.id)?S.social:null;
-  const rosters=(social&&social.duelRosters)||{};
-
-  const codes=humans.map(p=>p.code);
-  const rosterOf=j=>(rosters[j]&&rosters[j].length>=2)?rosters[j]:codes;
-  const nameOf=c=>{const p=data.find(x=>x.code===c);return p?p.name:c;};
-  const jpOf=(c,j)=>{const p=data.find(x=>x.code===c);return (p&&p.jp&&p.jp[j])||0;};
-  const me=S.user?S.user.code:null;
-  const jLabel=j=>JORNADA_NAMES[j]||j;
-  const duelData=computeDuels(S.curLeague.id,codes,jpOf,rosterOf);
-
-  const rankIdx={};data.forEach((p,i)=>rankIdx[p.code]=i);
-  const duelOrder=Object.keys(duelData.pts).sort((a,b)=>(duelData.pts[b]||0)-(duelData.pts[a]||0)||((duelData.record[b]||{v:0}).v)-((duelData.record[a]||{v:0}).v)||(rankIdx[a]??99)-(rankIdx[b]??99));
-  const dLeader=duelOrder[0];
-
-  let html='';
-
-  // Fim do Mundial → Campeão de Duelos
-  if(jornadaComplete('FIN')&&dLeader&&(duelData.pts[dLeader]||0)>0){
-    const r=duelData.record[dLeader]||{v:0,e:0,d:0};
-    html+=`<div style="background:rgba(230,126,34,.1);border:1px solid #e67e22;border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
-      <span style="font-size:1.8rem">⚔️</span>
-      <div style="flex:1">
-        <div style="font-size:.58rem;letter-spacing:1.5px;color:#e67e22;font-family:'Rajdhani',sans-serif;font-weight:700">CAMPEÃO DE DUELOS</div>
-        <div style="font-size:1.05rem;font-weight:700">${nameOf(dLeader)} <span style="color:#e67e22">${duelData.pts[dLeader]} pts</span></div>
-        <div style="font-size:.7rem;color:var(--sub)">${r.v}V · ${r.e}E · ${r.d}D</div>
-      </div>
-    </div>`;
-  }
-
-  // O teu duelo (próxima jornada por disputar)
-  const nj=nextJornada();
-  if(nj){
-    const locked=!!(rosters[nj]&&rosters[nj].length>=2);
-    const pairs=duelPairs(S.curLeague.id,nj,rosterOf(nj));
-    let mineHtml='';
-    if(me){
-      const mp=pairs.find(pr=>pr[0]===me||pr[1]===me);
-      if(mp){
-        const opp=mp[0]===me?mp[1]:mp[0];
-        mineHtml=opp===null
-          ?`<div style="font-size:1.05rem;font-weight:700;text-align:center">Tens <span style="color:#e67e22">BYE</span> <span style="font-size:.72rem;color:var(--sub)">(+1 pt)</span></div>`
-          :`<div style="display:flex;align-items:center;justify-content:center;gap:14px;text-align:center">
-              <div style="flex:1"><div style="font-size:1rem;font-weight:700">Tu</div></div>
-              <div style="color:#e67e22;font-weight:700">vs</div>
-              <div style="flex:1"><div style="font-size:1rem;font-weight:700">${nameOf(opp)}</div><div style="font-size:.64rem;color:var(--sub)">${duelData.pts[opp]||0} pts de duelo</div></div>
-            </div>`;
-      }
-    }
-    const statusTag=locked
-      ?'<span style="color:var(--green)">🔒 Emparelhamento fechado</span>'
-      :`<span style="color:var(--sub)">⏳ Provisório - fecha ${S.deadlineH||1}h antes do 1.º jogo</span>`;
-    html+=`<div style="background:rgba(230,126,34,.07);border:1px solid rgba(230,126,34,.4);border-radius:12px;padding:12px 14px;margin-bottom:14px">
-      <div style="font-size:.58rem;letter-spacing:1.5px;color:#e67e22;font-family:'Rajdhani',sans-serif;font-weight:700;margin-bottom:8px">O TEU DUELO · ${String(jLabel(nj)).toUpperCase()}</div>
-      ${mineHtml||'<div style="font-size:.8rem;color:var(--sub);text-align:center">Sem confronto definido ainda.</div>'}
-      <div style="font-size:.68rem;margin-top:8px;text-align:center">${statusTag}</div>
-    </div>`;
-  }
-
-  // Classificação de duelos (tabela paralela) - mesmo formato da Classificação (cabe no ecrã)
-  html+=`<div class="card" style="padding:12px;margin-bottom:14px">
-    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#e67e22;font-size:.86rem;margin-bottom:8px">⚔️ CLASSIFICAÇÃO DE DUELOS</div>
-    <div class="standings-wrap"><table class="standings-table" style="table-layout:fixed;width:100%">
-      <colgroup><col style="width:10%"><col><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:14%"></colgroup>
-      <thead><tr>
-        <th>#</th>
-        <th class="th-name">Jogador</th>
-        <th title="Vitórias" style="color:var(--green)">V</th>
-        <th title="Empates" style="color:#f39c12">E</th>
-        <th title="Derrotas" style="color:#e74c3c">D</th>
-        <th style="color:#e67e22">Pts</th>
-      </tr></thead><tbody>`;
-  duelOrder.forEach((c,i)=>{
-    const r=duelData.record[c]||{v:0,e:0,d:0};
-    const isMe=me&&c===me;
-    const lead=i===0&&(duelData.pts[c]||0)>0;
-    html+=`<tr class="${isMe?'row-me':''}">
-      <td class="td-pos">${lead?'👑':(i+1)}</td>
-      <td class="td-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nameOf(c)}${isMe?'<span class="me-tag">(tu)</span>':''}</td>
-      <td style="color:var(--green)">${r.v}</td>
-      <td style="color:#f39c12">${r.e}</td>
-      <td style="color:#e74c3c">${r.d}</td>
-      <td class="td-pts" style="color:#e67e22">${duelData.pts[c]||0}</td>
-    </tr>`;
-  });
-  html+=`</tbody></table></div>
-    <div class="lb-legend" style="margin-top:8px;flex-wrap:wrap;font-size:.64rem;gap:6px 12px">
-      <span style="white-space:nowrap;color:var(--green)">V = Vitória (2 pts)</span>
-      <span style="white-space:nowrap;color:#f39c12">E = Empate (1 pt)</span>
-      <span style="white-space:nowrap;color:#e74c3c">D = Derrota (0)</span>
-      <span style="white-space:nowrap;color:var(--sub)">Bye = 1 pt · não soma ao total</span>
-    </div>
-  </div>`;
-
-  // Confrontos da jornada atual (todos) - com pontos acumulados, sem coloração de líder
-  if(nj){
-    const pairs=duelPairs(S.curLeague.id,nj,rosterOf(nj));
-    html+=`<div class="card" style="padding:12px;margin-bottom:14px">
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.82rem;margin-bottom:8px">CONFRONTOS · ${String(jLabel(nj)).toUpperCase()}</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${pairs.map(pr=>{
-          const mineRow=me&&(pr[0]===me||pr[1]===me);
-          const bg=mineRow?'rgba(230,126,34,.12)':'var(--bg2)';
-          if(pr[1]===null)return `<div style="display:flex;justify-content:space-between;padding:7px 10px;background:${bg};border-radius:8px;font-size:.8rem"><span>${nameOf(pr[0])}</span><span style="color:var(--sub)">bye (+1)</span></div>`;
-          const pa=jpOf(pr[0],nj), pb=jpOf(pr[1],nj);
-          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${bg};border-radius:8px;font-size:.8rem">
-            <span style="flex:1">${nameOf(pr[0])}</span>
-            <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-variant-numeric:tabular-nums">
-              <span style="color:var(--sub);min-width:20px;text-align:right;font-weight:700">${pa}</span>
-              <span style="color:#e67e22;font-size:.7rem">vs</span>
-              <span style="color:var(--sub);min-width:20px;text-align:left;font-weight:700">${pb}</span>
-            </span>
-            <span style="flex:1;text-align:right">${nameOf(pr[1])}</span>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }
-
-  // Histórico de duelos (jornadas já disputadas) - colapsável
-  const done=completeJornadas();
-  if(done.length){
-    html+=`<div class="card" style="padding:12px">
-      <div onclick="S.duelHistOpen=!S.duelHistOpen;renderDuels()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.82rem">
-        <span>📜 HISTÓRICO DE DUELOS</span><span style="font-size:.7rem;color:var(--sub)">${S.duelHistOpen?'▲ esconder':'▼ ver'}</span>
-      </div>`;
-    if(S.duelHistOpen){
-      html+=`<div style="margin-top:10px;display:flex;flex-direction:column;gap:12px">`;
-      [...done].reverse().forEach(j=>{
-        const pairs=duelPairs(S.curLeague.id,j,rosterOf(j));
-        html+=`<div>
-          <div style="font-size:.7rem;color:var(--sub);margin-bottom:4px;font-weight:600">${jLabel(j)}</div>
-          <div style="display:flex;flex-direction:column;gap:4px">
-            ${pairs.map(pr=>{
-              if(pr[1]===null)return `<div style="font-size:.76rem;color:var(--sub);padding:3px 8px">${nameOf(pr[0])} - bye (+1)</div>`;
-              const pa=jpOf(pr[0],j),pb=jpOf(pr[1],j);
-              const aWin=pa>pb,bWin=pb>pa,draw=pa===pb;
-              const mineRow=me&&(pr[0]===me||pr[1]===me);
-              const st=w=>w?'font-weight:700;color:var(--green)':'color:var(--text)';
-              return `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;font-size:.76rem;${mineRow?'background:rgba(230,126,34,.1);border-radius:6px':''}">
-                <span style="flex:1;${st(aWin)}">${nameOf(pr[0])}</span>
-                <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;font-variant-numeric:tabular-nums">
-                  <span style="${st(aWin)};min-width:20px;text-align:right;font-weight:700">${pa}</span>
-                  <span style="color:var(--sub);font-size:.64rem;padding:0 2px">${draw?'empate':'vs'}</span>
-                  <span style="${st(bWin)};min-width:20px;text-align:left;font-weight:700">${pb}</span>
-                </span>
-                <span style="flex:1;text-align:right;${st(bWin)}">${nameOf(pr[1])}</span>
-              </div>`;
-            }).join('')}
-          </div>
-        </div>`;
-      });
-      html+=`</div>`;
-    }
-    html+=`</div>`;
-  }
-
-  el.innerHTML=html;
-}
 
 // ════════════════════════════════════════════════
 //  SOCIAL - reações + bancada
@@ -4764,12 +4646,11 @@ async function loadSocial(){
   const lid=S.curLeague.id;
   try{
     const r=await api('getSocial',{league_id:lid});
-    S.social={reactions:r.reactions||[],comments:r.comments||[],duelRosters:r.duelRosters||{}};
+    S.social={reactions:r.reactions||[],comments:r.comments||[]};
     S.socialLeague=lid;
-  }catch(e){S.social={reactions:[],comments:[],duelRosters:{}};S.socialLeague=lid;}
+  }catch(e){S.social={reactions:[],comments:[]};S.socialLeague=lid;}
   S.socialLoading=false;
   if(S.curView==='leaderboard')renderLB();
-  if(S.curView==='duels')renderDuels();
 }
 
 function toggleReactPicker(code){
@@ -5019,7 +4900,7 @@ function drawCardCanvas(d){
   x.fillStyle='#d4af37';x.font='700 30px Rajdhani, Arial';
   x.fillText('UNCLE PREDICTOR · MUNDIAL 2026',W/2,80);
   x.fillStyle='#ffffff';x.font='700 44px Rajdhani, Arial';
-  x.fillText(`${(JORNADA_NAMES[d.j]||d.j)} · ${d.league}`,W/2,140);
+  x.fillText(`${jornadaName(d.j)} · ${d.league}`,W/2,140);
   const medals=['🥇','🥈','🥉'],cols=['#d4af37','#c0c0c0','#cd7f32'];
   const bw=170,gap=30,baseY=520,hts=[230,160,120];
   const order=[1,0,2]; // 2º · 1º · 3º
@@ -5046,21 +4927,30 @@ function drawCardCanvas(d){
   x.fillText('unclepredictor.pt',W/2,H-50);
   return cv;
 }
-// Partilha (ou descarrega) o card de uma jornada
-async function shareCardFor(j){
-  const d=cardDataFor(j); if(!d)return;
+// Descarrega o card de uma jornada.
+// ⚠️ Era navigator.share() com fallback para download. O share nativo falhava em
+// demasiados contextos (desktop, browsers sem canShare de ficheiros, WebView da
+// app) e a maior parte das pessoas nem chegava a receber a imagem. Passa a
+// descarregar sempre - quem quiser partilha depois a partir da galeria.
+function downloadCardFor(j){
+  const d=cardDataFor(j); if(!d){ showToast('Ainda não há pódio para esta jornada.','error'); return; }
   const fname=`unclepredictor_${j}.png`;
-  drawCardCanvas(d).toBlob(async blob=>{
-    if(!blob)return;
-    const file=new File([blob],fname,{type:'image/png'});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      try{await navigator.share({files:[file],title:'Uncle Predictor'});return;}catch(e){/* cancelado → fallback download */}
-    }
+  drawCardCanvas(d).toBlob(blob=>{
+    if(!blob) return;
     const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+    a.href=URL.createObjectURL(blob); a.download=fname; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-    showToast('Card guardado! Partilha-o no WhatsApp 📤','success');
+    showToast('Card descarregado 📥','success');
   },'image/png');
+}
+// Muda a jornada do card sem recarregar a classificação toda.
+function setCardJornada(j){
+  S.cardJ=j;
+  const img=document.getElementById('jcard-img');
+  const btn=document.getElementById('jcard-dl');
+  const d=cardDataFor(j);
+  if(img&&d){ try{ img.src=drawCardCanvas(d).toDataURL('image/png'); }catch(e){} }
+  if(btn) btn.setAttribute('onclick',`downloadCardFor('${j}')`);
 }
 
 // ════════════════════════════════════════════════
@@ -5379,16 +5269,18 @@ function renderBets() {
       const hasPred=pred.t1!==undefined&&pred.t2!==undefined;
 
       let ptsHtml='';
-      if(pts!==null){ ptsHtml=` ${ptsBadgeHtml(pts)}`; }
+      // koPtsBadgeHtml é o badge universal: rotula tendência/aproximação/exato a
+      // partir de pred vs res, em vez de adivinhar pelo total (ver comentário lá).
+      if(pts!==null){ ptsHtml=` ${koPtsBadgeHtml(pred,res,isKO)}`; }
       const pot=(lv&&hasPred)?livePotential(g.id,pred):null;
       const dlWarn=!locked?dlWarnHtml(g.date):(isFinished?'':(lv?`<span class="live-dot">${liveBadgeTxt(lv)}</span>`:(gameUnderway(g)?'<span class="live-dot">🔴 EM JOGO</span>':'<span class="dl-pass">🔒 Fechado</span>')));
 
       // Classe de cor do cartão
       let colorClass='';
       if(isFinished&&pts!==null){
-        const isKOg=!!g.ko;
-        const exactPts=isKOg?5:3;
-        const winPts=isKOg?2:1;
+        const isKOg=!!g.ko, _sc=scoringLocal(), _ph=isKOg?'ko':'group';
+        const exactPts=_sc.exact[_ph];
+        const winPts=_sc.trend[_ph];
         if(pts>=exactPts) colorClass='card-result';       // acerto no resultado → verde
         else if(pts>=winPts) colorClass='card-winner';    // acerto no vencedor/empate → amarelo
         else colorClass='card-miss';                       // erro → vermelho
@@ -6095,7 +5987,8 @@ function renderLeaguePrebets(){
     : (dlStr?`Fecham <b style="color:var(--gold)">${dlStr}</b> (hora de Portugal), antes da 1.ª jornada. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`:`Fecham antes da 1.ª jornada. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`)}</div>`;
 
   cfg.forEach(item=>{
-    const icon=item.key==='champion'?'🏆':item.key==='top_scorer'?'⚽':item.key==='relegated'?'🔻':item.key==='europe'?'⭐':'🎯';
+    const PB_ICONS={champion:'🏆',top_scorer:'⚽',relegated:'🔻',europe:'⭐',cup_winner:'🏅',cup_finalist:'🥈',best_attack:'💥',best_defence:'🛡️'};
+    const icon=PB_ICONS[item.key]||'🎯';
     const ptsLabel=item.type==='multi'?`${item.pts_each} pts/eq (×${item.count})`:`${item.pts} pts`;
     html+=`<div class="pb-phase">${icon} ${escapeHtml(item.label||item.key)} <small>${ptsLabel}</small></div>`;
     const resolved=sp[item.key]!=null && !(Array.isArray(sp[item.key])&&!sp[item.key].length);
@@ -6310,8 +6203,57 @@ function buildHybridBracketHtml(){
     html+=`</div>`; });
   return html;
 }
+// Resultados por jornada no tab "Real" das ligas/UCL.
+// ⚠️ O tab Real das ligas só tinha classificação + bracket: faltava o equivalente
+// aos resultados que o Mundial mostra. Reutiliza as MESMAS classes visuais do
+// bracket do Mundial (bracket-round-title / bracket-match / bracket-team /
+// bracket-score-badge) para o aspeto ser o mesmo nas duas competições.
+// Com 38 jornadas não dá para uma linha de chips: navega-se com ◀ ▶ + dropdown.
+function buildLeagueResultsHtml(){
+  const phase=GAMES.filter(g=>!g.ko);
+  if(!phase.length) return '';
+  const mds=[...new Set(phase.map(g=>+g.md).filter(n=>n))].sort((a,b)=>a-b);
+  if(!mds.length) return '';
+  // Default: a jornada em curso/próxima, não a primeira da época.
+  if(S.realMd==null||!mds.includes(+S.realMd)){
+    const now=Date.now();
+    let cur=mds[mds.length-1];
+    for(const md of mds){ if(phase.some(g=>+g.md===md&&g.date&&new Date(g.date).getTime()>now)){ cur=md; break; } }
+    S.realMd=cur;
+  }
+  const md=+S.realMd, idx=mds.indexOf(md);
+  const gs=phase.filter(g=>+g.md===md).sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+  const btn=(lbl,target,dis)=>`<button class="btn btn-outline" style="padding:6px 12px;font-size:.8rem" ${dis?'disabled':''} onclick="S.realMd=${target};renderMundial()">${lbl}</button>`;
+  let html=`<div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--gold);margin:20px 2px 10px">📅 Resultados por jornada</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+      ${btn('◀',mds[idx-1],idx<=0)}
+      <select onchange="S.realMd=+this.value;renderMundial()" style="flex:1;max-width:180px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.82rem;padding:7px 8px;text-align:center;font-family:'Rajdhani',sans-serif;font-weight:700">
+        ${mds.map(m=>`<option value="${m}" ${m===md?'selected':''}>Jornada ${m}</option>`).join('')}
+      </select>
+      ${btn('▶',mds[idx+1],idx>=mds.length-1)}
+    </div>`;
+  gs.forEach(g=>{
+    const r=S.results[g.id];
+    const has=r&&r.t1!=null;
+    const w1=has&&+r.t1>+r.t2, w2=has&&+r.t2>+r.t1;
+    const d=g.date?new Date(g.date):null;
+    const when=d?`${d.toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} ${d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}`:'';
+    html+=`<div class="bracket-match bk-r16">
+      <span class="bracket-team${w1?' bracket-winner':''}">${crest(g.t1,15)}${escapeHtml(g.t1||'')}</span>
+      <span class="bracket-score-badge">${has?`${r.t1}-${r.t2}`:'·'}</span>
+      <span class="bracket-team${w2?' bracket-winner':''}" style="text-align:right">${escapeHtml(g.t2||'')}${crest(g.t2,15)}</span>
+      <span style="font-size:.63rem;color:var(--sub);white-space:nowrap;margin-left:2px">${when}</span>
+    </div>`;
+  });
+  return html;
+}
+
 function renderMundial() {
-  if(S.leagueMode){ leagueTabContent('mundial', buildLeagueStandingsHtml() + buildHybridBracketHtml()); return; }
+  if(S.leagueMode){
+    leagueTabContent('mundial',
+      buildLeagueStandingsHtml() + buildLeagueResultsHtml() + buildHybridBracketHtml() + buildLeagueScorersHtml());
+    return;
+  }
   leagueTabRestore('mundial');
   const tabsEl = document.getElementById('mundial-grp-tabs');
   tabsEl.innerHTML = Object.keys(GROUPS).map(g =>
@@ -6381,9 +6323,10 @@ function renderBracket() {
   el.innerHTML = html;
 }
 
-function renderTopScorers() {
-  const el = document.getElementById('mundial-scorers');
-  if (!el) return;
+// Constrói a tabela de marcadores. Partilhada pelo Mundial (renderTopScorers,
+// que a injeta em #mundial-scorers) e pelas ligas/UCL (buildLeagueScorersHtml,
+// que a concatena no HTML do tab) - para o aspeto ser exatamente o mesmo.
+function buildScorersHtml() {
   const scorers = S.demoMode ? DEMO_SCORERS : (S.scorers || []);
 
   let html = `<div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:8px">⚽ Melhores Marcadores</div>
@@ -6416,7 +6359,16 @@ function renderTopScorers() {
   if (S.demoMode) {
     html += `<div style="font-size:.68rem;color:var(--sub);text-align:center;margin:-10px 0 14px">📡 Dados arbitrários para teste · Em produção ligado à fonte oficial FIFA/UEFA</div>`;
   }
-  el.innerHTML = html;
+  return html;
+}
+function renderTopScorers() {
+  const el = document.getElementById('mundial-scorers');
+  if (el) el.innerHTML = buildScorersHtml();
+}
+// Sem marcadores (época por começar) não vale a pena ocupar espaço no tab.
+function buildLeagueScorersHtml() {
+  const n = (S.demoMode ? DEMO_SCORERS : (S.scorers || [])).length;
+  return n ? `<div style="margin-top:20px">${buildScorersHtml()}</div>` : '';
 }
 
 function showTVInfo(gameId) {
@@ -6658,7 +6610,7 @@ function openGameModal(gameId) {
   document.getElementById('modal-title').textContent = resEff ? `${t1} ${resEff.t1}-${resEff.t2} ${t2}` : `${t1} vs ${t2}`;
   const penNote = isFinished && res.pen ? ` · ★ ${res.pen==='t1'?t1:t2} passou por penáltis` : '';
   document.getElementById('modal-subtitle').textContent =
-    `${game.g?`Grupo ${game.g}`:(JORNADA_NAMES[game.md]||game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?penNote:(lv?` · ${liveBadgeTxt(lv)} - pontuação potencial`:' · 🔒 Apostas fechadas - jogo por disputar')}`;
+    `${game.g?`Grupo ${game.g}`:jornadaName(game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?penNote:(lv?` · ${liveBadgeTxt(lv)} - pontuação potencial`:' · 🔒 Apostas fechadas - jogo por disputar')}`;
 
   // Apostas de todos: S.allPreds (backend só envia jogos já fechados)
   const isKO = !!game.ko;
@@ -6727,7 +6679,7 @@ function openGameModal(gameId) {
   rows.forEach(r=>{
     const hasPred = r.pred && r.pred.t1!==undefined;
     const dpick = r.dpick;
-    const predStr = hasPred ? `${r.pred.t1}-${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : (dpick?`<span style="color:#a78bfa" title="Default pick - aposta do IA por esquecimento">🤖 ${dpick.t1}-${dpick.t2}</span>`:'-');
+    const predStr = hasPred ? `${r.pred.t1}-${r.pred.t2}${r.pred.joker?' <span class="joker-badge">J</span>':''}` : (dpick?`<span style="color:#a78bfa" title="Default pick - ${dpickWord()}">${dpickIcon()} ${dpick.t1}-${dpick.t2}</span>`:'-');
     const gross = (r.base||0)+(r.apr||0);
     // KO gross===3 = tendência+aproximação (sem exato) → verde-limão; grupos gross===3 = exato → verde
     const ptsCls = dpick ? '' : (showPts ? (!hasPred||gross===0?'pred-wrong':(isKO&&gross===3)?'pred-close':gross===1||gross===2?'pred-partial':'pred-correct') : '');
@@ -6751,7 +6703,7 @@ function openGameModal(gameId) {
       <strong style="color:var(--text)">Base</strong> = resultado/tendência · <strong style="color:#1abc9c">Apr</strong> = aproximação (só KO: +1 por errar só 1 golo) · <strong style="color:#f39c12">⭐</strong> = bónus de raridade${rarBonus?` (${lv?'com o resultado atual':'neste jogo'}: +${rarBonus} por acerto exato)`:' (sem bónus neste jogo)'} · <strong style="color:#00bcd4">J</strong> = bónus do joker (duplica base, aproximação e raridade)<br>
       ${lv?'🔴 Valores provisórios - a raridade pode mudar com cada golo.':'⭐ e J são as colunas homónimas da classificação detalhada - somadas, formam o 1º critério de desempate.'}
     </div>`;
-    if(rows.some(r=>r.dpick)) html+=`<div style="font-size:.68rem;color:#a78bfa;margin-top:6px;line-height:1.6">🤖 = default pick: aposta do IA herdada por esquecimento (só tendência: 1 grupos / 2 KO; sem joker nem raridade).</div>`;
+    if(rows.some(r=>r.dpick)) html+=`<div style="font-size:.68rem;color:#a78bfa;margin-top:6px;line-height:1.6">${dpickNote()}</div>`;
   }
   if(!isFinished) html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:8px;text-align:center">As apostas ficam visíveis assim que fecham (${S.deadlineH||1}h antes do jogo).</div>`;
   html+=`<div style="font-size:.68rem;color:var(--sub);margin-top:6px;text-align:center">👆 Toca num jogador para veres o perfil de apostas dele.</div>`;
@@ -6820,33 +6772,69 @@ function openPlayerModal(playerName) {
 }
 
 // Constrói o perfil de apostas (tabela + stats + evolução + pré-apostas)
-// Reutilizado pelo modal de jogador e pelo modal do Bot IA
-// ── DEFAULT PICKS (espelho da lógica do backend, p/ marcação 🤖 no perfil) ──
+// Reutilizado pelo modal de jogador e pelo modal do Bot IA (só no Mundial)
+// Rótulos das default picks - mudam com a fonte da competição ativa.
+function dpickIcon(){ return scoringLocal().defaultPickSource==='bot' ? '🤖' : '🛟'; }
+function dpickWord(){ return scoringLocal().defaultPickSource==='bot' ? 'aposta do IA' : 'escolha mais comum da comunidade'; }
+function dpickNote(){
+  const SC=scoringLocal();
+  const val = SC.defaultPickExact
+    ? `pontos normais (tendência ${SC.trend.group} · exato ${SC.exact.group})`
+    : `só tendência: ${SC.trend.group} grupos / ${SC.trend.ko} KO`;
+  return `${dpickIcon()} = default pick: ${dpickWord()} herdada por esquecimento (${val}; sem joker, raridade nem aproximação).`;
+}
+
+// ── DEFAULT PICKS (espelho da lógica do backend, p/ marcação no perfil) ──
+// ⚠️ MANTER SINCRONIZADO com buildLeaderboard (bloco do adapter).
+// WC2026 (fechado): herda a aposta do Bot IA, orçamento 5, só tendência, e só
+// dos jogos a partir do kickoff da jornada E4.
+// Restantes: herda a aposta MAIS COMUM da comunidade, orçamento = 10% dos jogos,
+// pontos normais (tendência ou exato), sem raridade/joker/aproximação.
 const DEFAULT_PICK_CUTOFF_MS = Date.parse('2026-06-21T00:00:00Z'); // kickoff de E4
-const DEFAULT_PICK_BUDGET = 5;
-function botPickFor(gid){
-  // Aposta do IA neste jogo (só disponível após o fecho, via S.allPreds)
+// Aposta herdada para este jogo, segundo a fonte da competição ativa.
+function inheritedPickFor(gid){
   const m = S.allPreds && S.allPreds[gid];
-  const bp = m && m['BOT_IA'];
-  if (!bp || bp.t1===undefined || bp.t1==='') return null;
-  return {t1:Number(bp.t1), t2:Number(bp.t2)};
+  if (!m) return null;
+  if (scoringLocal().defaultPickSource === 'bot'){
+    const bp = m['BOT_IA'];
+    if (!bp || bp.t1===undefined || bp.t1==='') return null;
+    return {t1:Number(bp.t1), t2:Number(bp.t2)};
+  }
+  // escolha mais comum da comunidade (bot excluído); desempate determinístico
+  const tally={};
+  Object.entries(m).forEach(([code,p])=>{
+    if (code==='BOT_IA' || p.t1===undefined || p.t1==='') return;
+    const k=Number(p.t1)+'-'+Number(p.t2); tally[k]=(tally[k]||0)+1;
+  });
+  let best=null,bestN=-1;
+  Object.keys(tally).sort().forEach(k=>{ if(tally[k]>bestN){bestN=tally[k];best=k;} });
+  if (!best) return null;
+  const [a,b]=best.split('-');
+  return {t1:Number(a), t2:Number(b)};
 }
 // Devolve {gid:{t1,t2,pts,isKO,hit}} dos jogos cobertos por default pick deste jogador
 function defaultPicksOf(preds, results){
-  const out = {};
+  const out = {}, SC = scoringLocal();
+  const isWC = SC.defaultPickSource === 'bot';
+  const budget = SC.defaultPickRatio != null
+    ? Math.max(1, Math.round((GAMES||[]).length * SC.defaultPickRatio))
+    : SC.defaultPickBudget;
   const cand = GAMES.filter(g=>{
     const r = results[g.id];
-    if (!r || r.t1===undefined) return false;                 // sem resultado
+    if (!r || r.t1===undefined) return false;                    // sem resultado
     if (preds[g.id] && preds[g.id].t1!==undefined) return false; // apostou
-    if (!botPickFor(g.id)) return false;                      // IA sem pick
-    return Date.parse(g.date) >= DEFAULT_PICK_CUTOFF_MS;      // só do corte (E4) em diante
+    if (!inheritedPickFor(g.id)) return false;                   // sem pick herdada
+    return isWC ? Date.parse(g.date) >= DEFAULT_PICK_CUTOFF_MS : true;
   }).sort((a,b)=> Date.parse(a.date)-Date.parse(b.date) || (a.id<b.id?-1:1));
-  for (let i=0; i<cand.length && i<DEFAULT_PICK_BUDGET; i++){
-    const g=cand[i], r=results[g.id], bp=botPickFor(g.id), isKO=!!g.ko;
+  for (let i=0; i<cand.length && i<budget; i++){
+    const g=cand[i], r=results[g.id], bp=inheritedPickFor(g.id), isKO=!!g.ko;
+    const ph = isKO?'ko':'group';
+    const exact = bp.t1===r.t1 && bp.t2===r.t2;
     const pw = bp.t1>bp.t2?1:bp.t1<bp.t2?-1:0;
     const rw = r.t1>r.t2?1:r.t1<r.t2?-1:0;
-    const hit = pw===rw;
-    out[g.id] = {t1:bp.t1, t2:bp.t2, pts: hit?(isKO?2:1):0, isKO, hit};
+    const trend = pw===rw;
+    const pts = (SC.defaultPickExact && exact) ? SC.exact[ph] : (trend ? SC.trend[ph] : 0);
+    out[g.id] = {t1:bp.t1, t2:bp.t2, pts, isKO, hit: pts>0};
   }
   return out;
 }
@@ -6932,14 +6920,14 @@ function buildPlayerBetsHtml(playerName) {
       // Default pick: herdou a aposta do IA (só tendência; sem joker/raridade)
       tot=dpick.pts; total+=dpick.pts;
     }
-    const predStr=hasPred?`${pred.t1}-${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:(dpick?`<span style="color:#a78bfa" title="Default pick - aposta do IA por esquecimento">🤖 ${dpick.t1}-${dpick.t2}</span>`:'-');
+    const predStr=hasPred?`${pred.t1}-${pred.t2}${pred.joker?' <span class="joker-badge">J</span>':''}`:(dpick?`<span style="color:#a78bfa" title="Default pick - ${dpickWord()}">${dpickIcon()} ${dpick.t1}-${dpick.t2}</span>`:'-');
     const grossC=(base||0)+(apr||0);
     // KO grossC===3 = tendência+aproximação → verde-limão (grupos: 3 = exato → verde)
     const ptsCls=dpick?'':(isF?(!hasPred||grossC===0?'pred-wrong':(isKO&&grossC===3)?'pred-close':grossC===1||grossC===2?'pred-partial':'pred-correct'):'');
     const liveStyle=lv?';opacity:.85;font-style:italic':'';
     // Navegação cruzada (Sessão B): tocar num jogo abre o modal desse jogo (apostas de todos)
     rowsArr.push(`<tr onclick="openGameModal('${g.id}')" style="cursor:pointer">
-      <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:JORNADA_SHORT[g.md]||g.md}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
+      <td style="font-size:.74rem;font-weight:500;padding:9px 4px;text-align:left;max-width:110px;white-space:normal;line-height:1.45"><span class="grp-badge">${g.g?'Gr.'+g.g:jornadaShort(g.md)}</span>${g.ko?getKOTeamName(g.id,'t1'):g.t1}<br>${g.ko?getKOTeamName(g.id,'t2'):g.t2}</td>
       <td class="pred-cell ${ptsCls}">${predStr}</td>
       <td style="${nC}">${isF?`${res.t1}-${res.t2}${res.pen?'<span class="pen-star" title="'+(res.pen==='t1'?getKOTeamName(g.id,'t1'):getKOTeamName(g.id,'t2'))+' passou por penáltis">★</span>':''}`:(lv?`<span class="live-dot" style="font-size:.72rem">🔴 ${lv.t1}-${lv.t2}</span>`:'<span style="font-size:.68rem;color:var(--sub)">🔒</span>')}</td>
       <td style="${nC}${liveStyle}">${base===null?'-':base}</td>
@@ -6950,7 +6938,7 @@ function buildPlayerBetsHtml(playerName) {
     </tr>`);
   });
 
-  const notesHtml = `${anyLive?'<div style="font-size:.68rem;color:var(--sub);margin-top:6px">🔴 = jogo a decorrer - pontos potenciais (em itálico), não somam ao total até ao apito final.</div>':''}${Object.keys(defPicks).length?'<div style="font-size:.68rem;color:#a78bfa;margin-top:6px">🤖 = default pick: aposta do IA herdada por esquecimento (só tendência: 1 grupos / 2 KO; sem joker nem raridade).</div>':''}`;
+  const notesHtml = `${anyLive?'<div style="font-size:.68rem;color:var(--sub);margin-top:6px">🔴 = jogo a decorrer - pontos potenciais (em itálico), não somam ao total até ao apito final.</div>':''}${Object.keys(defPicks).length?`<div style="font-size:.68rem;color:#a78bfa;margin-top:6px">${dpickNote()}</div>`:''}`;
 
   const statsHtml = `<div style="display:flex;gap:10px;padding-top:2px">
     <div style="flex:1;text-align:center"><div style="font-size:.7rem;color:var(--sub)">TOTAL JOGOS</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">${total}pts</div></div>
@@ -7013,7 +7001,7 @@ function buildRankSparkline(playerName) {
       <polyline points="${ptsStr}" fill="none" stroke="var(--gold)" stroke-width="2"/>
       ${hist.map((r, i) => `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(r).toFixed(1)}" r="3.5" fill="${i === n - 1 ? 'var(--gold)' : '#555'}"/>
       <text x="${xAt(i).toFixed(1)}" y="${(yAt(r) - 7).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--sub)" font-family="Rajdhani,sans-serif" font-weight="700">${r}º</text>
-      <text x="${xAt(i).toFixed(1)}" y="${H + 13}" text-anchor="middle" font-size="8.5" fill="var(--sub)">${JORNADA_SHORT[js[i]] || ''}</text>`).join('')}
+      <text x="${xAt(i).toFixed(1)}" y="${H + 13}" text-anchor="middle" font-size="8.5" fill="var(--sub)">${js[i]?jornadaShort(js[i]):''}</text>`).join('')}
     </svg>
   </div>`;
 }
@@ -7034,9 +7022,9 @@ function buildMedalsModalSection(playerName) {
   const summary = trophies.length
     ? `${g?`🥇×${g} `:''}${s?`🥈×${s} `:''}${b?`🥉×${b}`:''}`.trim()
     : 'sem troféus de jornada';
-  // NB: usa só globais (JORNADA_SHORT). NÃO usar trophySyms/jLabel - são locais a renderLB.
+  // NB: usa só globais (jornadaShort). NÃO usar trophySyms/jLabel - são locais a renderLB.
   const MEDAL = ['🥇','🥈','🥉'];
-  const jShort = md => JORNADA_SHORT[md] || ('J' + md);
+  const jShort = md => jornadaShort(md);
   const chips = trophies.length
     ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px">${trophies.map(t=>`<span class="md-trophy" title="${t.rank===1?'MVP':'Pódio'} ${jShort(t.md)}">${MEDAL[t.rank-1]||'🏅'}${jShort(t.md)}</span>`).join('')}</div>`
     : `<div style="font-size:.76rem;color:var(--sub);margin-top:2px">Ainda sem troféus de jornada.</div>`;
@@ -7398,7 +7386,7 @@ function adminTab(t){
 function mbGameLabel(g){
   const t1=g.ko?getKOTeamName(g.id,'t1'):g.t1;
   const t2=g.ko?getKOTeamName(g.id,'t2'):g.t2;
-  const stage=g.g?('Grupo '+g.g):(JORNADA_SHORT[g.md]||g.md);
+  const stage=g.g?('Grupo '+g.g):jornadaShort(g.md);
   return `[${g.id}] ${stage} · ${t1} vs ${t2}`;
 }
 async function renderManualBet(){
@@ -7725,22 +7713,10 @@ async function saveConfig(){
   // Deadline fixo em 1h - já não é editável via admin (não enviamos deadlineH).
   const np=document.getElementById('cfg-newpw').value;
   const ak=document.getElementById('cfg-apikey')?document.getElementById('cfg-apikey').value.trim():null;
-  const ok=document.getElementById('cfg-oddskey')?document.getElementById('cfg-oddskey').value.trim():null;
   try {
-    await api('saveConfig',{password:document.getElementById('admin-pw').value,newPassword:np||null,apiKey:ak||null,oddsApiKey:ok||null});
+    await api('saveConfig',{password:document.getElementById('admin-pw').value,newPassword:np||null,apiKey:ak||null});
     showToast('Configurações guardadas!','success');
   } catch(e){showToast('Erro.','error');}
-}
-
-async function runBot(mode){
-  const statusEl=document.getElementById('bot-status');
-  statusEl.style.display='block'; statusEl.textContent='🤖 A gerar apostas...';
-  try {
-    const action = mode==='prebets' ? 'runBotPrebets' : 'runBot';
-    const r=await api(action,{password:document.getElementById('admin-pw').value});
-    if(r.success){statusEl.textContent='✅ '+r.message;}
-    else{statusEl.textContent='❌ Erro: '+(r.error||'desconhecido');}
-  } catch(e){statusEl.textContent='❌ Erro de ligação: '+e.message;}
 }
 
 async function autoFetchResults(){
@@ -7768,65 +7744,62 @@ async function autoFetchResults(){
 // ════════════════════════════════════════════════
 //  PONTUAÇÃO
 // ════════════════════════════════════════════════
+// Espelho de calcPoints (bloco do adapter). Valores em SCORING_PROFILES.
 function calcPts(pred, res, isKO=false) {
   if(pred.t1===undefined||pred.t2===undefined) return 0;
   if(res.t1===undefined||res.t2===undefined) return 0;
   const pw=pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
   const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
-  const exactBase = isKO ? 5 : 3;
-  const winnerBase = isKO ? 2 : 1;
+  const sc=scoringLocal(), ph=isKO?'ko':'group';
   let pts = 0;
-  if(pred.t1===res.t1&&pred.t2===res.t2) pts = exactBase;
+  if(pred.t1===res.t1&&pred.t2===res.t2) pts = sc.exact[ph];
   else {
-    if(pw===rw) pts = winnerBase;
-    // Aproximação (SÓ fase a eliminar): falhou o exato mas errou só por 1 golo
-    // no total da aposta → +1 (acumula com a tendência; vale mesmo sem tendência)
-    if(isKO && (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1) pts += 1;
+    if(pw===rw) pts = sc.trend[ph];
+    // Aproximação: falhou o exato mas errou só por 1 golo no total da aposta →
+    // +1 (acumula com a tendência; vale mesmo sem tendência). No Mundial 2026
+    // (fechado) só contava no mata-mata.
+    if(approxAppliesLocal(isKO) && (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1) pts += sc.approx;
   }
   return pred.joker ? pts*2 : pts;
 }
+function approxAppliesLocal(isKO){ const s=scoringLocal(); return s.approxKoOnly ? !!isKO : true; }
 
-// Aproximação (SÓ KO): +1 quando falha o exato mas erra só 1 golo no total da aposta.
+// Aproximação: +1 quando falha o exato mas erra só 1 golo no total da aposta.
 // Devolve o valor PURO (sem joker) - usado para isolar a coluna "Apr" da base.
 function koApprox(pred, res, isKO){
-  if(!isKO || !pred || !res) return 0;
+  if(!approxAppliesLocal(isKO) || !pred || !res) return 0;
   if(pred.t1===undefined || pred.t2===undefined || res.t1===undefined || res.t2===undefined) return 0;
   if(pred.t1===res.t1 && pred.t2===res.t2) return 0;
-  return (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1 ? 1 : 0;
+  return (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1 ? scoringLocal().approx : 0;
 }
 
+// Badge de pontos. ⚠️ Não se pode rotular pelo TOTAL: com 2/5 + aproximação, um 3
+// pode ser "tendência + aproximação" ou (no Mundial) "resultado exato". Por isso
+// o rótulo deriva sempre de pred vs res, nunca do número.
 function ptsBadgeHtml(pts) {
-  if(pts===0)  return `<span class="pts-badge pts-0">ERROU</span>`;
-  if(pts===1)  return `<span class="pts-badge pts-1">VENC/EMP ✓ +1</span>`;
-  if(pts===2)  return `<span class="pts-badge pts-2">VENC/EMP +2</span>`;
-  if(pts===3)  return `<span class="pts-badge pts-3">RESULTADO +3</span>`;
-  if(pts===4)  return `<span class="pts-badge pts-4">VENC/EMP +4</span>`;
-  if(pts===5)  return `<span class="pts-badge pts-5">RESULTADO +5</span>`;
-  if(pts===6)  return `<span class="pts-badge pts-6">RESULTADO+J +6</span>`;
-  if(pts===10) return `<span class="pts-badge pts-10">RESULTADO+J +10</span>`;
-  return `<span class="pts-badge pts-3">+${pts}</span>`;
+  if(pts===0) return `<span class="pts-badge pts-0">ERROU</span>`;
+  return `<span class="pts-badge pts-${pts}">+${pts}</span>`;
 }
-
-// Badge da fase a eliminar: rotula com precisão a aproximação (+1) que o badge
-// genérico não consegue (mesmo total pode vir de tendência, aproximação ou ambas).
-function koPtsBadgeHtml(pred, res) {
+function koPtsBadgeHtml(pred, res, isKO=true) {
   if(!res||pred.t1===undefined||pred.t2===undefined||res.t1===undefined||res.t2===undefined) return '';
   const exact = pred.t1===res.t1 && pred.t2===res.t2;
   const pw = pred.t1>pred.t2?1:pred.t1<pred.t2?-1:0;
   const rw = res.t1>res.t2?1:res.t1<res.t2?-1:0;
   const trend = !exact && pw===rw;
-  const approx = !exact && (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1;
+  const approx = !exact && approxAppliesLocal(isKO) && (Math.abs(pred.t1-res.t1)+Math.abs(pred.t2-res.t2))===1;
   const jokerOn = !!pred.joker;
+  const sc = scoringLocal(), ph = isKO?'ko':'group';
   let base=0, lbl='';
-  if(exact){ base=5; lbl='RESULTADO'; }
+  if(exact){ base=sc.exact[ph]; lbl='RESULTADO'; }
   else {
-    if(trend) base+=2;
-    if(approx) base+=1;
+    if(trend) base+=sc.trend[ph];
+    if(approx) base+=sc.approx;
     lbl = trend&&approx ? 'VENC + APROX' : trend ? 'VENC/EMP' : approx ? 'APROX' : '';
   }
   const tot = jokerOn ? base*2 : base;
   if(tot===0) return `<span class="pts-badge pts-0">ERROU</span>`;
-  // tend+aprox tem classe própria (verde-limão) - pts-3/pts-6 são partilhadas com acertos exatos e ficavam verdes
+  // tend+aprox tem classe própria (verde-limão) - as classes pts-N são partilhadas
+  // com acertos exatos do mesmo valor e ficavam verdes
   const cls = (trend&&approx) ? 'pts-close' : `pts-${tot}`;
   return `<span class="pts-badge ${cls}">${lbl}${jokerOn?'+J':''} +${tot}</span>`;
 }
@@ -7836,12 +7809,17 @@ function rarityBadgeHtml(gameId, pred, res, jokerOn) {
   if(pred.t1!==res.t1||pred.t2!==res.t2) return '';
   const r=S.rarityMap&&S.rarityMap[gameId];
   if(!r) return '';
-  const emojis={2:'⭐',4:'🌟',6:'💎'};
-  const labels={2:'Raro',4:'Muito Raro',6:'Ultra Raro'};
-  const colors={2:'#f39c12',4:'#9b59b6',6:'#00bcd4'};
-  const bgs={2:'rgba(243,156,18,.12)',4:'rgba(155,89,182,.12)',6:'rgba(0,188,212,.12)'};
-  const bonus=jokerOn?r.bonus*2:r.bonus;
-  return `<div class="rarity-badge" style="color:${colors[r.bonus]};background:${bgs[r.bonus]}">${emojis[r.bonus]} ${labels[r.bonus]} <strong>+${bonus}pts</strong></div>`;
+  // ⚠️ Indexar pelo ESCALÃO (0=ultra, 1=muito, 2=raro) e não pelo valor em pontos:
+  // os valores mudam por competição (6/4/2 no Mundial, 3/2/1 nas restantes).
+  const TIERS=[
+    {emoji:'💎',label:'Ultra Raro',color:'#00bcd4',bg:'rgba(0,188,212,.12)'},
+    {emoji:'🌟',label:'Muito Raro',color:'#9b59b6',bg:'rgba(155,89,182,.12)'},
+    {emoji:'⭐',label:'Raro',color:'#f39c12',bg:'rgba(243,156,18,.12)'}
+  ];
+  const bands=rarityBandsLocal();
+  let ti=bands.findIndex(b=>b[1]===r.bonus); if(ti<0) ti=2;
+  const t=TIERS[ti], bonus=jokerOn?r.bonus*2:r.bonus;
+  return `<div class="rarity-badge" style="color:${t.color};background:${t.bg}">${t.emoji} ${t.label} <strong>+${bonus}pts</strong></div>`;
 }
 
 // ════════════════════════════════════════════════
@@ -7926,7 +7904,7 @@ function mockApi(action,data){
     if(idx>=0)DEMO_LEAGUES.splice(idx,1);
     return{success:true};
   }
-  if(action==='getSocial')return{reactions:DEMO_SOCIAL.reactions,comments:DEMO_SOCIAL.comments,duelRosters:{}};
+  if(action==='getSocial')return{reactions:DEMO_SOCIAL.reactions,comments:DEMO_SOCIAL.comments};
   if(action==='react'){
     const me=(data.code||'').toUpperCase(),tg=(data.target_code||'').toUpperCase();
     const ex=DEMO_SOCIAL.reactions.find(r=>r.from===me&&r.target===tg);
@@ -7984,13 +7962,25 @@ setInterval(()=>{
 // ════════════════════════════════════════════════
 //  LIVE - resultados ao vivo (camada de display, nunca toca em S.results)
 // ════════════════════════════════════════════════
-// Mesmos limiares do backend (getRarityBonus) - MANTER SINCRONIZADO se mudarem
+// ⚠️ A pontuação vive em SCORING_PROFILES, no bloco <script> do adapter, e COMP não
+// existe neste âmbito. Lê-se por UPSB.scoring(lbDbId()) para NÃO haver dois sítios
+// com os valores. O fallback abaixo só serve o modo demo (UPSB ainda não carregado)
+// e replica o perfil STD.
+const SCORING_FALLBACK={
+  exact:{group:5,ko:5}, trend:{group:2,ko:2}, approx:1, approxKoOnly:false,
+  rarity:[[0.05,3,false],[0.12,2,false],[0.20,1,true]],
+  rarityLabels:{3:'Ultra Raro',2:'Muito Raro',1:'Raro'},
+  defaultPickRatio:0.10, defaultPickBudget:null, defaultPickSource:'crowd', defaultPickExact:true
+};
+function scoringLocal(){
+  try{ if(window.UPSB&&UPSB.scoring) return UPSB.scoring(lbDbId())||SCORING_FALLBACK; }catch(e){}
+  return SCORING_FALLBACK;
+}
+function rarityBandsLocal(){ return scoringLocal().rarity||SCORING_FALLBACK.rarity; }
 function rarityBonusLocal(exactCount,bets){
   if(!bets||!exactCount)return 0;
-  const pct=exactCount/bets;
-  if(pct<0.05)return 6;
-  if(pct<0.15)return 4;
-  if(pct<=0.30)return 2;
+  const pct=exactCount/bets, bands=rarityBandsLocal();
+  for(let i=0;i<bands.length;i++){ const b=bands[i]; if(b[2]?pct<=b[0]:pct<b[0])return b[1]; }
   return 0;
 }
 
@@ -8226,7 +8216,7 @@ function updateLeaguePill() {
 }
 
 function renderLigaSelector() {
-  const targets = [document.getElementById('liga-selector'), document.getElementById('liga-selector-duels')].filter(Boolean);
+  const targets = [document.getElementById('liga-selector')].filter(Boolean);
   if (!targets.length) return;
   if (!S.leagues.length) { targets.forEach(el=>el.innerHTML=''); return; }
   let html = `<div class="liga-bar">
@@ -8242,9 +8232,10 @@ function renderLigaSelector() {
 function selectLeague(id) {
   const cleanId = id ? String(id).trim() : null;
   S.curLeague = cleanId ? (S.leagues.find(l=>String(l.id).trim()===cleanId)||null) : null;
+  S.lbPage = 0; // a liga muda o universo de jogadores - volta à 1.ª página
   if (S.user) localStorage.setItem('up26_league_'+S.user.code, cleanId||'');
   updateLeaguePill();
-  if (S.curView==='duels') renderDuels(); else renderLB();
+  renderLB();
 }
 
 function showLeagueSwitcher() {
