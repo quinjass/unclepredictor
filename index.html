@@ -3000,7 +3000,7 @@ const S = {
   prebetPending:false,
   specials:{},
   social:null, socialLeague:null, socialLoading:false,
-  reactFor:null, mvpJ:null, cardJ:null, rankHist:{}, lbPage:0, realMd:null,
+  reactFor:null, mvpJ:null, jornadaSecOpen:false, rankHist:{}, lbPage:0, realMd:null,
   notifs:[], allPreds:{}, allPrebets:{}, notifPrefs:{}, lockedResults:[],
   competition:'mundial2026',
   competitions:[
@@ -3947,7 +3947,7 @@ async function enterCompetition(id){
   // Ao trocar de competição, as ligas privadas são POR competição - limpa a
   // seleção e recarrega para não mostrar as ligas de outra competição (cache).
   S.curLeague=null;
-  S.lbPage=0; S.realMd=null; S.mvpJ=null; S.cardJ=null;
+  S.lbPage=0; S.realMd=null; S.mvpJ=null;
   try{ await loadData(); }catch(e){}
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
@@ -4553,49 +4553,54 @@ function renderLB() {
     <button onclick="loadData()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:.7rem">↻ Atualizar</button>
   </div>`;
 
-  // ── MVP da jornada + card descarregável ───────────────────────────────────
-  // ⚠️ Antes: o MVP vinha ACIMA da tabela com um chip por jornada, e os cards
-  // eram uma lista com TODAS as jornadas renderizadas em canvas de uma vez.
-  // Com 38 jornadas na Premier isso era inutilizável (e pesadíssimo). Agora é
-  // um bloco só, abaixo da tabela, com um dropdown e um card de cada vez.
-  if(compJs.length&&humans.length){
-    if(!S.mvpJ||!compJs.includes(S.mvpJ))S.mvpJ=compJs[compJs.length-1];
-    if(!S.cardJ||!compJs.includes(S.cardJ))S.cardJ=S.mvpJ;
-    const jSel=(id,cur,fn)=>`<select id="${id}" onchange="${fn}" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.74rem;padding:4px 8px;font-family:'Inter',sans-serif;max-width:150px">
-      ${[...compJs].reverse().map(jj=>`<option value="${jj}" ${jj===cur?'selected':''}>${jLabel(jj)}</option>`).join('')}
-    </select>`;
-
-    const ranked=humans.map(p=>({name:p.name,code:p.code,pts:(p.jp&&p.jp[S.mvpJ])||0})).sort((a,b)=>b.pts-a.pts);
-    const winners=ranked.filter(r=>r.pts===ranked[0].pts);
-    const pod=ranked.slice(0,3);
+  // ── JORNADAS: MVP + card, numa secção só e COLAPSADA por defeito ──────────
+  // Histórico: o MVP vinha acima da tabela com um chip por jornada (inutilizável
+  // com 38 jornadas) e os cards eram uma lista à parte com TODAS as jornadas
+  // desenhadas em canvas de uma vez. Passaram a ser duas secções; agora são UMA,
+  // com um único seletor a comandar as duas coisas, fechada por omissão para não
+  // empurrar a classificação para baixo.
+  if(humans.length){
+    const open=!!S.jornadaSecOpen;
     html+=`<div class="card" style="margin-top:14px;padding:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
-        <span style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.84rem">🏆 MVP DA JORNADA</span>
-        ${jSel('mvp-sel',S.mvpJ,"S.mvpJ=this.value;renderLB()")}
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;background:rgba(245,197,24,.06);border:1px solid var(--gold);border-radius:10px;padding:10px 12px">
-        <span style="font-size:1.5rem">🏆</span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:.62rem;letter-spacing:1.5px;color:var(--gold);font-family:'Rajdhani',sans-serif;font-weight:700">${String(jLabel(S.mvpJ)).toUpperCase()}</div>
-          <div style="font-size:.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis">${winners.map(w=>escapeHtml(w.name)).join(' & ')} · <span style="color:var(--gold)">${ranked[0].pts} pts</span></div>
+      <div onclick="S.jornadaSecOpen=!S.jornadaSecOpen;renderLB()" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.84rem">
+        <span>🏆 JORNADAS · MVP E CARDS</span>
+        <span style="font-size:.7rem;color:var(--sub);font-weight:400">${open?'▲ esconder':'▼ ver'}</span>
+      </div>`;
+    if(open){
+      if(!compJs.length){
+        html+=`<div style="font-size:.76rem;color:var(--sub);line-height:1.5;margin-top:10px">
+          Ainda não há nenhuma jornada concluída nesta competição. O MVP e o card aparecem
+          assim que todos os jogos de uma jornada tiverem resultado.</div>`;
+      } else {
+        if(!S.mvpJ||!compJs.includes(S.mvpJ))S.mvpJ=compJs[compJs.length-1];
+        const j=S.mvpJ;
+        const ranked=humans.map(p=>({name:p.name,code:p.code,pts:(p.jp&&p.jp[j])||0})).sort((a,b)=>b.pts-a.pts);
+        const winners=ranked.filter(r=>r.pts===ranked[0].pts);
+        const pod=ranked.slice(0,3);
+        let cardUrl='';
+        try{ const d=cardDataFor(j); if(d) cardUrl=drawCardCanvas(d).toDataURL('image/png'); }catch(e){}
+        html+=`<div style="display:flex;align-items:center;gap:8px;margin:10px 0">
+          <span style="font-size:.72rem;color:var(--sub);flex-shrink:0">Jornada</span>
+          <select onchange="S.mvpJ=this.value;renderLB()" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.76rem;padding:5px 8px;font-family:'Inter',sans-serif">
+            ${[...compJs].reverse().map(jj=>`<option value="${jj}" ${jj===j?'selected':''}>${jLabel(jj)}</option>`).join('')}
+          </select>
         </div>
-      </div>
-      ${pod.length>1?`<div style="display:flex;gap:8px;margin-top:8px;font-size:.72rem;color:var(--sub)">
-        ${pod.map((r,i)=>`<span style="flex:1;text-align:center;background:var(--bg2);border-radius:6px;padding:5px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${trophySyms[i]} ${escapeHtml(r.name.split(' ')[0])} · <b style="color:var(--text)">${r.pts}</b></span>`).join('')}
-      </div>`:''}
-    </div>`;
-
-    let cardUrl='';
-    try{ const d=cardDataFor(S.cardJ); if(d) cardUrl=drawCardCanvas(d).toDataURL('image/png'); }catch(e){}
-    html+=`<div class="card" style="margin-top:12px;padding:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
-        <span style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.84rem">🖼️ CARD DA JORNADA</span>
-        ${jSel('jcard-sel',S.cardJ,"setCardJornada(this.value)")}
-      </div>
-      ${cardUrl?`<img id="jcard-img" src="${cardUrl}" loading="lazy" style="width:100%;max-width:340px;margin:0 auto;display:block;border-radius:10px;border:1px solid var(--border)" alt="Card ${jLabel(S.cardJ)}">`:'<div style="font-size:.74rem;color:var(--sub);text-align:center;padding:10px">Ainda não há pódio para esta jornada.</div>'}
-      <button id="jcard-dl" onclick="downloadCardFor('${S.cardJ}')" style="margin-top:8px;width:100%;background:none;border:1px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;font-size:.74rem;padding:7px">📥 Descarregar card</button>
-      <div style="font-size:.64rem;color:var(--sub);text-align:center;margin-top:5px">Depois de descarregar, partilha onde quiseres.</div>
-    </div>`;
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(245,197,24,.06);border:1px solid var(--gold);border-radius:10px;padding:10px 12px">
+          <span style="font-size:1.5rem">🏆</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.62rem;letter-spacing:1.5px;color:var(--gold);font-family:'Rajdhani',sans-serif;font-weight:700">MVP · ${String(jLabel(j)).toUpperCase()}</div>
+            <div style="font-size:.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis">${winners.map(w=>escapeHtml(w.name)).join(' & ')} · <span style="color:var(--gold)">${ranked[0].pts} pts</span></div>
+          </div>
+        </div>
+        ${pod.length>1?`<div style="display:flex;gap:8px;margin-top:8px;font-size:.72rem;color:var(--sub)">
+          ${pod.map((r,i)=>`<span style="flex:1;text-align:center;background:var(--bg2);border-radius:6px;padding:5px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${trophySyms[i]} ${escapeHtml(r.name.split(' ')[0])} · <b style="color:var(--text)">${r.pts}</b></span>`).join('')}
+        </div>`:''}
+        ${cardUrl?`<img src="${cardUrl}" loading="lazy" style="width:100%;max-width:320px;margin:12px auto 0;display:block;border-radius:10px;border:1px solid var(--border)" alt="Card ${jLabel(j)}">`:''}
+        <button onclick="downloadCardFor('${j}')" style="margin-top:8px;width:100%;background:none;border:1px solid var(--gold);border-radius:6px;color:var(--gold);cursor:pointer;font-size:.74rem;padding:7px">📥 Descarregar card desta jornada</button>
+        <div style="font-size:.64rem;color:var(--sub);text-align:center;margin-top:5px">Depois de descarregar, partilha onde quiseres.</div>`;
+      }
+    }
+    html+=`</div>`;
   }
 
   // ── Bancada (#6B) - feed de comentários da liga ──
@@ -4943,15 +4948,6 @@ function downloadCardFor(j){
     showToast('Card descarregado 📥','success');
   },'image/png');
 }
-// Muda a jornada do card sem recarregar a classificação toda.
-function setCardJornada(j){
-  S.cardJ=j;
-  const img=document.getElementById('jcard-img');
-  const btn=document.getElementById('jcard-dl');
-  const d=cardDataFor(j);
-  if(img&&d){ try{ img.src=drawCardCanvas(d).toDataURL('image/png'); }catch(e){} }
-  if(btn) btn.setAttribute('onclick',`downloadCardFor('${j}')`);
-}
 
 // ════════════════════════════════════════════════
 //  APOSTAS
@@ -5112,11 +5108,11 @@ function renderBetsKO() {
   if (isF3FIN) {
     const jokerUsed = f3finGames.find(g => S.preds[g.id] && S.preds[g.id].joker);
     jokerEl.style.display = '';
-    jokerEl.innerHTML = `<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong>${jokerUsed?'0':'1'}</strong> JOKER partilhado entre o 3º/4º Lugar e a Final - usa-o num dos dois jogos!`;
+    jokerEl.innerHTML = `<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong>${jokerUsed?'0':'1'}</strong> JOKER partilhado entre o 3º/4º Lugar e a Final - usa-o num dos dois jogos!`+defaultPicksStatusHtml();
   } else {
     jokerEl.style.display = '';
     const jokerGame = games.find(g => S.preds[g.id] && S.preds[g.id].joker);
-    jokerEl.innerHTML = `<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong>${jokerGame?'0':'1'}</strong> JOKER disponível nesta ronda - <strong>dobra os pontos</strong> obtidos no jogo onde o usas!`;
+    jokerEl.innerHTML = `<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong>${jokerGame?'0':'1'}</strong> JOKER disponível nesta ronda - <strong>dobra os pontos</strong> obtidos no jogo onde o usas!`+defaultPicksStatusHtml();
   }
 
   // Agrupar por dia (o nº do jogo J1..J16 mantém a ordem do array R32_01..R32_16)
@@ -5228,6 +5224,26 @@ function renderBetsKO() {
   updateSaveAllBtn();
 }
 
+// Quantas default picks já gastei e quantas me restam nesta competição.
+// O orçamento vem do perfil de pontuação (10% dos jogos fora do Mundial); as
+// gastas vêm do `defaults` que o buildLeaderboard devolve para cada jogador.
+function defaultPicksStatusHtml(){
+  const SC=scoringLocal();
+  const budget = SC.defaultPickRatio!=null
+    ? Math.max(1,Math.round((GAMES||[]).length*SC.defaultPickRatio))
+    : SC.defaultPickBudget;
+  if(!budget||!S.user) return '';
+  const mine=(S.lb||[]).find(p=>(p.code||'').toUpperCase()===String(S.user.code||'').toUpperCase());
+  const used=mine?(mine.defaults||0):0;
+  const left=Math.max(0,budget-used);
+  return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.76rem;color:var(--sub);line-height:1.5">
+    <span style="color:#a78bfa">${dpickIcon()}</span>
+    <strong style="color:${left?'var(--text)':'var(--red)'}">${left}</strong> de <strong>${budget}</strong> default picks disponíveis${used?` · <strong>${used}</strong> ${used===1?'gasta':'gastas'}`:''}
+    <span style="opacity:.8"> - ${left
+      ? 'cobrem automaticamente jogos que te esqueças de apostar.'
+      : 'esgotadas: jogos sem aposta passam a valer 0.'}</span>
+  </div>`;
+}
 function renderBets() {
   const isKO = typeof S.curMD === 'string';
   const ptitle = document.getElementById('bets-phase-title');
@@ -5239,7 +5255,7 @@ function renderBets() {
   // Restaurar joker-info para o formato de grupos (renderBetsKO pode ter substituído o innerHTML)
   const jokerInfoEl=document.getElementById('joker-info');
   jokerInfoEl.style.display='';
-  jokerInfoEl.innerHTML=`<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong id="joker-left">${jokerGame?'0':'1'}</strong> JOKER disponível nesta jornada - <strong>dobra os pontos</strong> obtidos no jogo onde o usas!`;
+  jokerInfoEl.innerHTML=`<span class="joker-badge" style="font-size:.75rem;padding:2px 7px">J</span> Tens <strong id="joker-left">${jokerGame?'0':'1'}</strong> JOKER disponível nesta jornada - <strong>dobra os pontos</strong> obtidos no jogo onde o usas!`+defaultPicksStatusHtml();
 
   const byDate={};
   games.forEach(g=>{
@@ -6251,7 +6267,7 @@ function buildLeagueResultsHtml(){
 function renderMundial() {
   if(S.leagueMode){
     leagueTabContent('mundial',
-      buildLeagueStandingsHtml() + buildLeagueResultsHtml() + buildHybridBracketHtml() + buildLeagueScorersHtml());
+      buildLeagueStandingsHtml() + buildLeagueResultsHtml() + buildHybridBracketHtml());
     return;
   }
   leagueTabRestore('mundial');
@@ -6323,9 +6339,9 @@ function renderBracket() {
   el.innerHTML = html;
 }
 
-// Constrói a tabela de marcadores. Partilhada pelo Mundial (renderTopScorers,
-// que a injeta em #mundial-scorers) e pelas ligas/UCL (buildLeagueScorersHtml,
-// que a concatena no HTML do tab) - para o aspeto ser exatamente o mesmo.
+// Tabela de marcadores. SÓ para o Mundial (renderTopScorers injeta em
+// #mundial-scorers). Ver o aviso junto ao renderTopScorers: o feed é fixo ao
+// endpoint WC, por isso não pode ser reutilizado nas ligas.
 function buildScorersHtml() {
   const scorers = S.demoMode ? DEMO_SCORERS : (S.scorers || []);
 
@@ -6365,11 +6381,11 @@ function renderTopScorers() {
   const el = document.getElementById('mundial-scorers');
   if (el) el.innerHTML = buildScorersHtml();
 }
-// Sem marcadores (época por começar) não vale a pena ocupar espaço no tab.
-function buildLeagueScorersHtml() {
-  const n = (S.demoMode ? DEMO_SCORERS : (S.scorers || [])).length;
-  return n ? `<div style="margin-top:20px">${buildScorersHtml()}</div>` : '';
-}
+// ⚠️ NÃO acrescentar marcadores ao tab Real das ligas. O auto-fetch-results vai
+// buscar o ranking SEMPRE a `competitions/WC/scorers` (fixo ao Mundial) e grava-o
+// em `scorers_<comp>` para todas as competições — mostrá-lo numa liga punha os
+// marcadores do Mundial dentro da Premier. A pré-aposta "melhor marcador" foi
+// eliminada das ligas justamente para não ser preciso manter dados de jogadores.
 
 function showTVInfo(gameId) {
   const game = GAMES.find(g => g.id === gameId);
