@@ -812,6 +812,19 @@
       display: block !important; position: static; background: none;
       padding: 0; overflow: visible; backdrop-filter: none;
     }
+
+    /* ══ PREMIUM: nada disto pode aparecer na app Android ══════════════════
+       A app é uma casca Capacitor que carrega ESTA MESMA página. Mostrar lá
+       preço, botão ou link de compra = venda de bem digital numa app da Play
+       Store com billing que não é o da Google -> violação da Payments policy,
+       com risco de remoção da app.
+       Comprar no browser não tem problema nenhum; o problema é só dentro da app.
+       Regra: tudo o que mencione premium leva a classe .up-premium; tudo o que
+       leve a pagar leva .up-premium-buy. Reavaliar no fim de Setembro de 2026,
+       quando a Google publicar as alterações de conformidade com o DMA.
+       Ver PREMIUM_PLANO.md secção 6-A (decisão D5). ────────────────────────── */
+    html.up-native .up-premium,
+    html.up-native .up-premium-buy { display: none !important; }
   </style>
 
 <script>
@@ -828,7 +841,14 @@
     } catch (e) { return false; }
   }
   function apply(){
-    if (isNative()) document.documentElement.classList.add('up-native');
+    var n = isNative();
+    if (n) document.documentElement.classList.add('up-native');
+    /* Flag global para o gating do PREMIUM em JS. O CSS (html.up-native
+       .up-premium) já esconde o que é markup estático; esta flag serve para
+       NÃO RENDERIZAR de todo o que é construído dinamicamente — cinto e
+       suspensórios. Regra: nunca mostrar preço, botão ou link de compra
+       dentro da app. Ver PREMIUM_PLANO.md secção 6-A (D5). */
+    window.UP_IS_NATIVE = n;
   }
   apply();
   if (document.readyState === 'loading') {
@@ -1290,6 +1310,19 @@ document.addEventListener('keydown', function(e){
     const notifs = db.notifs.filter(n => n.to_code === '*' || (n.to_code || '').toUpperCase() === code).sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)).slice(-30).map(n => ({ id:n.id, type:n.type, text:n.text, at:n.created_at }));
     const blocks = db.blocks.filter(b => (b.code || '').toUpperCase() === code).map(b => (b.blocked_code || '').toUpperCase());
     const notifPrefs = db.prefsMap[code] || {};
+    // PREMIUM (migration 031). DEFENSIVO de propósito: se a migration ainda não
+    // estiver aplicada (função my_premium inexistente), ou o kill-switch
+    // premium_enabled estiver 'false', isto devolve premium:false e o getData
+    // continua a funcionar na mesma. Lição do avatar (028): NUNCA partir o
+    // getData por causa de algo que ainda não existe na base de dados.
+    let premium = { premium: false, source: null, expires_at: null };
+    try {
+      const _pr = await rpc('my_premium', { p_comp: COMP }, true);
+      const _row = Array.isArray(_pr) ? _pr[0] : _pr;
+      if (_row && _row.premium === true) {
+        premium = { premium: true, source: _row.source || null, expires_at: _row.expires_at || null };
+      }
+    } catch (e) { /* migration por aplicar / sem sessão -> fica free */ }
     let lockedResults = []; try { lockedResults = JSON.parse(db.config['locked_results_' + COMP] || '[]'); } catch (e) {}
     let scorers = []; try { scorers = JSON.parse(db.config['scorers_' + COMP] || '[]'); } catch (e) {}
     // LIGAS (Incr.3): config de pré-apostas de época + lista de equipas por competição.
@@ -1298,7 +1331,7 @@ document.addEventListener('keydown', function(e){
     const leaguePrebetsCfg = _pj(db.config['prebets_' + COMP]);
     const leagueTeams = _pj(db.config['teams_' + COMP]);
     const crests = _pj(db.config['crests_' + COMP]) || {}; // logótipos dos clubes (ligas/UCL)
-    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests };
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium };
   }
 
   // ---- AUTH ----
