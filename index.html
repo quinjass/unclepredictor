@@ -1087,7 +1087,14 @@ document.addEventListener('keydown', function(e){
   // tendência 2 · resultado exato 5 · aproximação +1 em qualquer fase, e raridade
   // 3/2/1 nas bandas <5% / <12% / <=20% (calibrada em analise_raridade_mundial2026).
   // Esta é a ÚNICA fonte de verdade da pontuação - as Regras leem daqui.
-  const SCORING_PROFILES = {
+  // ⚠️ A FONTE DE VERDADE É A BASE DE DADOS (`config.scoring_profiles`,
+  // migration 037). Os valores abaixo são apenas a REDE DE SEGURANÇA: servem
+  // para a app arrancar antes de a config chegar, e para continuar a funcionar
+  // se a leitura falhar. `applyScoringProfiles()` substitui-os assim que os
+  // dados do servidor chegam.
+  // NÃO afinar pontuação aqui — afina-se na BD, senão os dois ficam a discordar
+  // e o servidor ganha em silêncio.
+  let SCORING_PROFILES = {
     WC2026: {
       exact: { group:3, ko:5 }, trend: { group:1, ko:2 }, approx: 1, approxKoOnly: true,
       rarity: [[0.05,6,false],[0.15,4,false],[0.30,2,true]],
@@ -1101,6 +1108,20 @@ document.addEventListener('keydown', function(e){
       defaultPickRatio: 0.10, defaultPickBudget: null, defaultPickSource: 'crowd', defaultPickExact: true
     }
   };
+  // Substitui os perfis locais pelos da base de dados. Chamada no loadDB,
+  // assim que a config é lida. Defensiva: qualquer problema no JSON deixa os
+  // valores locais em vigor, que é o comportamento seguro.
+  function applyScoringProfiles(raw) {
+    try {
+      const o = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+      if (!o || typeof o !== 'object') return;
+      // A BD usa a chave 'default'; o frontend chama-lhe 'STD'.
+      const novo = {};
+      Object.keys(o).forEach(k => { novo[k === 'default' ? 'STD' : k] = o[k]; });
+      if (!novo.STD || !novo.STD.exact) return;   // JSON incompleto -> ignorar
+      SCORING_PROFILES = novo;
+    } catch (e) { console.warn('[scoring] perfis da BD ilegíveis; a usar os locais', e); }
+  }
   function scoringOf(comp) { return SCORING_PROFILES[comp || COMP] || SCORING_PROFILES.STD; }
   function getRarityBonus(e, t) {
     if (!t || !e) return 0;
@@ -1354,6 +1375,10 @@ document.addEventListener('keydown', function(e){
     });
     const specials = {}; specialsRaw.forEach(r => { if (r.key) specials[r.key] = r.value; });
     const config = {}; configRows.forEach(r => { config[r.key] = r.value; });
+    // Regras de pontuação: a BD manda (037). Tem de ser ANTES do
+    // buildLeaderboard, senão a primeira classificação sairia com os valores
+    // locais.
+    if (config.scoring_profiles) applyScoringProfiles(config.scoring_profiles);
     const prefsMap = {}; prefs.forEach(r => { try { prefsMap[(r.code || '').toUpperCase()] = JSON.parse(r.prefs || '{}'); } catch (e) { prefsMap[(r.code || '').toUpperCase()] = {}; } });
     // leagues desta competição -> restringe membros/social a essas ligas
     const lset = new Set(leagues.map(l => l.id));
