@@ -928,9 +928,14 @@ document.addEventListener('keydown', function(e){
   // Troca de competição ativa: atualiza o filtro e invalida a cache de dados.
   // Sem persistência - cada sessão arranca no Mundial ('WC2026'); a competição
   // só muda quando se ENTRA nela (Fase 0). O público nunca a muda.
+  // FIX (2 Ago): não basta invalidar a DB - havia um loadDBFetch() EM CURSO com
+  // o filtro (CF) da competição anterior. O loadDB() devolvia esse fetch em
+  // curso (dedup DBP) e, no fim, ele escrevia na cache: a Champions abria com o
+  // leaderboard do Mundial. Agora cada troca incrementa DB_GEN; leituras de
+  // gerações antigas são descartadas (ver loadDB/loadDBFetch).
   function setComp(dbId) {
     if (!dbId || dbId === COMP) return COMP;
-    COMP = dbId; CF = 'competition_id=eq.' + COMP; DB = null;
+    COMP = dbId; CF = 'competition_id=eq.' + COMP; DB = null; DBP = null; DB_GEN++;
     return COMP;
   }
 
@@ -1240,13 +1245,20 @@ document.addEventListener('keydown', function(e){
   // um com o seu snapshot (que podiam divergir) → renders intercalados com
   // números diferentes. Agora partilham o MESMO fetch em curso.
   let DBP = null;
+  // Geração da competição ativa: incrementa a cada setComp(). Uma leitura só
+  // pode escrever na cache (ou ser reaproveitada) se for da geração atual.
+  let DB_GEN = 0;
+  let DBP_GEN = -1;
   async function loadDB() {
     if (DB) return DB;
-    if (DBP) return DBP;
-    DBP = loadDBFetch().finally(() => { DBP = null; });
-    return DBP;
+    if (DBP && DBP_GEN === DB_GEN) return DBP;   // só reaproveita fetches da competição ATUAL
+    const gen = DB_GEN;
+    const p = loadDBFetch(gen).finally(() => { if (DBP === p) { DBP = null; DBP_GEN = -1; } });
+    DBP = p; DBP_GEN = gen;
+    return p;
   }
-  async function loadDBFetch() {
+  async function loadDBFetch(gen) {
+    if (gen === undefined) gen = DB_GEN;
     const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
@@ -1285,7 +1297,12 @@ document.addEventListener('keydown', function(e){
     // Leaderboard só com os MEMBROS desta competição (não todos os participantes globais)
     const cmSet = new Set((compMembers || []).map(m => m.code));
     const participantsM = participants.filter(p => cmSet.has(p.code));
-    DB = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap };
+    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap };
+    // A competição mudou enquanto esta leitura decorria: este snapshot é de
+    // OUTRA competição. Não contaminar a cache nem devolvê-lo - refazer com o
+    // filtro certo (o loadDB já vê DB_GEN novo, logo arranca um fetch limpo).
+    if (gen !== DB_GEN) return loadDB();
+    DB = snap;
     return DB;
   }
   function shapeLeague(l, db) {
@@ -3981,6 +3998,13 @@ async function enterCompetition(id){
   // seleção e recarrega para não mostrar as ligas de outra competição (cache).
   S.curLeague=null;
   S.lbPage=0; S.realMd=null; S.mvpJ=null;
+  // Dados são POR competição: limpar antes de carregar. O loadData() engole
+  // erros (catch silencioso) - sem isto, uma leitura falhada deixava na ecrã a
+  // classificação/apostas da competição anterior (bug de 2 Ago: a Champions
+  // abria com os pontos do Mundial).
+  S.lb=[]; S.lbPrev=null; S.lbReady=false; S.rarityMap={};
+  S.preds={}; S.savedCards={}; S.prebets={}; S.allPreds={}; S.allPrebets={};
+  S.results={}; S.koTeams={}; S.specials={}; S.live={}; S.scorers=[];
   try{ await loadData(); }catch(e){}
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
