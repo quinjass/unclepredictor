@@ -1302,7 +1302,7 @@ document.addEventListener('keydown', function(e){
   }
   async function loadDBFetch(gen) {
     if (gen === undefined) gen = DB_GEN;
-    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows, badgeDefs, myBadges, badgeCountRows] = await Promise.all([
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows, badgeDefs, myBadges, badgeCountRows, sqlStandings] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
@@ -1335,6 +1335,12 @@ document.addEventListener('keydown', function(e){
       rest('user_badges', 'badge_key,value,level,unlocked_at',
            'code=eq.' + enc((myCode() || '').toUpperCase()), true, 'badge_key').catch(() => []),
       rest('v_badge_counts', 'code,n', '', true, 'code').catch(() => []),
+      // MODO SOMBRA (045): classificação calculada pelo servidor. Leitura
+      // simples de uma cache — não corre o motor. Serve para comparar com o que
+      // o frontend calcula; só passa a ser a fonte quando `use_sql_standings`
+      // estiver a 'true' E o registo de divergências estiver limpo.
+      rest('standings_cache', 'code,total,games,wins,draws,ko_wins,ko_draws,group_pts,ko_pts,joker_pts,rarity_pts,prebets_pts,default_pts,defaults',
+           CF, true, 'code').catch(() => []),
     ]);
     const pm = {}; predsRaw.forEach(r => { pm[r.code + '|' + r.game_id] = r; }); const allPreds = Object.values(pm);
     const results = {}; resultsRaw.forEach(r => { if (r.t1 != null && r.t2 != null) results[r.game_id] = { t1:+r.t1, t2:+r.t2, pen:r.pen || '' }; });
@@ -1375,7 +1381,8 @@ document.addEventListener('keydown', function(e){
     });
     const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes, liveRarity,
                   badgeDefs: badgeDefs || [], myBadges: myBadges || [],
-                  badgeCounts: (badgeCountRows || []).reduce((a, r) => { a[(r.code||'').toUpperCase()] = +r.n || 0; return a; }, {}) };
+                  badgeCounts: (badgeCountRows || []).reduce((a, r) => { a[(r.code||'').toUpperCase()] = +r.n || 0; return a; }, {}),
+                  sqlStandings: sqlStandings || [] };
     // A competição mudou enquanto esta leitura decorria: este snapshot é de
     // OUTRA competição. Não contaminar a cache nem devolvê-lo - refazer com o
     // filtro certo (o loadDB já vê DB_GEN novo, logo arranca um fetch limpo).
@@ -1435,7 +1442,9 @@ document.addEventListener('keydown', function(e){
              premiumDeadlineMin: Number(db.config.premium_deadline_minutes || 0),
              liveRarity: db.liveRarity || {},
              badgeDefs: db.badgeDefs || [], myBadges: db.myBadges || [],
-             badgeCounts: db.badgeCounts || {} };
+             badgeCounts: db.badgeCounts || {},
+             sqlStandings: db.sqlStandings || [],
+             useSqlStandings: String(db.config.use_sql_standings || 'false') === 'true' };
   }
 
   // ---- AUTH ----
@@ -1738,6 +1747,12 @@ document.addEventListener('keydown', function(e){
       if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:dispName(p), realName:p.name, nickname:p.nickname||null })) }; }
       // BADGES: recalcula os do próprio e devolve quantos níveis novos saíram.
       // A RPC trata da notificação no sino.
+      // MODO SOMBRA: reporta divergências entre a classificação calculada aqui
+      // e a do servidor. Silencioso — nunca interrompe nada.
+      if (action === 'logStandingsMismatch') {
+        try { await rpc('rpc_log_standings_mismatch', { p_comp: COMP, p_rows: data.rows || [] }, true); return { success: true }; }
+        catch (e) { return { success: false }; }
+      }
       if (action === 'refreshBadges') {
         try { const n = await rpc('rpc_refresh_badges', {}, true); DB = null; return { success: true, novos: n || 0 }; }
         catch (e) { return { success: false, error: e.message }; }
@@ -4912,6 +4927,46 @@ async function loadData() {
     // PRODUÇÃO: datas/horários vêm do backend (auto-fetch sincroniza com a fonte
     // oficial). Sobrepõem GAMES[].date - os horários (sobretudo do KO) auto-corrigem-se.
     if(r.gameDatesUTC){ GAMES.forEach(g=>{ const d=r.gameDatesUTC[g.id]; if(d) g.date=d; }); }
+    // ── MODO SOMBRA (045) ──────────────────────────────────────────────────
+    // Compara a classificação calculada aqui com a que o servidor guardou em
+    // cache. Não altera nada do que se vê enquanto `useSqlStandings` for false;
+    // só regista as diferenças, para se poder confiar no motor antes de o pôr
+    // a mandar. Corre UMA VEZ por sessão e por competição.
+    try{
+      const _sql = r.sqlStandings || [];
+      if (r.lb && r.lb.length && _sql.length) {
+        const _byCode = {}; _sql.forEach(x => { _byCode[(x.code||'').toUpperCase()] = x; });
+        const _campos = ['total','games','wins','draws','ko_wins','ko_draws',
+                         'group_pts','ko_pts','joker_pts','rarity_pts','prebets_pts','default_pts'];
+        const _diffs = [];
+        r.lb.forEach(p => {
+          const s = _byCode[(p.code||'').toUpperCase()]; if (!s) return;
+          _campos.forEach(c => {
+            const a = Number(p[c] || 0), b = Number(s[c] || 0);
+            if (a !== b) _diffs.push({ code: p.code, campo: c, js: a, sql: b });
+          });
+        });
+        const _chave = 'shadow_' + (S.competition || '');
+        if (_diffs.length && !S[_chave]) {
+          S[_chave] = true;
+          console.warn('[sombra] ' + _diffs.length + ' divergências na classificação', _diffs.slice(0,10));
+          api('logStandingsMismatch', { rows: _diffs.slice(0,50) }).catch(function(){});
+        } else if (!_diffs.length && !S[_chave]) {
+          S[_chave] = true;
+          console.info('[sombra] classificação do servidor coincide com a local ✓');
+        }
+        // Quando o interruptor estiver ligado, o servidor passa a mandar. Os
+        // campos de apresentação (nome, avatar…) continuam a vir do cálculo
+        // local, que é quem os tem.
+        if (r.useSqlStandings) {
+          r.lb.forEach(p => {
+            const s = _byCode[(p.code||'').toUpperCase()]; if (!s) return;
+            _campos.forEach(c => { p[c] = Number(s[c] || 0); });
+          });
+          r.lb.sort((a,b) => (b.total||0) - (a.total||0));
+        }
+      }
+    }catch(e){ /* a sombra nunca pode partir o carregamento */ }
     if(r.lb)S.lb=r.lb;
     S.lbPrev=r.lbPrev||null; // ranking anterior (seta de subida/descida desde o último jogo)
     if(r.rarityMap)S.rarityMap=r.rarityMap;
