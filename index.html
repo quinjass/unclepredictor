@@ -4188,10 +4188,10 @@ const PREMIUM_LINKS={
    não existe não vende nada. */
 const PREMIUM_PERKS=[
   {i:'⏱️',t:'Apostas até ao apito',d:'Fechas a tua aposta até ao início do jogo. Sem premium, fecha uma hora antes.',soon:false},
-  {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:true},
-  {i:'🎯',t:'Simulador com cenários',d:'Guardas vários cenários do mata-mata com nome, em vez de um só.',soon:true},
+  {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:false},
   {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:true},
   {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição jornada a jornada, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:true},
+  {i:'🎯',t:'Bracket multi-cenário',d:'Guardas vários cenários do mata-mata com nome, em vez de um só.',soon:true,nota:'Só disponível em competições com mata-mata.'},
 ];
 /* Mostra o botão do menu só se o premium estiver ligado na BD E não estivermos
    na app nativa. Cinto e suspensórios: o CSS já esconderia o botão na app. */
@@ -4230,6 +4230,7 @@ function showPremium(){
            ${p.t}${p.soon?'<span class="up-soon">Em breve</span>':''}
          </div>
          <div style="font-size:.75rem;color:var(--sub);line-height:1.5;margin-top:2px">${p.d}</div>
+         ${p.nota?`<div style="font-size:.68rem;color:var(--sub);opacity:.75;line-height:1.45;margin-top:4px;font-style:italic">${p.nota}</div>`:''}
        </div>
      </div>`).join('');
 
@@ -4264,7 +4265,7 @@ function showPremium(){
   const link=PREMIUM_LINKS[compKey];
   const cta = link
     ? `<a class="up-premium-buy btn btn-primary btn-full" style="display:block;text-align:center;text-decoration:none;margin-top:18px;font-size:.95rem;padding:13px"
-           href="${link}?client_reference_id=${encodeURIComponent((S.user&&S.user.code)||'')}">Obter o passe · 5,00 €</a>
+           href="${link}?client_reference_id=${encodeURIComponent((S.user&&S.user.code)||'')}">Obter premium · 5,00 €</a>
        <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:9px;line-height:1.5">
          Pagamento seguro através do Stripe.<br>O passe fica activo assim que o pagamento for confirmado.</div>`
     : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível nesta competição.</div>`;
