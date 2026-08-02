@@ -4234,8 +4234,10 @@ const PREMIUM_PERKS=[
   {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:false},
   {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:false,nota:'Só em jogos com apostas suficientes, para não expor apostas individuais.'},
   {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição ao longo da competição, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:false},
-  {i:'🎯',t:'Bracket multi-cenário',d:'Guardas até 5 cenários do mata-mata com nome, em vez de um só.',soon:false,nota:'Só disponível em competições com mata-mata.'},
 ];
+// NOTA: o "Bracket multi-cenário" foi retirado das vantagens a 2 Ago e passou a
+// estar disponível para todos — na Champions o caminho do mata-mata depende de
+// sorteios, o que tornava a vantagem residual. Ver simScenarioBarHtml().
 /* Mostra o botão do menu só se o premium estiver ligado na BD E não estivermos
    na app nativa. Cinto e suspensórios: o CSS já esconderia o botão na app. */
 function refreshPremiumEntry(){
@@ -9338,9 +9340,13 @@ function getFlagImg(team,w,h){
    funciona. Só as funções de carregar/gravar sabem do envelope.
    Compatibilidade: um estado antigo (com `groups`/`ko` à cabeça) é embrulhado
    automaticamente num cenário só. Nada se perde.
-   Limites: sem premium 1 cenário (exatamente como hoje), com premium 5. */
-const SIM_MAX_FREE=1, SIM_MAX_PREMIUM=5;
-function simMax(){ return S.premium?SIM_MAX_PREMIUM:SIM_MAX_FREE; }
+   ⚠️ NÃO é funcionalidade premium (decisão Hugo, 2 Ago): na Champions o
+   caminho do mata-mata só fica definido depois dos sorteios, por isso um
+   bracket especulativo vale pouco — e uma vantagem que ninguém usa enfraquece
+   as outras. Fica disponível para TODOS, nas competições que têm simulador
+   (Mundial/Europeu). */
+const SIM_MAX=5;
+function simMax(){ return SIM_MAX; }
 function _simNewId(){ return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
 // Aceita v1 ou v2 e devolve sempre um envelope v2 válido.
@@ -9398,7 +9404,7 @@ function simSwitchScenario(id){
 function simNewScenario(){
   if(!S.simEnv) return;
   if(S.simEnv.scenarios.length>=simMax()){
-    showToast(S.premium?`Máximo de ${SIM_MAX_PREMIUM} cenários.`:'Com o Premium podes ter vários cenários.','error');
+    showToast(`Máximo de ${SIM_MAX} cenários.`,'error');
     return;
   }
   const nome=(prompt('Nome do cenário:','Cenário '+(S.simEnv.scenarios.length+1))||'').trim();
@@ -9429,16 +9435,15 @@ function simDeleteScenario(){
   S.sim=simActiveOf(S.simEnv);
   simSave(); renderSim();
 }
-// Barra de cenários. Só aparece a quem tem premium — sem passe o simulador
-// fica exatamente como sempre foi, com um cenário e sem barra nenhuma.
+// Barra de cenários. Disponível para todos (não é vantagem premium).
 function simScenarioBarHtml(){
-  if(!S.premium||!S.simEnv) return '';
+  if(!S.simEnv) return '';
   const n=S.simEnv.scenarios.length, max=simMax();
   const opts=S.simEnv.scenarios.map(s=>
     `<option value="${s.id}"${s.id===S.simEnv.active?' selected':''}>${s.name}</option>`).join('');
   return `<div class="card" style="padding:10px 12px;margin-bottom:10px">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <span style="font-size:.7rem;color:var(--gold);white-space:nowrap">⭐ Cenário</span>
+        <span style="font-size:.7rem;color:var(--gold);white-space:nowrap">🎯 Cenário</span>
         <select class="form-input" style="flex:1;min-width:120px;padding:4px 8px;font-size:.78rem" onchange="simSwitchScenario(this.value)">${opts}</select>
         <button class="btn btn-outline" style="padding:4px 9px;font-size:.72rem" onclick="simNewScenario()" ${n>=max?'disabled':''} title="${n>=max?'Máximo atingido':'Duplica o cenário actual'}">+ Novo</button>
         <button class="btn btn-outline" style="padding:4px 9px;font-size:.72rem" onclick="simRenameScenario()">Renomear</button>
