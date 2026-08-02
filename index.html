@@ -1298,7 +1298,7 @@ document.addEventListener('keydown', function(e){
   }
   async function loadDBFetch(gen) {
     if (gen === undefined) gen = DB_GEN;
-    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows] = await Promise.all([
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows, badgeDefs, myBadges, badgeCountRows] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
@@ -1323,6 +1323,14 @@ document.addEventListener('keydown', function(e){
       // useAuth -> a view precisa do JWT para saber se sou premium; devolve
       // vazio a quem não é. .catch -> [] pela mesma razão do de cima.
       rest('v_live_rarity', 'game_id,t1,t2,n', CF, true, 'game_id').catch(() => []),
+      // BADGES (039/041). Catálogo + os MEUS badges + o total de cada jogador
+      // (para o ícone na classificação). Os badges são ALL-TIME, por isso não
+      // levam filtro de competição. .catch -> [] enquanto as migrations não
+      // estiverem aplicadas.
+      rest('badge_defs', 'badge_key,icon,name,descr,family,levels,sort', '', false, 'sort').catch(() => []),
+      rest('user_badges', 'badge_key,value,level,unlocked_at',
+           'code=eq.' + enc((myCode() || '').toUpperCase()), true, 'badge_key').catch(() => []),
+      rest('v_badge_counts', 'code,n', '', true, 'code').catch(() => []),
     ]);
     const pm = {}; predsRaw.forEach(r => { pm[r.code + '|' + r.game_id] = r; }); const allPreds = Object.values(pm);
     const results = {}; resultsRaw.forEach(r => { if (r.t1 != null && r.t2 != null) results[r.game_id] = { t1:+r.t1, t2:+r.t2, pen:r.pen || '' }; });
@@ -1361,7 +1369,9 @@ document.addEventListener('keydown', function(e){
       o.list.sort((a, b) => b.n - a.n);
       o.list.forEach(x => { x.pct = o.total ? Math.round(x.n * 100 / o.total) : 0; });
     });
-    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes, liveRarity };
+    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes, liveRarity,
+                  badgeDefs: badgeDefs || [], myBadges: myBadges || [],
+                  badgeCounts: (badgeCountRows || []).reduce((a, r) => { a[(r.code||'').toUpperCase()] = +r.n || 0; return a; }, {}) };
     // A competição mudou enquanto esta leitura decorria: este snapshot é de
     // OUTRA competição. Não contaminar a cache nem devolvê-lo - refazer com o
     // filtro certo (o loadDB já vê DB_GEN novo, logo arranca um fetch limpo).
@@ -1419,7 +1429,9 @@ document.addEventListener('keydown', function(e){
              premiumCodes: db.premiumCodes || [],
              premiumEnabled: String(db.config.premium_enabled || 'false') === 'true',
              premiumDeadlineMin: Number(db.config.premium_deadline_minutes || 0),
-             liveRarity: db.liveRarity || {} };
+             liveRarity: db.liveRarity || {},
+             badgeDefs: db.badgeDefs || [], myBadges: db.myBadges || [],
+             badgeCounts: db.badgeCounts || {} };
   }
 
   // ---- AUTH ----
@@ -1720,6 +1732,12 @@ document.addEventListener('keydown', function(e){
       }
       if (action === 'getSocial') { const db = await loadDB(); const lid = data.league_id; const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji })); const comments = db.comments.filter(c => c.league_id === lid).map(c => ({ jornada:String(c.jornada||''), code:(c.code||'').toUpperCase(), name:c.name, text:c.text, at:c.created_at })); return { reactions, comments }; }
       if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:dispName(p), realName:p.name, nickname:p.nickname||null })) }; }
+      // BADGES: recalcula os do próprio e devolve quantos níveis novos saíram.
+      // A RPC trata da notificação no sino.
+      if (action === 'refreshBadges') {
+        try { const n = await rpc('rpc_refresh_badges', {}, true); DB = null; return { success: true, novos: n || 0 }; }
+        catch (e) { return { success: false, error: e.message }; }
+      }
       if (action === 'saveAvatar') { const av = await rpc('rpc_set_avatar', { p_avatar: data.avatar || '' }, true); DB = null; if (SESSION) { SESSION.avatar = av || null; saveSession(SESSION); } return { success: true, avatar: av || null }; }
       if (action === 'saveNickname') { const nick = await rpc('rpc_set_nickname', { p_nick: data.nickname || '' }, true); DB = null; if (SESSION) { SESSION.nickname = nick || null; SESSION.name = dispName({ name: SESSION.realName || SESSION.name, nickname: nick || null }); saveSession(SESSION); } return { success: true, nickname: nick || null }; }
       if (action === 'getLive') {
@@ -1944,6 +1962,8 @@ document.addEventListener('keydown', function(e){
          de compra -> pode aparecer na app. Só se mostra a quem tem passe, por
          isso a app nunca chega sequer a mencionar o premium. -->
     <button id="btn-stats" class="btn btn-outline btn-full" style="display:none;margin-bottom:8px" onclick="closeAccountMenu();showStats()">📊 Estatísticas avançadas</button>
+    <!-- Badges: para TODOS, não é premium. -->
+    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showBadges()">🏅 Badges</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
     <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
@@ -1961,6 +1981,16 @@ document.addEventListener('keydown', function(e){
 <!-- Estatísticas avançadas (premium). Reaproveita o CSS .up-page da página do
      Premium, mas NÃO leva .up-premium: pode aparecer na app, porque só se abre
      a quem já tem passe e não menciona preços. -->
+<!-- Badges / Conquistas. Para todos; reaproveita o CSS .up-page. -->
+<div id="badges-overlay" style="display:none">
+  <div class="up-page">
+    <div class="up-page-inner">
+      <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closeBadges()">✕ Fechar</button></div>
+      <div id="badges-body"></div>
+    </div>
+  </div>
+</div>
+
 <div id="stats-overlay" style="display:none">
   <div class="up-page">
     <div class="up-page-inner">
@@ -4326,6 +4356,81 @@ function showPremium(){
      · sem premium_enabled não há limite nenhum -> não mostra nada;
      · a WC2026 está isenta (foi jogada sem limite);
      · conta as ligas em que ESTOU, não as que criei. */
+/* ═══ BADGES / CONQUISTAS ════════════════════════════════════════════════════
+   Para TODOS (não é premium). Os contadores vêm calculados do servidor
+   (migrations 039/041) — aqui só se desenha. O que traz a pessoa de volta é o
+   que FALTA, por isso os por desbloquear mostram sempre a barra de progresso e
+   quanto falta para o patamar seguinte. */
+const BADGE_FAMILIES=[
+  ['acertar','Acertar'], ['risco','Risco'], ['consistencia','Consistência'],
+  ['palmares','Palmarés'], ['social','Social'],
+];
+function _badgeNext(levels, value){
+  for(let i=0;i<levels.length;i++){ if(value < levels[i]) return levels[i]; }
+  return null;   // série completa
+}
+function showBadges(){
+  const body=document.getElementById('badges-body');
+  const ov=document.getElementById('badges-overlay');
+  if(!body||!ov) return;
+  ov.style.display='block'; document.body.style.overflow='hidden';
+
+  const defs=(S.badgeDefs||[]).slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
+  if(!defs.length){
+    body.innerHTML='<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:30px 0">Os badges ainda não estão disponíveis.</div>';
+    return;
+  }
+  const mine=S.myBadges||{};
+  let conquistados=0, totalNiveis=0;
+  defs.forEach(d=>{ const lv=(mine[d.badge_key]||{}).level||0; conquistados+=lv; totalNiveis+=(d.levels||[]).length; });
+
+  const cartao=d=>{
+    const m=mine[d.badge_key]||{value:0,level:0};
+    const val=m.value||0, lvl=m.level||0;
+    const levels=d.levels||[];
+    const prox=_badgeNext(levels, val);
+    const completo=prox===null;
+    const anterior=lvl>0?levels[lvl-1]:0;
+    const pct=completo?100:Math.max(0,Math.min(100,Math.round(((val-anterior)/Math.max(1,prox-anterior))*100)));
+    const ativo=lvl>0;
+    return `<div style="border:1px solid ${ativo?'var(--gold)':'var(--border)'};border-radius:12px;padding:11px;opacity:${ativo?1:.55}">
+        <div style="display:flex;gap:9px;align-items:flex-start">
+          <div style="font-size:1.5rem;line-height:1;filter:${ativo?'none':'grayscale(1)'}">${d.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.84rem;font-weight:600;color:var(--text)">${d.name}
+              ${lvl>0?`<span style="font-size:.68rem;color:var(--gold)"> · nível ${lvl}/${levels.length}</span>`:''}</div>
+            <div style="font-size:.7rem;color:var(--sub);line-height:1.45;margin-top:2px">${d.descr}</div>
+          </div>
+        </div>
+        <div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-top:9px">
+          <div style="height:100%;width:${pct}%;background:${completo?'var(--green)':'var(--gold)'}"></div>
+        </div>
+        <div style="font-size:.66rem;color:var(--sub);margin-top:4px">
+          ${completo?`✅ Série completa · ${val}`:`${val} de ${prox}${prox-val>0?` · faltam ${prox-val}`:''}`}
+        </div>
+      </div>`;
+  };
+
+  let html=`<div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:2rem;line-height:1">🏅</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.5rem;margin-top:4px">Badges</div>
+      <div style="font-size:.82rem;color:var(--sub);margin-top:5px"><b style="color:var(--text)">${conquistados}</b> de ${totalNiveis} conquistados</div>
+    </div>`;
+
+  BADGE_FAMILIES.forEach(([fam,rot])=>{
+    const doGrupo=defs.filter(d=>d.family===fam);
+    if(!doGrupo.length) return;
+    html+=`<div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:16px 0 8px">${rot}</div>
+      <div style="display:grid;gap:8px">${doGrupo.map(cartao).join('')}</div>`;
+  });
+  body.innerHTML=html;
+}
+function closeBadges(){
+  const el=document.getElementById('badges-overlay');
+  if(el) el.style.display='none';
+  document.body.style.overflow='';
+}
+
 /* ═══ ESTATÍSTICAS AVANÇADAS (premium) ═══════════════════════════════════════
    100% frontend: os dados já estão todos em S. Não precisa de migration.
    Fontes: S.allPreds (apostas reveladas), S.results, GAMES, calcPts, S.lb.
@@ -4769,6 +4874,16 @@ async function loadData() {
     S.premiumEnabled = !!r.premiumEnabled;
     S.premiumDeadlineMin = Number(r.premiumDeadlineMin || 0);
     S.liveRarity = r.liveRarity || {};
+    // BADGES. Catálogo + os meus + o total de cada jogador (ícone na classificação).
+    S.badgeDefs = r.badgeDefs || [];
+    S.myBadges = (r.myBadges || []).reduce((a, b) => { a[b.badge_key] = b; return a; }, {});
+    S.badgeCounts = r.badgeCounts || {};
+    // Recalcular os meus badges UMA VEZ por sessão. É aqui que se detecta um
+    // nível novo e sai a notificação no sino. Não bloqueia o carregamento.
+    if (!S._badgesRefreshed) {
+      S._badgesRefreshed = true;
+      try{ api('refreshBadges', {}).catch(function(){}); }catch(e){}
+    }
     try{ if(typeof refreshPremiumEntry==='function') refreshPremiumEntry(); }catch(e){}
     // Acabou de pagar (voltou do Stripe com ?premium=ok). O webhook pode ainda
     // não ter escrito o passe quando esta leitura saiu, por isso: se já está
@@ -4926,7 +5041,14 @@ function renderLB() {
       ? '<span title="Premium" style="color:var(--gold)">⭐</span> ' : ''; }
     catch(e){ return ''; }
   };
-  const playerLabel=p=>isBot(p)?'🤖 IA':(premiumStar(p)+p.name);
+  // Nº de badges ao lado do nome. Estatuto visível, como o ⭐ do premium.
+  const badgeCountHtml=p=>{
+    try{
+      const n=(S.badgeCounts||{})[p&&p.code];
+      return n>0 ? ` <span style="font-size:.72em;color:var(--sub);white-space:nowrap" title="${n} badges conquistados">🏅${n}</span>` : '';
+    }catch(e){ return ''; }
+  };
+  const playerLabel=p=>isBot(p)?'🤖 IA':(premiumStar(p)+p.name+badgeCountHtml(p));
   const ligaHdr='';
 
   // ── PAGINAÇÃO (20 por página) ─────────────────────────────────────────────
