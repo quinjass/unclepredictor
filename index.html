@@ -825,6 +825,29 @@
        Ver PREMIUM_PLANO.md secção 6-A (decisão D5). ────────────────────────── */
     html.up-native .up-premium,
     html.up-native .up-premium-buy { display: none !important; }
+
+    /* Página do Premium: ocupa o ecrã todo (é uma página, não um popup). */
+    #premium-overlay.open { display: block; }
+    #premium-overlay .up-page {
+      position: fixed; inset: 0; z-index: 1000;
+      background: var(--bg); overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #premium-overlay .up-page-inner { max-width: 620px; margin: 0 auto; padding: 18px 16px 40px; }
+    #premium-overlay .up-close {
+      position: sticky; top: 0; display: flex; justify-content: flex-end;
+      padding: 6px 0 10px; background: var(--bg);
+    }
+    #premium-overlay .up-perk {
+      display: flex; gap: 11px; align-items: flex-start;
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px; margin-bottom: 9px;
+    }
+    #premium-overlay .up-soon {
+      font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--sub); border: 1px solid var(--border);
+      border-radius: 5px; padding: 1px 5px; margin-left: 6px; white-space: nowrap;
+    }
   </style>
 
 <script>
@@ -1865,6 +1888,10 @@ document.addEventListener('keydown', function(e){
   </div>
   <div class="header-right">
     <div class="header-right-top">
+      <!-- PREMIUM na barra superior: fica à vista, não enterrado no menu de
+           conta. .up-premium -> some por completo na app Android (D5). O JS
+           (refreshPremiumEntry) só o mostra se premium_enabled='true'. -->
+      <div class="up-premium user-pill" id="premium-pill" style="display:none;padding:4px 9px;border-color:var(--gold);color:var(--gold)" onclick="showPremium()" title="Passe Premium">⭐</div>
       <div class="user-pill" id="notif-bell" style="position:relative;padding:4px 9px" onclick="showNotifs()" title="Notificações">🔔<span id="notif-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:9px;min-width:16px;height:16px;font-size:.6rem;line-height:16px;text-align:center;font-weight:700;padding:0 3px"></span></div>
       <div class="user-pill" onclick="showAccountMenu()" id="user-pill" title="Minha conta">👤 -</div>
     </div>
@@ -1909,13 +1936,12 @@ document.addEventListener('keydown', function(e){
      completo. O botão de compra leva ainda .up-premium-buy. Ver D5 do
      PREMIUM_PLANO.md — preço ou link de compra dentro da app da Play Store
      violaria a Payments policy da Google. ────────────────────────────────── -->
-<div class="switcher-overlay up-premium" id="premium-overlay" onclick="if(event.target===this)closePremium()">
-  <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
-    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.15rem;margin-bottom:4px">⭐ Passe Premium</div>
-    <div id="premium-sub" style="font-size:.78rem;color:var(--sub);margin-bottom:14px;line-height:1.5"></div>
-    <div id="premium-body"></div>
-    <div id="premium-msg" class="alert alert-success" style="display:none;margin-top:10px"></div>
-    <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:.78rem" onclick="closePremium()">Fechar</button>
+<div class="up-premium" id="premium-overlay" style="display:none">
+  <div class="up-page">
+    <div class="up-page-inner">
+      <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closePremium()">✕ Fechar</button></div>
+      <div id="premium-body"></div>
+    </div>
   </div>
 </div>
 
@@ -4155,60 +4181,100 @@ const PREMIUM_LINKS={
   ucl2627:'https://buy.stripe.com/test_3cIdR955l0wa0VD8ZS5kk00',
   pl2627 :'https://buy.stripe.com/test_aFacN555ldiW8o56RK5kk01',
 };
+/* Vantagens. `soon:true` mostra a etiqueta "Em breve" — pôr a false à medida
+   que cada uma fica pronta. NÃO listar o badge ⭐ (decisão do Hugo, 2 Ago: não
+   é uma vantagem real). "Sem anúncios" só entra quando houver anúncios a
+   servir — o AdSense ainda está em revisão e prometer a ausência de algo que
+   não existe não vende nada. */
 const PREMIUM_PERKS=[
-  ['🚫','Sem anúncios','A app fica limpa de publicidade.'],
-  ['⏱️','Apostas até ao apito','Fechas a tua aposta até ao início do jogo, não 2h antes.'],
-  ['📊','Estatísticas avançadas','Evolução da posição, taxa de acerto por tipo e head-to-head.'],
-  ['👥','Raridade em tempo real','Vê a percentagem da comunidade antes de fechares a aposta.'],
-  ['🏆','Mais ligas privadas','15 ligas por competição em vez de 5.'],
-  ['🎯','Simulador multi-cenário','Guarda vários cenários do mata-mata com nome.'],
-  ['⭐','Card com destaque','Badge e moldura que toda a gente vê na classificação.'],
+  {i:'⏱️',t:'Apostas até ao apito',d:'Fechas a tua aposta até ao início do jogo. Sem premium, fecha uma hora antes.',soon:false},
+  {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:true},
+  {i:'🎯',t:'Simulador com cenários',d:'Guardas vários cenários do mata-mata com nome, em vez de um só.',soon:true},
+  {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:true},
+  {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição jornada a jornada, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:true},
 ];
 /* Mostra o botão do menu só se o premium estiver ligado na BD E não estivermos
    na app nativa. Cinto e suspensórios: o CSS já esconderia o botão na app. */
 function refreshPremiumEntry(){
   try{
-    const b=document.getElementById('btn-premium');
-    if(!b) return;
-    b.style.display=(S.premiumEnabled && !window.UP_IS_NATIVE) ? '' : 'none';
+    const show=(S.premiumEnabled && !window.UP_IS_NATIVE);
+    const b=document.getElementById('btn-premium');            // menu de conta
+    if(b) b.style.display=show?'':'none';
+    const p=document.getElementById('premium-pill');           // barra superior
+    if(p){
+      p.style.display=show?'':'none';
+      // Quem já tem passe vê o ⭐ cheio; quem não tem vê o convite.
+      p.textContent=S.premium?'⭐':'⭐ Premium';
+      p.title=S.premium?'Passe Premium activo':'Obter o Passe Premium';
+    }
   }catch(e){}
 }
 function showPremium(){
   if(window.UP_IS_NATIVE) return;              // nunca na app
-  const sub=document.getElementById('premium-sub');
   const body=document.getElementById('premium-body');
-  const msg=document.getElementById('premium-msg'); if(msg) msg.style.display='none';
-  const ov=document.getElementById('premium-overlay'); if(ov) ov.classList.add('open');
+  const ov=document.getElementById('premium-overlay');
+  if(ov){ ov.style.display='block'; ov.classList.add('open'); }
+  document.body.style.overflow='hidden';       // não deixar o fundo rolar
   const compKey=S.competition;
   // Nome legível da competição. Fica junto ao COMP_DB_ID/COMP_EMBLEM (bloco 6).
   const compName=({mundial2026:'Mundial 2026',ucl2627:'Champions League',pl2627:'Premier League'})[compKey]||'';
-  const perks=PREMIUM_PERKS.map(([i,t,d])=>
-    `<div style="display:flex;gap:9px;align-items:flex-start;margin-bottom:9px">
-       <div style="font-size:1rem;line-height:1.3">${i}</div>
-       <div><div style="font-size:.82rem;color:var(--text);font-weight:600">${t}</div>
-            <div style="font-size:.72rem;color:var(--sub);line-height:1.45">${d}</div></div>
+  const deCompeticao = compName
+    ? 'd'+(compName.startsWith('Premier')||compName.startsWith('Champions')?'a ':'o ')+compName
+    : 'da competição';
+
+  const perks=PREMIUM_PERKS.map(p=>
+    `<div class="up-perk">
+       <div style="font-size:1.15rem;line-height:1.2">${p.i}</div>
+       <div>
+         <div style="font-size:.86rem;color:var(--text);font-weight:600;display:flex;align-items:center;flex-wrap:wrap">
+           ${p.t}${p.soon?'<span class="up-soon">Em breve</span>':''}
+         </div>
+         <div style="font-size:.75rem;color:var(--sub);line-height:1.5;margin-top:2px">${p.d}</div>
+       </div>
      </div>`).join('');
 
+  const hero=`
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:2.2rem;line-height:1">⭐</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.6rem;margin-top:4px">Passe Premium</div>
+      <div style="font-size:.82rem;color:var(--sub);line-height:1.55;margin-top:6px">
+        ${S.premium
+          ? 'Tens o passe activo '+deCompeticao+'. Obrigado pelo apoio.'
+          : 'Um passe por competição, válido até ao fim '+deCompeticao+'.<br>Pagamento único, sem renovação automática.'}
+      </div>
+    </div>`;
+
+  const comoFunciona=`
+    <div style="margin-top:22px;border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Como funciona</div>
+      <div style="font-size:.76rem;color:var(--sub);line-height:1.65">
+        O passe é <b style="color:var(--text)">por competição</b>, não é uma subscrição — pagas uma vez e não há renovação nem nada a cancelar.<br><br>
+        Fica <b style="color:var(--text)">activo automaticamente</b> mal o pagamento seja confirmado, na conta com que estás a jogar.<br><br>
+        O premium <b style="color:var(--text)">nunca dá pontos nem vantagem na pontuação</b>. Dá conveniência, informação e personalização — a classificação continua a depender só dos teus palpites.
+      </div>
+    </div>`;
+
   if(S.premium){
-    sub.textContent='Já tens passe activo nesta competição. Obrigado pelo apoio.';
-    body.innerHTML=`<div style="border:1px solid var(--gold);border-radius:12px;padding:12px;margin-bottom:12px">
-        <div style="color:var(--gold);font-weight:700;font-size:.9rem;margin-bottom:8px">⭐ Passe activo</div>${perks}</div>`;
+    body.innerHTML=hero
+      +`<div style="border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:14px;text-align:center;color:var(--gold);font-weight:700;font-size:.85rem">⭐ Passe activo</div>`
+      +perks+comoFunciona;
     return;
   }
 
   const link=PREMIUM_LINKS[compKey];
-  sub.textContent='Um passe por competição, sem renovação automática. Válido até ao fim '
-    + (compName ? 'd'+(compName.startsWith('Premier')||compName.startsWith('Champions')?'a ':'o ')+compName : 'da competição')+'.';
-  body.innerHTML=`<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px">${perks}</div>`
-    + (link
-      ? `<a class="up-premium-buy btn btn-primary btn-full" style="display:block;text-align:center;text-decoration:none"
-             href="${link}?client_reference_id=${encodeURIComponent((S.user&&S.user.code)||'')}">Obter o passe · 5,00 €</a>
-         <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:8px;line-height:1.45">
-           Pagamento seguro no Stripe. O passe fica activo automaticamente.</div>`
-      : `<div style="font-size:.76rem;color:var(--sub);text-align:center">Ainda não disponível nesta competição.</div>`);
+  const cta = link
+    ? `<a class="up-premium-buy btn btn-primary btn-full" style="display:block;text-align:center;text-decoration:none;margin-top:18px;font-size:.95rem;padding:13px"
+           href="${link}?client_reference_id=${encodeURIComponent((S.user&&S.user.code)||'')}">Obter o passe · 5,00 €</a>
+       <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:9px;line-height:1.5">
+         Pagamento seguro através do Stripe.<br>O passe fica activo assim que o pagamento for confirmado.</div>`
+    : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível nesta competição.</div>`;
+
+  body.innerHTML=hero+perks+cta+comoFunciona;
 }
 function closePremium(){
-  const el=document.getElementById('premium-overlay'); if(el) el.classList.remove('open');
+  const el=document.getElementById('premium-overlay');
+  if(el){ el.classList.remove('open'); el.style.display='none'; }
+  document.body.style.overflow='';
 }
 
 async function saveNick(){
