@@ -1469,7 +1469,10 @@ document.addEventListener('keydown', function(e){
              badgeDefs: db.badgeDefs || [], myBadges: db.myBadges || [],
              badgeCounts: db.badgeCounts || {},
              sqlStandings: db.sqlStandings || [],
-             useSqlStandings: String(db.config.use_sql_standings || 'false') === 'true' };
+             useSqlStandings: String(db.config.use_sql_standings || 'false') === 'true',
+             payLinks: (() => { const v = db.config.stripe_pay_links; if (v == null) return null;
+                                if (typeof v !== 'string') return v;
+                                try { return JSON.parse(v); } catch (e) { return null; } })() };
   }
 
   // ---- AUTH ----
@@ -4294,7 +4297,10 @@ async function pickAvatar(a){
    produção substituir pelos links reais E atualizar o config.stripe_link_map
    na BD — ver premium\GUIA_STRIPE.md, Parte D.
    ⚠️ NUNCA mostrar nada disto dentro da app nativa (ver D5 do PREMIUM_PLANO). */
-const PREMIUM_LINKS={
+// ⚠️ FONTE DE VERDADE = `config.stripe_pay_links` na base de dados (046).
+// O que está aqui é só rede de segurança para o caso de a leitura falhar.
+// Trocar de teste para produção faz-se na BD, SEM publicar o frontend.
+let PREMIUM_LINKS={
   ucl2627:'https://buy.stripe.com/test_3cIdR955l0wa0VD8ZS5kk00',
   pl2627 :'https://buy.stripe.com/test_aFacN555ldiW8o56RK5kk01',
 };
@@ -5009,6 +5015,11 @@ async function loadData() {
     S.premiumCodes = new Set(r.premiumCodes || []);
     S.premiumEnabled = !!r.premiumEnabled;
     S.premiumDeadlineMin = Number(r.premiumDeadlineMin || 0);
+    // Links de pagamento: a BD manda (046). Só substitui se vier alguma coisa
+    // utilizável — senão fica a rede de segurança local.
+    if (r.payLinks && typeof r.payLinks === 'object' && Object.keys(r.payLinks).length) {
+      PREMIUM_LINKS = r.payLinks;
+    }
     S.liveRarity = r.liveRarity || {};
     // BADGES. Catálogo + os meus + o total de cada jogador (ícone na classificação).
     S.badgeDefs = r.badgeDefs || [];
