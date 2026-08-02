@@ -1259,7 +1259,7 @@ document.addEventListener('keydown', function(e){
   }
   async function loadDBFetch(gen) {
     if (gen === undefined) gen = DB_GEN;
-    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers] = await Promise.all([
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
@@ -1275,6 +1275,11 @@ document.addEventListener('keydown', function(e){
       rest('notif_prefs', 'code,prefs', '', true),
       rest('config', 'key,value', ''),
       rest('competition_members', 'code', CF),
+      // PREMIUM (032): quem tem passe ativo nesta competição, para o badge ⭐.
+      // .catch -> [] é OBRIGATÓRIO: sem ele, se a migration 032 ainda não
+      // estiver aplicada o Promise.all rejeita e a app inteira deixa de
+      // carregar. Mesma lição da coluna avatar (028).
+      rest('v_premium_codes', 'code,competition_id', CF).catch(() => []),
     ]);
     const pm = {}; predsRaw.forEach(r => { pm[r.code + '|' + r.game_id] = r; }); const allPreds = Object.values(pm);
     const results = {}; resultsRaw.forEach(r => { if (r.t1 != null && r.t2 != null) results[r.game_id] = { t1:+r.t1, t2:+r.t2, pen:r.pen || '' }; });
@@ -1297,7 +1302,10 @@ document.addEventListener('keydown', function(e){
     // Leaderboard só com os MEMBROS desta competição (não todos os participantes globais)
     const cmSet = new Set((compMembers || []).map(m => m.code));
     const participantsM = participants.filter(p => cmSet.has(p.code));
-    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap };
+    // PREMIUM (032): códigos com passe ativo. Vem vazio enquanto
+    // premium_enabled='false' (a própria view filtra pelo kill-switch).
+    const premiumCodes = (premiumRows || []).map(r => (r.code || '').toUpperCase());
+    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes };
     // A competição mudou enquanto esta leitura decorria: este snapshot é de
     // OUTRA competição. Não contaminar a cache nem devolvê-lo - refazer com o
     // filtro certo (o loadDB já vê DB_GEN novo, logo arranca um fetch limpo).
@@ -1348,7 +1356,9 @@ document.addEventListener('keydown', function(e){
     const leaguePrebetsCfg = _pj(db.config['prebets_' + COMP]);
     const leagueTeams = _pj(db.config['teams_' + COMP]);
     const crests = _pj(db.config['crests_' + COMP]) || {}; // logótipos dos clubes (ligas/UCL)
-    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium };
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium,
+             premiumCodes: db.premiumCodes || [],
+             premiumEnabled: String(db.config.premium_enabled || 'false') === 'true' };
   }
 
   // ---- AUTH ----
@@ -1851,6 +1861,9 @@ document.addEventListener('keydown', function(e){
         <div style="font-size:.75rem;color:var(--sub);margin-top:2px" id="account-info">-</div>
       </div>
     </div>
+    <!-- PREMIUM: .up-premium -> nunca aparece na app Android (ver secção 6-A do
+         PREMIUM_PLANO.md). Além disso o JS só o revela se premiumEnabled. -->
+    <button id="btn-premium" class="up-premium btn btn-outline btn-full" style="display:none;margin-bottom:8px;border-color:var(--gold);color:var(--gold)" onclick="closeAccountMenu();showPremium()">⭐ Passe Premium</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
     <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
@@ -1860,6 +1873,21 @@ document.addEventListener('keydown', function(e){
     <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeAccountMenu()">Fechar</button>
   </div>
 </div>
+<!-- ── Passe Premium ──────────────────────────────────────────────────────────
+     Toda esta caixa leva .up-premium: na app nativa o CSS esconde-a por
+     completo. O botão de compra leva ainda .up-premium-buy. Ver D5 do
+     PREMIUM_PLANO.md — preço ou link de compra dentro da app da Play Store
+     violaria a Payments policy da Google. ────────────────────────────────── -->
+<div class="switcher-overlay up-premium" id="premium-overlay" onclick="if(event.target===this)closePremium()">
+  <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.15rem;margin-bottom:4px">⭐ Passe Premium</div>
+    <div id="premium-sub" style="font-size:.78rem;color:var(--sub);margin-bottom:14px;line-height:1.5"></div>
+    <div id="premium-body"></div>
+    <div id="premium-msg" class="alert alert-success" style="display:none;margin-top:10px"></div>
+    <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:.78rem" onclick="closePremium()">Fechar</button>
+  </div>
+</div>
+
 <!-- ── Gerir notificações ── -->
 <div class="switcher-overlay" id="avatar-overlay" onclick="if(event.target===this)closeAvatarPicker()">
   <div class="switcher-box" onclick="event.stopPropagation()">
@@ -3117,6 +3145,19 @@ async function init() {
     }
   } catch (e) {}
 
+  // REGRESSO DO PAGAMENTO (premium): o Payment Link do Stripe redireciona para
+  // /?premium=ok. Marcamos a flag e limpamos o parâmetro do endereço.
+  // ⚠️ PRESERVAR O HASH: o modo dev (#dev) e o UP_DEV() dependem dele; se
+  // limpássemos o hash, quem estivesse a testar caía fora das competições de
+  // teste ao voltar do pagamento. (Alternativa persistente: up_dev='1'.)
+  try {
+    const _qp = new URLSearchParams(window.location.search || '');
+    if (_qp.get('premium') === 'ok') {
+      S.premiumJustPaid = true;
+      history.replaceState({}, '', window.location.pathname + (window.location.hash || ''));
+    }
+  } catch (e) {}
+
   // Login com Google (Sessão C): o redirect do Supabase Auth volta com
   // #access_token&refresh_token (sem type=recovery). completeOAuth() liga/cria
   // o participante e grava a sessão; depois basta semear up26_user e deixar o
@@ -4064,6 +4105,73 @@ async function pickAvatar(a){
   }catch(e){ if(m){ m.textContent='Erro de ligação.'; m.style.display='block'; } }
 }
 
+/* ═══ PASSE PREMIUM ═══════════════════════════════════════════════════════
+   Payment Links do Stripe, um por competição. O código do participante viaja
+   em ?client_reference_id= e o webhook (stripe-webhook) cria o passe.
+   ⚠️ ESTES SÃO OS LINKS DE **TESTE** (buy.stripe.com/test_...). Na passagem a
+   produção substituir pelos links reais E atualizar o config.stripe_link_map
+   na BD — ver premium\GUIA_STRIPE.md, Parte D.
+   ⚠️ NUNCA mostrar nada disto dentro da app nativa (ver D5 do PREMIUM_PLANO). */
+const PREMIUM_LINKS={
+  ucl2627:'https://buy.stripe.com/test_3cIdR955l0wa0VD8ZS5kk00',
+  pl2627 :'https://buy.stripe.com/test_aFacN555ldiW8o56RK5kk01',
+};
+const PREMIUM_PERKS=[
+  ['🚫','Sem anúncios','A app fica limpa de publicidade.'],
+  ['⏱️','Apostas até ao apito','Fechas a tua aposta até ao início do jogo, não 2h antes.'],
+  ['📊','Estatísticas avançadas','Evolução da posição, taxa de acerto por tipo e head-to-head.'],
+  ['👥','Raridade em tempo real','Vê a percentagem da comunidade antes de fechares a aposta.'],
+  ['🏆','Mais ligas privadas','15 ligas por competição em vez de 5.'],
+  ['🎯','Simulador multi-cenário','Guarda vários cenários do mata-mata com nome.'],
+  ['⭐','Card com destaque','Badge e moldura que toda a gente vê na classificação.'],
+];
+/* Mostra o botão do menu só se o premium estiver ligado na BD E não estivermos
+   na app nativa. Cinto e suspensórios: o CSS já esconderia o botão na app. */
+function refreshPremiumEntry(){
+  try{
+    const b=document.getElementById('btn-premium');
+    if(!b) return;
+    b.style.display=(S.premiumEnabled && !window.UP_IS_NATIVE) ? '' : 'none';
+  }catch(e){}
+}
+function showPremium(){
+  if(window.UP_IS_NATIVE) return;              // nunca na app
+  const sub=document.getElementById('premium-sub');
+  const body=document.getElementById('premium-body');
+  const msg=document.getElementById('premium-msg'); if(msg) msg.style.display='none';
+  const ov=document.getElementById('premium-overlay'); if(ov) ov.classList.add('open');
+  const compKey=S.competition;
+  // Nome legível da competição. Fica junto ao COMP_DB_ID/COMP_EMBLEM (bloco 6).
+  const compName=({mundial2026:'Mundial 2026',ucl2627:'Champions League',pl2627:'Premier League'})[compKey]||'';
+  const perks=PREMIUM_PERKS.map(([i,t,d])=>
+    `<div style="display:flex;gap:9px;align-items:flex-start;margin-bottom:9px">
+       <div style="font-size:1rem;line-height:1.3">${i}</div>
+       <div><div style="font-size:.82rem;color:var(--text);font-weight:600">${t}</div>
+            <div style="font-size:.72rem;color:var(--sub);line-height:1.45">${d}</div></div>
+     </div>`).join('');
+
+  if(S.premium){
+    sub.textContent='Já tens passe activo nesta competição. Obrigado pelo apoio.';
+    body.innerHTML=`<div style="border:1px solid var(--gold);border-radius:12px;padding:12px;margin-bottom:12px">
+        <div style="color:var(--gold);font-weight:700;font-size:.9rem;margin-bottom:8px">⭐ Passe activo</div>${perks}</div>`;
+    return;
+  }
+
+  const link=PREMIUM_LINKS[compKey];
+  sub.textContent='Um passe por competição, sem renovação automática. Válido até ao fim '
+    + (compName ? 'd'+(compName.startsWith('Premier')||compName.startsWith('Champions')?'a ':'o ')+compName : 'da competição')+'.';
+  body.innerHTML=`<div style="border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px">${perks}</div>`
+    + (link
+      ? `<a class="up-premium-buy btn btn-primary btn-full" style="display:block;text-align:center;text-decoration:none"
+             href="${link}?client_reference_id=${encodeURIComponent((S.user&&S.user.code)||'')}">Obter o passe · 5,00 €</a>
+         <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:8px;line-height:1.45">
+           Pagamento seguro no Stripe. O passe fica activo automaticamente.</div>`
+      : `<div style="font-size:.76rem;color:var(--sub);text-align:center">Ainda não disponível nesta competição.</div>`);
+}
+function closePremium(){
+  const el=document.getElementById('premium-overlay'); if(el) el.classList.remove('open');
+}
+
 async function saveNick(){
   const v=(document.getElementById('nick-input').value||'').trim();
   const err=document.getElementById('nick-error');
@@ -4266,6 +4374,37 @@ async function loadData() {
     S.lbPrev=r.lbPrev||null; // ranking anterior (seta de subida/descida desde o último jogo)
     if(r.rarityMap)S.rarityMap=r.rarityMap;
     if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
+    // PREMIUM (031). r.premium vem sempre preenchido pelo adapter; com o
+    // kill-switch premium_enabled='false' na BD chega cá como false, por isso
+    // isto é inerte até ao go-live. Não usar para nada que dê vantagem
+    // desportiva sem a migration 031 secção B estar aplicada — o frontend e a
+    // RLS têm de concordar, senão o utilizador vê o campo aberto e a gravação
+    // é rejeitada pelo servidor.
+    S.premium = !!(r.premium && r.premium.premium);
+    S.premiumInfo = r.premium || null;
+    // Conjunto de códigos com passe ativo (badge ⭐ na classificação). Vazio
+    // enquanto o kill-switch estiver desligado.
+    S.premiumCodes = new Set(r.premiumCodes || []);
+    S.premiumEnabled = !!r.premiumEnabled;
+    try{ if(typeof refreshPremiumEntry==='function') refreshPremiumEntry(); }catch(e){}
+    // Acabou de pagar (voltou do Stripe com ?premium=ok). O webhook pode ainda
+    // não ter escrito o passe quando esta leitura saiu, por isso: se já está
+    // premium, abre a caixa a confirmar; se não, invalida a cache e tenta MAIS
+    // UMA vez daqui a 4s. O contador evita ciclo infinito se algo falhar.
+    try{
+      if(S.premiumJustPaid){
+        if(S.premium){
+          S.premiumJustPaid=false; S._premiumRetry=0;
+          if(typeof showPremium==='function' && !window.UP_IS_NATIVE) showPremium();
+        } else if(!S._premiumRetry){
+          S._premiumRetry=1;
+          setTimeout(function(){
+            try{ if(window.UPSB&&UPSB.invalidate) UPSB.invalidate();
+                 if(typeof loadData==='function') loadData(); }catch(e){}
+          },4000);
+        }
+      }
+    }catch(e){}
     if(r.specials)S.specials=r.specials;
     if(r.notifs){S.notifs=r.notifs;renderNotifBadge();}
     if(r.allPreds)S.allPreds=r.allPreds;
@@ -4394,7 +4533,17 @@ function renderLB() {
   const trophySyms=['🥇','🥈','🥉'];
   const posSyms=['👑','🥈','🥉'];
   const isBot=p=>p.code==='BOT_IA';
-  const playerLabel=p=>isBot(p)?'🤖 IA':p.name;
+  // Badge ⭐ dos premium. Ponto único: as duas tabelas da classificação usam
+  // esta função. S.premiumCodes vem da view v_premium_codes (032), que já
+  // filtra pelo kill-switch -> vazio antes do go-live, logo sem badge nenhum.
+  // NÃO leva classe .up-premium: o badge é só um símbolo ao lado do nome, não
+  // menciona preço nem leva a comprar, por isso pode aparecer na app.
+  const premiumStar=p=>{
+    try{ return (S.premiumCodes && p && p.code && S.premiumCodes.has(p.code))
+      ? '<span title="Premium" style="color:var(--gold)">⭐</span> ' : ''; }
+    catch(e){ return ''; }
+  };
+  const playerLabel=p=>isBot(p)?'🤖 IA':(premiumStar(p)+p.name);
   const ligaHdr='';
 
   // ── PAGINAÇÃO (20 por página) ─────────────────────────────────────────────
