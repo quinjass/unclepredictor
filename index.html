@@ -1940,6 +1940,10 @@ document.addEventListener('keydown', function(e){
     <!-- PREMIUM: .up-premium -> nunca aparece na app Android (ver secção 6-A do
          PREMIUM_PLANO.md). Além disso o JS só o revela se premiumEnabled. -->
     <button id="btn-premium" class="up-premium btn btn-outline btn-full" style="display:none;margin-bottom:8px;border-color:var(--gold);color:var(--gold)" onclick="closeAccountMenu();showPremium()">⭐ Passe Premium</button>
+    <!-- Estatísticas avançadas: funcionalidade premium, mas SEM preço nem link
+         de compra -> pode aparecer na app. Só se mostra a quem tem passe, por
+         isso a app nunca chega sequer a mencionar o premium. -->
+    <button id="btn-stats" class="btn btn-outline btn-full" style="display:none;margin-bottom:8px" onclick="closeAccountMenu();showStats()">📊 Estatísticas avançadas</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
     <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
@@ -1954,6 +1958,18 @@ document.addEventListener('keydown', function(e){
      completo. O botão de compra leva ainda .up-premium-buy. Ver D5 do
      PREMIUM_PLANO.md — preço ou link de compra dentro da app da Play Store
      violaria a Payments policy da Google. ────────────────────────────────── -->
+<!-- Estatísticas avançadas (premium). Reaproveita o CSS .up-page da página do
+     Premium, mas NÃO leva .up-premium: pode aparecer na app, porque só se abre
+     a quem já tem passe e não menciona preços. -->
+<div id="stats-overlay" style="display:none">
+  <div class="up-page">
+    <div class="up-page-inner">
+      <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closeStats()">✕ Fechar</button></div>
+      <div id="stats-body"></div>
+    </div>
+  </div>
+</div>
+
 <div class="up-premium" id="premium-overlay" style="display:none">
   <div class="up-page">
     <div class="up-page-inner">
@@ -4213,7 +4229,7 @@ const PREMIUM_PERKS=[
   {i:'⏱️',t:'Apostas até ao apito',d:'Fechas a tua aposta até ao início do jogo. Sem premium, fecha uma hora antes.',soon:false},
   {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:false},
   {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:false,nota:'Só em jogos com apostas suficientes, para não expor apostas individuais.'},
-  {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição jornada a jornada, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:true},
+  {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição ao longo da competição, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:false},
   {i:'🎯',t:'Bracket multi-cenário',d:'Guardas vários cenários do mata-mata com nome, em vez de um só.',soon:true,nota:'Só disponível em competições com mata-mata.'},
 ];
 /* Mostra o botão do menu só se o premium estiver ligado na BD E não estivermos
@@ -4223,6 +4239,10 @@ function refreshPremiumEntry(){
     const show=(S.premiumEnabled && !window.UP_IS_NATIVE);
     const b=document.getElementById('btn-premium');            // menu de conta
     if(b) b.style.display=show?'':'none';
+    // Estatísticas avançadas: só a quem TEM passe. Não leva o gating da app
+    // porque não menciona preço nem compra.
+    const st=document.getElementById('btn-stats');
+    if(st) st.style.display=(S.premiumEnabled && S.premium)?'':'none';
     const p=document.getElementById('premium-pill');           // barra superior
     if(p){
       p.style.display=show?'':'none';
@@ -4300,6 +4320,176 @@ function showPremium(){
      · sem premium_enabled não há limite nenhum -> não mostra nada;
      · a WC2026 está isenta (foi jogada sem limite);
      · conta as ligas em que ESTOU, não as que criei. */
+/* ═══ ESTATÍSTICAS AVANÇADAS (premium) ═══════════════════════════════════════
+   100% frontend: os dados já estão todos em S. Não precisa de migration.
+   Fontes: S.allPreds (apostas reveladas), S.results, GAMES, calcPts, S.lb.
+   Só se abre a quem tem passe — a entrada no menu está escondida aos outros. */
+
+// Apostas de um jogador num jogo. Para o próprio, o S.preds é o mais fiável
+// (o allPreds só traz jogos já revelados).
+function _predOf(code,gid){
+  try{
+    if(S.user && code===S.user.code && S.preds && S.preds[gid] && S.preds[gid].t1!==undefined) return S.preds[gid];
+    const m=S.allPreds&&S.allPreds[gid];
+    return (m&&m[code])||null;
+  }catch(e){ return null; }
+}
+// Jogos com resultado, por ordem cronológica.
+function _finishedGames(){
+  try{
+    return GAMES.filter(g=>{const r=S.results&&S.results[g.id];return r&&r.t1!==undefined;})
+                .sort((a,b)=>new Date(a.date)-new Date(b.date));
+  }catch(e){ return []; }
+}
+// Classifica um palpite: exato | tendência | aproximação | erro | sem aposta.
+function _tipoAcerto(p,res,isKO){
+  if(!p||p.t1===undefined||p.t1===null||p.t1==='') return 'sem';
+  const pts=calcPts({t1:+p.t1,t2:+p.t2,joker:!!p.joker},res,isKO);
+  if(+p.t1===+res.t1 && +p.t2===+res.t2) return 'exato';
+  const pw=(+p.t1)>(+p.t2)?1:(+p.t1)<(+p.t2)?-1:0;
+  const rw=res.t1>res.t2?1:res.t1<res.t2?-1:0;
+  if(pw===rw) return 'tend';
+  return pts>0 ? 'aprox' : 'erro';
+}
+// Série da minha posição após cada jogo terminado. Recalcula a pontuação
+// acumulada de TODA A GENTE jogo a jogo — é O(jogadores × jogos), perfeitamente
+// suportável para as dimensões desta app.
+function _seriePosicao(){
+  const me=(S.user&&S.user.code)||'';
+  const codes=(S.lb||[]).map(p=>p.code).filter(c=>c&&c!=='BOT_IA');
+  if(!me||!codes.length) return [];
+  const acc={}; codes.forEach(c=>acc[c]=0);
+  const out=[];
+  _finishedGames().forEach(g=>{
+    const res=S.results[g.id];
+    codes.forEach(c=>{
+      const p=_predOf(c,g.id);
+      if(p&&p.t1!==undefined&&p.t1!==null&&p.t1!=='') acc[c]+=calcPts({t1:+p.t1,t2:+p.t2,joker:!!p.joker},res,!!g.ko);
+    });
+    const ord=codes.slice().sort((a,b)=>acc[b]-acc[a]);
+    out.push(ord.indexOf(me)+1);
+  });
+  return out;
+}
+// Gráfico de linha em SVG. Eixo Y invertido: 1.º lugar em cima.
+function _svgPosicao(serie,total){
+  if(serie.length<2) return '<div style="font-size:.75rem;color:var(--sub)">Ainda não há jogos suficientes para traçar a evolução.</div>';
+  const W=560,H=170,pad=26;
+  const n=serie.length, maxP=Math.max(total,...serie);
+  const x=i=>pad+(i*(W-pad*2))/(n-1);
+  const y=p=>pad+((p-1)*(H-pad*2))/Math.max(1,maxP-1);
+  const pts=serie.map((p,i)=>`${x(i).toFixed(1)},${y(p).toFixed(1)}`).join(' ');
+  const best=Math.min(...serie), worst=Math.max(...serie);
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible" role="img" aria-label="Evolução da posição">
+      <line x1="${pad}" y1="${pad}" x2="${W-pad}" y2="${pad}" stroke="var(--border)" stroke-width="1"/>
+      <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--border)" stroke-width="1"/>
+      <text x="2" y="${pad+4}" fill="var(--sub)" font-size="10">1.º</text>
+      <text x="2" y="${H-pad+4}" fill="var(--sub)" font-size="10">${maxP}.º</text>
+      <polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(n-1)}" cy="${y(serie[n-1])}" r="3.5" fill="var(--gold)"/>
+      <text x="${W-pad}" y="${H-6}" fill="var(--sub)" font-size="10" text-anchor="end">${n} jogos</text>
+      <text x="${pad}" y="${H-6}" fill="var(--sub)" font-size="10">melhor ${best}.º · pior ${worst}.º</text>
+    </svg>`;
+}
+
+function showStats(){
+  const body=document.getElementById('stats-body');
+  const ov=document.getElementById('stats-overlay');
+  if(!body||!ov) return;
+  ov.style.display='block'; document.body.style.overflow='hidden';
+
+  const me=(S.user&&S.user.code)||'';
+  const jogos=_finishedGames();
+  const cont={exato:0,tend:0,aprox:0,erro:0,sem:0};
+  jogos.forEach(g=>{ cont[_tipoAcerto(_predOf(me,g.id),S.results[g.id],!!g.ko)]++; });
+  const comAposta=cont.exato+cont.tend+cont.aprox+cont.erro;
+  const pc=v=>comAposta?Math.round(v*100/comAposta):0;
+
+  const linha=(cor,rot,v,desc)=>`
+    <div style="margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:3px">
+        <span style="color:var(--text)">${rot}</span>
+        <span style="color:${cor};font-weight:700">${v} <span style="color:var(--sub);font-weight:400">· ${pc(v)}%</span></span>
+      </div>
+      <div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pc(v)}%;background:${cor}"></div>
+      </div>
+      <div style="font-size:.66rem;color:var(--sub);margin-top:3px">${desc}</div>
+    </div>`;
+
+  const serie=_seriePosicao();
+  const totalJog=((S.lb||[]).filter(p=>p.code&&p.code!=='BOT_IA')).length;
+
+  const opcoes=(S.lb||[]).filter(p=>p.code&&p.code!==me&&p.code!=='BOT_IA')
+    .map(p=>`<option value="${p.code}">${p.name}</option>`).join('');
+
+  body.innerHTML=`
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:2rem;line-height:1">📊</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.5rem;margin-top:4px">Estatísticas avançadas</div>
+      <div style="font-size:.78rem;color:var(--sub);margin-top:5px">Com base em ${jogos.length} jogos já terminados.</div>
+    </div>
+
+    <div class="card" style="padding:14px;margin-bottom:12px">
+      <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Evolução da posição</div>
+      ${_svgPosicao(serie,totalJog)}
+    </div>
+
+    <div class="card" style="padding:14px;margin-bottom:12px">
+      <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:12px">Taxa de acerto</div>
+      ${linha('var(--green)','🎯 Resultado exato',cont.exato,'Acertaste o resultado certo.')}
+      ${linha('var(--gold)','↗ Tendência',cont.tend,'Acertaste quem ganhou ou o empate, mas não o resultado.')}
+      ${linha('#7986cb','≈ Aproximação',cont.aprox,'Falhaste a tendência mas ficaste perto no total de golos.')}
+      ${linha('var(--red)','✗ Erro',cont.erro,'Sem pontos neste jogo.')}
+      ${cont.sem?`<div style="font-size:.72rem;color:var(--sub);margin-top:10px;border-top:1px solid var(--border);padding-top:9px">Ficaste sem apostar em <b style="color:var(--text)">${cont.sem}</b> ${cont.sem===1?'jogo':'jogos'}.</div>`:''}
+    </div>
+
+    <div class="card" style="padding:14px">
+      <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Confronto direto</div>
+      <select id="stats-h2h" class="form-input" style="width:100%;margin-bottom:10px" onchange="renderH2H(this.value)">
+        <option value="">Escolhe um jogador…</option>${opcoes}
+      </select>
+      <div id="stats-h2h-out"></div>
+    </div>`;
+}
+
+// Confronto direto: só conta jogos em que AMBOS apostaram, senão o resultado
+// seria injusto para quem simplesmente faltou menos vezes.
+function renderH2H(code){
+  const out=document.getElementById('stats-h2h-out');
+  if(!out) return;
+  if(!code){ out.innerHTML=''; return; }
+  const me=(S.user&&S.user.code)||'';
+  const adv=(S.lb||[]).find(p=>p.code===code);
+  let meuT=0,seuT=0,ganhos=0,perdidos=0,iguais=0,n=0;
+  _finishedGames().forEach(g=>{
+    const a=_predOf(me,g.id), b=_predOf(code,g.id);
+    if(!a||!b||a.t1===undefined||b.t1===undefined) return;
+    const res=S.results[g.id];
+    const pa=calcPts({t1:+a.t1,t2:+a.t2,joker:!!a.joker},res,!!g.ko);
+    const pb=calcPts({t1:+b.t1,t2:+b.t2,joker:!!b.joker},res,!!g.ko);
+    meuT+=pa; seuT+=pb; n++;
+    if(pa>pb)ganhos++; else if(pa<pb)perdidos++; else iguais++;
+  });
+  if(!n){ out.innerHTML='<div style="font-size:.75rem;color:var(--sub)">Ainda não há jogos em que os dois tenham apostado.</div>'; return; }
+  const cor=meuT>seuT?'var(--green)':meuT<seuT?'var(--red)':'var(--gold)';
+  out.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-around;text-align:center;margin-bottom:10px">
+      <div><div style="font-size:.7rem;color:var(--sub)">Tu</div><div style="font-size:1.4rem;font-weight:700;color:${cor}">${meuT}</div></div>
+      <div style="font-size:.8rem;color:var(--sub)">vs</div>
+      <div><div style="font-size:.7rem;color:var(--sub)">${adv?adv.name:code}</div><div style="font-size:1.4rem;font-weight:700;color:var(--text)">${seuT}</div></div>
+    </div>
+    <div style="font-size:.73rem;color:var(--sub);text-align:center;line-height:1.6">
+      Em <b style="color:var(--text)">${n}</b> jogos que ambos apostaram:<br>
+      ganhaste <b style="color:var(--green)">${ganhos}</b> · empataste <b style="color:var(--gold)">${iguais}</b> · perdeste <b style="color:var(--red)">${perdidos}</b>
+    </div>`;
+}
+function closeStats(){
+  const el=document.getElementById('stats-overlay');
+  if(el) el.style.display='none';
+  document.body.style.overflow='';
+}
+
 /* Raridade em tempo real (premium, migration 035). Mostra a distribuição da
    comunidade num jogo AINDA POR COMEÇAR. O servidor já garante tudo o que
    importa — só premium, só antes do apito, e só acima do mínimo de apostas —
