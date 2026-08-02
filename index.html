@@ -1236,7 +1236,23 @@ document.addEventListener('keydown', function(e){
     if (!Object.keys(prev).length) return null;
     return buildLeaderboard(prev, db).players.map(p => ({ code:p.code, total:p.total, joker_pts:p.joker_pts, rarity_pts:p.rarity_pts, wins:p.wins, ko_wins:p.ko_wins, draws:p.draws, ko_draws:p.ko_draws }));
   }
+  // ── DOIS conceitos distintos de "fechado" (não confundir) ──────────────────
+  // 1) FECHADO PARA EDITAR  -> depende do tier (free: deadlineH; premium: até
+  //    ao apito, config premium_deadline_minutes = 0).
+  // 2) FECHADO PARA MOSTRAR -> as apostas de TODOS só se revelam no APITO,
+  //    igual para toda a gente. Tem de ser >= ao fecho de edição mais tardio,
+  //    senão um premium veria as apostas dos outros enquanto ainda edita.
+  // Antes da 031 os dois usavam a mesma função, por isso o premium não era
+  // possível sem quebrar o jogo. Ver PREMIUM_PLANO.md secção 6-A.
   function isGameLocked(gid, deadlineH, gd) { const k = gd[gid]; if (!k) return false; return Date.now() >= new Date(k).getTime() - deadlineH * 3600000; }
+  // Fecho de edição já a contar com o tier.
+  function isGameLockedFor(gid, deadlineH, gd, isPrem, premMin) {
+    const k = gd[gid]; if (!k) return false;
+    const ms = isPrem ? (Number(premMin) || 0) * 60000 : deadlineH * 3600000;
+    return Date.now() >= new Date(k).getTime() - ms;
+  }
+  // Revelação das apostas: no apito, sem exceções.
+  function isGameRevealed(gid, gd) { const k = gd[gid]; if (!k) return false; return Date.now() >= new Date(k).getTime(); }
 
   // ---- carregamento (cache em memória; filtrado pela competição sandbox) ----
   let DB = null;
@@ -1328,8 +1344,11 @@ document.addEventListener('keydown', function(e){
     const built = buildLeaderboard(db.results, db);
     const lbPrev = buildPrevLeaderboard(db.results, db);
     const allPreds = {};
-    // Revela apostas de jogos FECHADOS (prazo) OU que já têm resultado (sandbox: relógio congelado nunca "fecha").
-    db.allPreds.forEach(r => { if (r.t1 == null) return; if (!isGameLocked(r.game_id, deadlineH, db.gameDatesUTC) && !db.results[r.game_id]) return; (allPreds[r.game_id] = allPreds[r.game_id] || {})[(r.code || '').toUpperCase()] = { t1:+r.t1, t2:+r.t2, joker: r.joker === true }; });
+    // Revela apostas no APITO (não no fecho de edição) OU se já há resultado
+    // (sandbox: relógio congelado nunca "fecha"). Mudou com o premium: como o
+    // premium edita até ao apito, revelar ao deadline deixá-lo-ia ver as
+    // apostas dos outros enquanto ainda podia mudar a sua.
+    db.allPreds.forEach(r => { if (r.t1 == null) return; if (!isGameRevealed(r.game_id, db.gameDatesUTC) && !db.results[r.game_id]) return; (allPreds[r.game_id] = allPreds[r.game_id] || {})[(r.code || '').toUpperCase()] = { t1:+r.t1, t2:+r.t2, joker: r.joker === true }; });
     const allPrebets = {};
     if (isGameLocked('A1', deadlineH, db.gameDatesUTC) || db.results['A1']) db.prebets.forEach(r => { const c = (r.code || '').toUpperCase(); (allPrebets[c] = allPrebets[c] || {})[r.key] = r.value; });
     const notifs = db.notifs.filter(n => n.to_code === '*' || (n.to_code || '').toUpperCase() === code).sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)).slice(-30).map(n => ({ id:n.id, type:n.type, text:n.text, at:n.created_at }));
@@ -1358,7 +1377,8 @@ document.addEventListener('keydown', function(e){
     const crests = _pj(db.config['crests_' + COMP]) || {}; // logótipos dos clubes (ligas/UCL)
     return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium,
              premiumCodes: db.premiumCodes || [],
-             premiumEnabled: String(db.config.premium_enabled || 'false') === 'true' };
+             premiumEnabled: String(db.config.premium_enabled || 'false') === 'true',
+             premiumDeadlineMin: Number(db.config.premium_deadline_minutes || 0) };
   }
 
   // ---- AUTH ----
@@ -1583,7 +1603,18 @@ document.addEventListener('keydown', function(e){
     // jogo fechado no batch. Só enviamos os que ainda estão abertos.
     const db = await loadDB();
     const dh = Number(db.config.deadline_hours || 1);
-    const open = (g) => !isGameLocked(g, dh, db.gameDatesUTC);
+    // Fecho de edição a contar com o tier: o premium fecha só ao apito
+    // (premium_deadline_minutes). Isto tem de espelhar a is_game_open() da BD —
+    // se o frontend for mais permissivo que a RLS, a gravação é rejeitada; se
+    // for mais restritivo, o premium não usufrui do que pagou.
+    let _prem = false;
+    try {
+      const _pr = await rpc('my_premium', { p_comp: COMP }, true);
+      const _row = Array.isArray(_pr) ? _pr[0] : _pr;
+      _prem = !!(_row && _row.premium === true);
+    } catch (e) { /* sem a 031 aplicada -> trata como free */ }
+    const _premMin = Number(db.config.premium_deadline_minutes || 0);
+    const open = (g) => !isGameLockedFor(g, dh, db.gameDatesUTC, _prem, _premMin);
     const preds = data.preds || {}; const ups = [], dels = [];
     Object.entries(preds).forEach(([g, p]) => {
       if (!open(g)) return; // fechado → intocável (nem grava nem apaga)
@@ -3680,7 +3711,15 @@ function showLeagueApp(){
     renderLeagueView();
   }).catch(e=>{ const bd=document.getElementById('league-body'); if(bd)bd.innerHTML='<div style="color:var(--red);text-align:center;padding:30px">Erro: '+escapeHtml(e.message||'')+'</div>'; });
 }
-function leagueGameLocked(g){ if(!g.kickoff_utc) return false; return Date.now()>=new Date(g.kickoff_utc).getTime()-((S.league&&S.league.deadlineH)||1)*3600000; }
+// Fecho de EDIÇÃO nas ligas domésticas/UCL, a contar com o tier (o premium
+// fecha ao apito). Espelha dlPassedEdit, mas o deadline vem do S.league.
+function leagueGameLocked(g){
+  if(!g.kickoff_utc) return false;
+  const k=new Date(g.kickoff_utc).getTime();
+  const ms=S.premium ? (Number(S.premiumDeadlineMin)||0)*60000
+                     : ((S.league&&S.league.deadlineH)||1)*3600000;
+  return Date.now()>=k-ms;
+}
 function renderLeagueView(){
   const L=S.league; if(!L) return; const b=document.getElementById('league-body'); if(!b) return;
   if(!L.mds.length){
@@ -4386,6 +4425,7 @@ async function loadData() {
     // enquanto o kill-switch estiver desligado.
     S.premiumCodes = new Set(r.premiumCodes || []);
     S.premiumEnabled = !!r.premiumEnabled;
+    S.premiumDeadlineMin = Number(r.premiumDeadlineMin || 0);
     try{ if(typeof refreshPremiumEntry==='function') refreshPremiumEntry(); }catch(e){}
     // Acabou de pagar (voltou do Stripe com ?premium=ok). O webhook pode ainda
     // não ter escrito o passe quando esta leitura saiu, por isso: se já está
@@ -5340,7 +5380,7 @@ function renderBetsKO() {
     const knownTeams = !isKOPlaceholder(t1) && !isKOPlaceholder(t2);
     const pred = S.preds[g.id] || {};
     const res = S.results[g.id] || null;
-    const locked = !knownTeams || dlPassed(g.date);
+    const locked = !knownTeams || dlPassedEdit(g.date);
     const lvKO = liveOf(g.id);
     // Só fecha com FINISHED confirmado - resultado com live ativo é provisório
     const isFinished = res && res.t1 !== undefined && !lvKO;
@@ -5476,7 +5516,7 @@ function renderBets() {
     dg.forEach(g=>{
       const pred=S.preds[g.id]||{};
       const res=S.results[g.id]||(S.demoMode?DEMO_RESULTS[g.id]:null);
-      const locked=dlPassed(g.date);
+      const locked=dlPassedEdit(g.date);
       const isKO=!!g.ko;
       const lv=liveOf(g.id);
       // Só é "terminado" com FINISHED confirmado (sem live ativo) - um resultado
@@ -5679,7 +5719,7 @@ async function autoSaveCard(id){
   if(S.autoTimers&&S.autoTimers[id]){clearTimeout(S.autoTimers[id]);delete S.autoTimers[id];}
   const g=GAMES.find(x=>x.id===id);
   if(!g||!S.user)return;
-  if(dlPassed(g.date)){if(S.dirtyGames)delete S.dirtyGames[id];refreshPendingFlag();return;} // fechou entretanto
+  if(dlPassedEdit(g.date)){if(S.dirtyGames)delete S.dirtyGames[id];refreshPendingFlag();return;} // fechou entretanto
   const p=S.preds[id];
   const complete=!!(p&&p.t1!==undefined&&p.t2!==undefined);
   const emptied=!p||(p.t1===undefined&&p.t2===undefined);
@@ -6821,8 +6861,8 @@ function openGameModal(gameId) {
   const lv = liveOf(gameId);
   // Só é "terminado" com FINISHED confirmado (sem live ativo) - cf. cards
   const isFinished = !!(res&&res.t1!==undefined)&&!lv;
-  const locked = dlPassed(game.date);
-  if (!isFinished && !locked) return; // antes do fecho ninguém vê as apostas
+  const locked = revealedAt(game.date);   // REVELAÇÃO (apito), não fecho de edição
+  if (!isFinished && !locked) return; // antes do apito ninguém vê as apostas
 
   const resEff = isFinished ? res : (lv ? {t1:lv.t1, t2:lv.t2} : null); // resultado efetivo p/ cálculo
   const showPts = !!resEff;
@@ -7082,10 +7122,10 @@ function buildPlayerBetsHtml(playerName) {
   const lbEntry = (S.lb||[]).find(p=>p.name.toLowerCase()===playerName.toLowerCase());
   const isBotProfile = lbEntry && lbEntry.code==='BOT_IA';
   const defPicks = (S.demoMode||isBotProfile) ? {} : defaultPicksOf(preds, results);
-  // Jogos terminados + jogos fechados (deadline passou) com aposta deste jogador
+  // Jogos terminados + jogos já REVELADOS (apito passou) com aposta deste jogador
   const shownGames = GAMES.filter(g =>
     results[g.id]!==undefined ||
-    (dlPassed(g.date) && preds[g.id] && preds[g.id].t1!==undefined)
+    (revealedAt(g.date) && preds[g.id] && preds[g.id].t1!==undefined)
   ).sort((a,b) => new Date(a.date) - new Date(b.date));
 
   if (!shownGames.length) {
@@ -8080,7 +8120,7 @@ function mockApi(action,data){
     const isDemoUser=DEMO_USERS.find(u=>u.code===code);
     const preds=isDemoUser?genDemoPreds(code):(S.preds||{});
     const allPreds={};
-    GAMES.filter(g=>dlPassed(g.date)).forEach(g=>{
+    GAMES.filter(g=>revealedAt(g.date)).forEach(g=>{   // demo: revelação = apito
       allPreds[g.id]={};
       DEMO_USERS.forEach(u=>{const p=genDemoPreds(u.code)[g.id];if(p&&p.t1!==undefined)allPreds[g.id][u.code]=p;});
     });
@@ -8150,7 +8190,24 @@ function mockApi(action,data){
 // ════════════════════════════════════════════════
 //  UTILS
 // ════════════════════════════════════════════════
+// ── TRÊS relógios distintos. Não trocar um pelo outro. ──────────────────────
+// dlPassed      : prazo BASE (free). Continua a ser o único usado nas
+//                 PRÉ-APOSTAS — essas fecham à mesma hora para toda a gente,
+//                 premium incluído.
+// dlPassedEdit  : prazo de EDIÇÃO do jogo, já a contar com o tier. O premium
+//                 fecha ao apito (S.premiumDeadlineMin = 0).
+// revealedAt    : quando as apostas de TODOS passam a ser visíveis = APITO.
+//                 Nunca pode ser mais cedo que o fecho de edição mais tardio,
+//                 senão o premium via as apostas dos outros e ainda editava.
+// Espelham a is_game_open() da BD (migration 033). Se divergirem, o utilizador
+// vê o campo aberto e leva erro do servidor ao gravar.
 function dlPassed(dateStr){return new Date()>=new Date(new Date(dateStr).getTime()-S.deadlineH*3600000);}
+function dlPassedEdit(dateStr){
+  const k=new Date(dateStr).getTime();
+  const ms=(S.premium?(Number(S.premiumDeadlineMin)||0)*60000:S.deadlineH*3600000);
+  return Date.now()>=k-ms;
+}
+function revealedAt(dateStr){ return Date.now()>=new Date(dateStr).getTime(); }
 function fmtCountdown(ms){
   const m=Math.floor(ms/60000),h=Math.floor(m/60),d=Math.floor(h/24);
   if(d>=1)return`${d}d ${h%24}h`;
