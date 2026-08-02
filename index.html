@@ -3322,14 +3322,18 @@ async function init() {
       api('getSimState',{code:S.user.code}).then(r=>{
         if(r&&r.state){
           try{
-            const remote=JSON.parse(r.state);
-            // Only overwrite if remote has more ko picks than local
-            const localSim=S.sim;
-            const remoteKoCount=Object.keys((remote&&remote.ko)||{}).length;
-            const localKoCount=Object.keys((localSim&&localSim.ko)||{}).length;
-            if(remoteKoCount>=localKoCount){
-              S.sim=remote;
-              localStorage.setItem('up26_sim',r.state);
+            // Normaliza: o servidor pode ter o formato antigo (1 cenário) ou o
+            // envelope novo. simEnvNormalize trata dos dois.
+            const remoteEnv=simEnvNormalize(JSON.parse(r.state));
+            const remoteSim=simActiveOf(remoteEnv);
+            // Só sobrepõe se o remoto tiver pelo menos tantas escolhas de KO
+            // como o local (evita apagar trabalho feito neste dispositivo).
+            const remoteKoCount=Object.keys((remoteSim&&remoteSim.ko)||{}).length;
+            const localKoCount=Object.keys((S.sim&&S.sim.ko)||{}).length;
+            if(remoteEnv&&remoteKoCount>=localKoCount){
+              S.simEnv=remoteEnv;
+              S.sim=remoteSim;
+              localStorage.setItem('up26_sim',JSON.stringify(remoteEnv));
               if(S.curView==='sim')renderSim();
             }
           }catch(e){}
@@ -4230,7 +4234,7 @@ const PREMIUM_PERKS=[
   {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:false},
   {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:false,nota:'Só em jogos com apostas suficientes, para não expor apostas individuais.'},
   {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição ao longo da competição, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:false},
-  {i:'🎯',t:'Bracket multi-cenário',d:'Guardas vários cenários do mata-mata com nome, em vez de um só.',soon:true,nota:'Só disponível em competições com mata-mata.'},
+  {i:'🎯',t:'Bracket multi-cenário',d:'Guardas até 5 cenários do mata-mata com nome, em vez de um só.',soon:false,nota:'Só disponível em competições com mata-mata.'},
 ];
 /* Mostra o botão do menu só se o premium estiver ligado na BD E não estivermos
    na app nativa. Cinto e suspensórios: o CSS já esconderia o botão na app. */
@@ -9325,25 +9329,123 @@ function getFlagImg(team,w,h){
 // ──────────────────────────────────────────
 //  State helpers
 // ──────────────────────────────────────────
+/* ═══ BRACKET MULTI-CENÁRIO (premium) ════════════════════════════════════════
+   O simulador guardava UM estado: {groups, thirds, ko}. Passa a guardar um
+   ENVELOPE com vários cenários com nome:
+     { v:2, active:<id>, scenarios:[ {id, name, sim:{groups,thirds,ko}} ] }
+   S.sim continua a apontar para o cenário ACTIVO, por isso TODO o código de
+   render do bracket fica intocado — era o objetivo, para não arriscar o que já
+   funciona. Só as funções de carregar/gravar sabem do envelope.
+   Compatibilidade: um estado antigo (com `groups`/`ko` à cabeça) é embrulhado
+   automaticamente num cenário só. Nada se perde.
+   Limites: sem premium 1 cenário (exatamente como hoje), com premium 5. */
+const SIM_MAX_FREE=1, SIM_MAX_PREMIUM=5;
+function simMax(){ return S.premium?SIM_MAX_PREMIUM:SIM_MAX_FREE; }
+function _simNewId(){ return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+// Aceita v1 ou v2 e devolve sempre um envelope v2 válido.
+function simEnvNormalize(raw){
+  if(!raw||typeof raw!=='object') return null;
+  if(raw.v===2 && Array.isArray(raw.scenarios) && raw.scenarios.length){
+    if(!raw.scenarios.find(s=>s.id===raw.active)) raw.active=raw.scenarios[0].id;
+    return raw;
+  }
+  if(raw.groups && raw.ko){                       // formato antigo -> embrulhar
+    const id=_simNewId();
+    return { v:2, active:id, scenarios:[{ id, name:'Cenário 1', sim:raw }] };
+  }
+  return null;
+}
+function simActiveOf(env){
+  if(!env) return null;
+  const s=env.scenarios.find(x=>x.id===env.active)||env.scenarios[0];
+  return s?s.sim:null;
+}
 function simLoad(){
-  try{ const s=localStorage.getItem('up26_sim'); if(s)return JSON.parse(s); }catch(e){}
+  try{ const s=localStorage.getItem('up26_sim'); if(s) return simEnvNormalize(JSON.parse(s)); }catch(e){}
   return null;
 }
 let _simSaveTimer=null;
 function simSave(){
-  try{localStorage.setItem('up26_sim',JSON.stringify(S.sim));}catch(e){}
+  if(!S.simEnv) return;
+  // Manter o cenário activo em sincronia com o S.sim que o bracket edita.
+  const act=S.simEnv.scenarios.find(x=>x.id===S.simEnv.active);
+  if(act) act.sim=S.sim;
+  const payload=JSON.stringify(S.simEnv);
+  try{localStorage.setItem('up26_sim',payload);}catch(e){}
   if(_simSaveTimer)clearTimeout(_simSaveTimer);
   _simSaveTimer=setTimeout(()=>{
     if(!S.user||!S.user.code||S.demoMode)return;
-    api('saveSimState',{code:S.user.code,state:JSON.stringify(S.sim)})
-      .catch(()=>{});
+    api('saveSimState',{code:S.user.code,state:payload}).catch(()=>{});
   },2000);
 }
 function simReset(){
-  if(!confirm('Limpar toda a simulação e recomeçar?'))return;
-  S.sim=null;
+  if(!confirm('Limpar este cenário e recomeçar?'))return;
+  S.sim=null; S.simEnv=null;
   localStorage.removeItem('up26_sim');
   renderSim();
+}
+
+// ── Gestão de cenários (só faz sentido com premium) ────────────────────────
+function simSwitchScenario(id){
+  if(!S.simEnv) return;
+  simSave();                                   // grava o que estava em edição
+  if(!S.simEnv.scenarios.find(s=>s.id===id)) return;
+  S.simEnv.active=id;
+  S.sim=simActiveOf(S.simEnv);
+  simSave(); renderSim();
+}
+function simNewScenario(){
+  if(!S.simEnv) return;
+  if(S.simEnv.scenarios.length>=simMax()){
+    showToast(S.premium?`Máximo de ${SIM_MAX_PREMIUM} cenários.`:'Com o Premium podes ter vários cenários.','error');
+    return;
+  }
+  const nome=(prompt('Nome do cenário:','Cenário '+(S.simEnv.scenarios.length+1))||'').trim();
+  if(!nome) return;
+  simSave();
+  // Parte do estado actual (é o que as pessoas querem: "e se aqui fosse ao contrário?")
+  const copia=JSON.parse(JSON.stringify(S.sim||{groups:{},thirds:[],ko:{}}));
+  const id=_simNewId();
+  S.simEnv.scenarios.push({id,name:nome.slice(0,28),sim:copia});
+  S.simEnv.active=id;
+  S.sim=copia;
+  simSave(); renderSim();
+}
+function simRenameScenario(){
+  if(!S.simEnv) return;
+  const act=S.simEnv.scenarios.find(s=>s.id===S.simEnv.active); if(!act) return;
+  const nome=(prompt('Novo nome:',act.name)||'').trim();
+  if(!nome) return;
+  act.name=nome.slice(0,28);
+  simSave(); renderSim();
+}
+function simDeleteScenario(){
+  if(!S.simEnv||S.simEnv.scenarios.length<=1) return;
+  const act=S.simEnv.scenarios.find(s=>s.id===S.simEnv.active); if(!act) return;
+  if(!confirm('Apagar o cenário "'+act.name+'"?')) return;
+  S.simEnv.scenarios=S.simEnv.scenarios.filter(s=>s.id!==act.id);
+  S.simEnv.active=S.simEnv.scenarios[0].id;
+  S.sim=simActiveOf(S.simEnv);
+  simSave(); renderSim();
+}
+// Barra de cenários. Só aparece a quem tem premium — sem passe o simulador
+// fica exatamente como sempre foi, com um cenário e sem barra nenhuma.
+function simScenarioBarHtml(){
+  if(!S.premium||!S.simEnv) return '';
+  const n=S.simEnv.scenarios.length, max=simMax();
+  const opts=S.simEnv.scenarios.map(s=>
+    `<option value="${s.id}"${s.id===S.simEnv.active?' selected':''}>${s.name}</option>`).join('');
+  return `<div class="card" style="padding:10px 12px;margin-bottom:10px">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:.7rem;color:var(--gold);white-space:nowrap">⭐ Cenário</span>
+        <select class="form-input" style="flex:1;min-width:120px;padding:4px 8px;font-size:.78rem" onchange="simSwitchScenario(this.value)">${opts}</select>
+        <button class="btn btn-outline" style="padding:4px 9px;font-size:.72rem" onclick="simNewScenario()" ${n>=max?'disabled':''} title="${n>=max?'Máximo atingido':'Duplica o cenário actual'}">+ Novo</button>
+        <button class="btn btn-outline" style="padding:4px 9px;font-size:.72rem" onclick="simRenameScenario()">Renomear</button>
+        ${n>1?`<button class="btn btn-outline" style="padding:4px 9px;font-size:.72rem" onclick="simDeleteScenario()">Apagar</button>`:''}
+      </div>
+      <div style="font-size:.66rem;color:var(--sub);margin-top:5px">${n} de ${max} cenários · o novo parte de uma cópia do actual</div>
+    </div>`;
 }
 
 // Compute group standings from real results (partial ok)
@@ -9378,12 +9480,15 @@ function simGroupDone(g){
 
 // Init or restore sim state
 function simEnsureInit(){
-  if(S.sim)return;
-  const saved=simLoad();
-  if(saved&&saved.groups&&saved.ko){S.sim=saved;return;}
-  // Fresh init from real results
-  S.sim={groups:{},thirds:[],ko:{}};
-  GRP_NAMES.forEach(g=>{S.sim.groups[g]=simAutoStandings(g);});
+  if(S.sim&&S.simEnv)return;
+  const env=simLoad();
+  if(env){ S.simEnv=env; S.sim=simActiveOf(env); if(S.sim) return; }
+  // Arranque de raiz, a partir dos resultados reais
+  const sim={groups:{},thirds:[],ko:{}};
+  GRP_NAMES.forEach(g=>{sim.groups[g]=simAutoStandings(g);});
+  const id=_simNewId();
+  S.simEnv={ v:2, active:id, scenarios:[{ id, name:'Cenário 1', sim }] };
+  S.sim=sim;
   simSave();
 }
 
@@ -9484,6 +9589,9 @@ function renderSim(){
   const champion=sim.ko&&sim.ko['FIN_01'];
 
   let h='';
+
+  // Barra de cenários (premium). Devolve '' para quem não tem passe.
+  h+=simScenarioBarHtml();
 
   // Banner
   h+=`<div class="sim-banner">
