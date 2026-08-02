@@ -826,24 +826,28 @@
     html.up-native .up-premium,
     html.up-native .up-premium-buy { display: none !important; }
 
-    /* Página do Premium: ocupa o ecrã todo (é uma página, não um popup). */
+    /* Páginas em ecrã inteiro (Premium, Badges, Estatísticas).
+       ⚠️ Os selectores são GENÉRICOS de propósito. Estiveram prefixados com
+       #premium-overlay e por isso não se aplicavam às outras páginas — que
+       ficavam encostadas à esquerda e sem scroll, por lhes faltar o
+       contentor. */
     #premium-overlay.open { display: block; }
-    #premium-overlay .up-page {
+    .up-page {
       position: fixed; inset: 0; z-index: 1000;
       background: var(--bg); overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
-    #premium-overlay .up-page-inner { max-width: 620px; margin: 0 auto; padding: 18px 16px 40px; }
-    #premium-overlay .up-close {
-      position: sticky; top: 0; display: flex; justify-content: flex-end;
+    .up-page-inner { max-width: 620px; margin: 0 auto; padding: 18px 16px 60px; }
+    .up-close {
+      position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end;
       padding: 6px 0 10px; background: var(--bg);
     }
-    #premium-overlay .up-perk {
+    .up-perk {
       display: flex; gap: 11px; align-items: flex-start;
       border: 1px solid var(--border); border-radius: 12px;
       padding: 12px; margin-bottom: 9px;
     }
-    #premium-overlay .up-soon {
+    .up-soon {
       font-size: .6rem; letter-spacing: .08em; text-transform: uppercase;
       color: var(--sub); border: 1px solid var(--border);
       border-radius: 5px; padding: 1px 5px; margin-left: 6px; white-space: nowrap;
