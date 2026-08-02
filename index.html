@@ -1298,7 +1298,7 @@ document.addEventListener('keydown', function(e){
   }
   async function loadDBFetch(gen) {
     if (gen === undefined) gen = DB_GEN;
-    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows] = await Promise.all([
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
@@ -1319,6 +1319,10 @@ document.addEventListener('keydown', function(e){
       // estiver aplicada o Promise.all rejeita e a app inteira deixa de
       // carregar. Mesma lição da coluna avatar (028).
       rest('v_premium_codes', 'code,competition_id', CF).catch(() => []),
+      // PREMIUM (035): distribuição da comunidade em jogos por começar.
+      // useAuth -> a view precisa do JWT para saber se sou premium; devolve
+      // vazio a quem não é. .catch -> [] pela mesma razão do de cima.
+      rest('v_live_rarity', 'game_id,t1,t2,n', CF, true, 'game_id').catch(() => []),
     ]);
     const pm = {}; predsRaw.forEach(r => { pm[r.code + '|' + r.game_id] = r; }); const allPreds = Object.values(pm);
     const results = {}; resultsRaw.forEach(r => { if (r.t1 != null && r.t2 != null) results[r.game_id] = { t1:+r.t1, t2:+r.t2, pen:r.pen || '' }; });
@@ -1344,7 +1348,20 @@ document.addEventListener('keydown', function(e){
     // PREMIUM (032): códigos com passe ativo. Vem vazio enquanto
     // premium_enabled='false' (a própria view filtra pelo kill-switch).
     const premiumCodes = (premiumRows || []).map(r => (r.code || '').toUpperCase());
-    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes };
+    // PREMIUM (035): { game_id: { total, list:[{t1,t2,n,pct}] } }, ordenado do
+    // resultado mais apostado para o menos. Vem vazio para quem não é premium.
+    const liveRarity = {};
+    (rarityRows || []).forEach(r => {
+      const g = r.game_id; if (!g) return;
+      (liveRarity[g] = liveRarity[g] || { total: 0, list: [] });
+      liveRarity[g].list.push({ t1: +r.t1, t2: +r.t2, n: +r.n });
+      liveRarity[g].total += +r.n;
+    });
+    Object.values(liveRarity).forEach(o => {
+      o.list.sort((a, b) => b.n - a.n);
+      o.list.forEach(x => { x.pct = o.total ? Math.round(x.n * 100 / o.total) : 0; });
+    });
+    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes, liveRarity };
     // A competição mudou enquanto esta leitura decorria: este snapshot é de
     // OUTRA competição. Não contaminar a cache nem devolvê-lo - refazer com o
     // filtro certo (o loadDB já vê DB_GEN novo, logo arranca um fetch limpo).
@@ -1401,7 +1418,8 @@ document.addEventListener('keydown', function(e){
     return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium,
              premiumCodes: db.premiumCodes || [],
              premiumEnabled: String(db.config.premium_enabled || 'false') === 'true',
-             premiumDeadlineMin: Number(db.config.premium_deadline_minutes || 0) };
+             premiumDeadlineMin: Number(db.config.premium_deadline_minutes || 0),
+             liveRarity: db.liveRarity || {} };
   }
 
   // ---- AUTH ----
@@ -2319,6 +2337,11 @@ document.addEventListener('keydown', function(e){
         <button class="btn btn-outline" style="padding:6px 12px;font-size:.78rem" onclick="showView('leaderboard')">← Classificação</button>
         <div style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:var(--gold)">LIGAS</div>
       </div>
+
+      <!-- Quota de ligas (5 free / 15 premium). Preenchido por
+           renderLeagueQuota(); fica vazio enquanto o premium estiver desligado,
+           porque nessa altura não há limite nenhum a comunicar. -->
+      <div id="league-quota-note" style="display:none;margin-bottom:12px"></div>
 
       <!-- Criar nova liga -->
       <div class="card" style="padding:14px;margin-bottom:12px">
@@ -4189,7 +4212,7 @@ const PREMIUM_LINKS={
 const PREMIUM_PERKS=[
   {i:'⏱️',t:'Apostas até ao apito',d:'Fechas a tua aposta até ao início do jogo. Sem premium, fecha uma hora antes.',soon:false},
   {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:false},
-  {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:true},
+  {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:false,nota:'Só em jogos com apostas suficientes, para não expor apostas individuais.'},
   {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição jornada a jornada, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:true},
   {i:'🎯',t:'Bracket multi-cenário',d:'Guardas vários cenários do mata-mata com nome, em vez de um só.',soon:true,nota:'Só disponível em competições com mata-mata.'},
 ];
@@ -4272,6 +4295,61 @@ function showPremium(){
 
   body.innerHTML=hero+perks+cta+comoFunciona;
 }
+/* Nota de quota na página das Ligas: quantas tenho / quantas posso ter.
+   Espelha a check_league_quota da BD (migration 031 + 034):
+     · sem premium_enabled não há limite nenhum -> não mostra nada;
+     · a WC2026 está isenta (foi jogada sem limite);
+     · conta as ligas em que ESTOU, não as que criei. */
+/* Raridade em tempo real (premium, migration 035). Mostra a distribuição da
+   comunidade num jogo AINDA POR COMEÇAR. O servidor já garante tudo o que
+   importa — só premium, só antes do apito, e só acima do mínimo de apostas —
+   por isso aqui basta desenhar o que vier. Se não vier nada, não se desenha
+   nada: é o comportamento certo para quem não é premium e para jogos com
+   poucas apostas. */
+function rarityBarHtml(gameId){
+  try{
+    const o=(S.liveRarity||{})[gameId];
+    if(!o||!o.list||!o.list.length) return '';
+    const top=o.list.slice(0,3);
+    const chips=top.map(x=>
+      `<span style="display:inline-block;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:1px 6px;margin-right:4px">
+         <b style="color:var(--text)">${x.t1}-${x.t2}</b> <span style="color:var(--gold)">${x.pct}%</span>
+       </span>`).join('');
+    return `<div style="font-size:.66rem;color:var(--sub);margin-top:7px;line-height:1.7">
+        <span title="Só tu vês isto: distribuição das apostas da comunidade antes do jogo começar">⭐ Comunidade</span> ${chips}
+        <span style="opacity:.7">· ${o.total} apostas</span>
+      </div>`;
+  }catch(e){ return ''; }
+}
+
+function renderLeagueQuota(){
+  const el=document.getElementById('league-quota-note');
+  if(!el) return;
+  if(!S.premiumEnabled || S.competition==='mundial2026'){ el.style.display='none'; return; }
+
+  const usadas=(S.leagues||[]).length;
+  const lim=S.premium?15:5;
+  const cheio=usadas>=lim;
+  const quase=!cheio && usadas>=lim-1;
+  const cor=cheio?'var(--red)':(quase?'var(--gold)':'var(--sub)');
+
+  // O convite a passar a premium não aparece na app Android (.up-premium).
+  const upsell=(!S.premium && !window.UP_IS_NATIVE)
+    ? `<div class="up-premium" style="margin-top:7px">
+         <span style="font-size:.72rem;color:var(--sub)">Com o Premium sobes para 15. </span>
+         <a href="#" onclick="event.preventDefault();showPremium()" style="font-size:.72rem;color:var(--gold);text-decoration:underline">Ver o Premium</a>
+       </div>` : '';
+
+  el.innerHTML=`<div class="card" style="padding:11px 13px">
+      <div style="font-size:.78rem;color:${cor};font-weight:600">
+        ${cheio?'⚠️ ':''}Estás em <b>${usadas}</b> de <b>${lim}</b> ligas nesta competição.
+      </div>
+      ${cheio?`<div style="font-size:.72rem;color:var(--sub);margin-top:4px;line-height:1.45">Para entrares noutra liga, sai primeiro de uma.</div>`:''}
+      ${upsell}
+    </div>`;
+  el.style.display='';
+}
+
 function closePremium(){
   const el=document.getElementById('premium-overlay');
   if(el){ el.classList.remove('open'); el.style.display='none'; }
@@ -4351,6 +4429,7 @@ function showLeaguePicker() {
   document.getElementById('header').style.display='none';
   document.getElementById('bottom-nav').style.display='none';
   syncAppFooter();
+  try{ renderLeagueQuota(); }catch(e){}
   // Garantir que o painel principal está visível e o de gestão escondido
   document.getElementById('league-picker-main').style.display='block';
   document.getElementById('league-manage-panel').style.display='none';
@@ -4493,6 +4572,7 @@ async function loadData() {
     S.premiumCodes = new Set(r.premiumCodes || []);
     S.premiumEnabled = !!r.premiumEnabled;
     S.premiumDeadlineMin = Number(r.premiumDeadlineMin || 0);
+    S.liveRarity = r.liveRarity || {};
     try{ if(typeof refreshPremiumEntry==='function') refreshPremiumEntry(); }catch(e){}
     // Acabou de pagar (voltou do Stripe com ?premium=ok). O webhook pode ainda
     // não ter escrito o passe quando esta leitura saiu, por isso: se já está
@@ -5651,6 +5731,7 @@ function renderBets() {
             </button>
             <div class="as-status" style="display:none" onclick="event.stopPropagation()"></div>
             <button class="card-clear-btn" style="${(isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
+            ${rarityBarHtml(g.id)}
             `:`${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
             ${lv
               ?`<div style="text-align:center;font-size:.72rem;margin-top:5px">${hasPred?`A tua aposta: <strong>${pred.t1}-${pred.t2}</strong>${pot?` · <span class="live-dot" style="animation:none">potencial +${pot.tot}</span>${pot.rar?` <span style="color:#f39c12">⭐+${pot.rar}</span>`:''}${pot.jok?` <span style="color:#00bcd4">J+${pot.jok}</span>`:''}`:''}`:'<span style="color:var(--sub)">Sem aposta neste jogo</span>'} <span style="color:var(--sub)">· 👆 ver todos</span></div>`
@@ -8462,6 +8543,9 @@ async function loadMyLeagues() {
   try {
     const r = await api('getMyLeagues', {code: S.user.code});
     S.leagues = r.leagues || [];
+    // A quota depende do nº de ligas -> refrescar sempre que a lista mudar
+    // (criar, entrar, sair). Sem isto o número ficava desatualizado no ecrã.
+    try{ if(typeof renderLeagueQuota==='function') renderLeagueQuota(); }catch(e){}
     // Sync curLeague reference to fresh data (prevents stale member lists)
     if (S.curLeague) {
       S.curLeague = S.leagues.find(l => l.id === S.curLeague.id) || null;
