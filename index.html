@@ -5177,7 +5177,9 @@ function insightsBtnHtml(gameId){
     const it=(S.insights||{})[gameId];
     if(!it) return '';
     const cor=it.locked?'var(--sub)':'var(--gold)';
-    return `<button onclick="showInsights('${gameId}')" title="${it.locked?'Insights (Premium)':'Ver insights deste jogo'}"
+    // stopPropagation: alguns cartões de jogo têm onclick próprio (abrir o
+    // modal das apostas de todos). Sem isto, carregar no ⚡ abria os dois.
+    return `<button onclick="event.stopPropagation();showInsights('${gameId}')" title="${it.locked?'Insights (Premium)':'Ver insights deste jogo'}"
       style="margin-left:4px;flex-shrink:0;background:var(--bg2);border:1px solid ${cor};color:${cor};border-radius:5px;font-size:.6rem;font-weight:700;padding:2px 5px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4">⚡</button>`;
   }catch(e){ return ''; }
 }
@@ -6736,7 +6738,7 @@ function renderBetsKO() {
     html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||(locked&&knownTeams))?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
       <div class="game-meta">
         <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</span>
-        <span>${dlWarn}${ptsHtml}</span>
+        <span>${dlWarn}${ptsHtml}${insightsBtnHtml(g.id)}</span>
       </div>
       <div class="game-teams">
         <div class="team-name${t1ph}">${flag(t1)}${t1}${isFinished&&res.pen==='t1'?'<span class="pen-star" title="Passou por penáltis">★</span>':''}</div>
@@ -6871,7 +6873,7 @@ function renderBets() {
       html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||locked)?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
         <div class="game-meta">
           <span><span class="grp-badge">Gr.${g.g}</span>${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})} · ${g.venue}</span>
-          <span>${dlWarn}${ptsHtml}</span>
+          <span>${dlWarn}${ptsHtml}${insightsBtnHtml(g.id)}</span>
         </div>
         <div class="game-teams">
           <div class="team-name">${flag(g.t1)}${g.t1}</div>
