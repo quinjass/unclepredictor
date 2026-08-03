@@ -1465,6 +1465,11 @@ document.addEventListener('keydown', function(e){
              premiumCodes: db.premiumCodes || [],
              premiumEnabled: String(db.config.premium_enabled || 'false') === 'true',
              premiumDeadlineMin: Number(db.config.premium_deadline_minutes || 0),
+             // Preços vêm da BD (055): mudar de preço não obriga a publicar.
+             premiumPriceCents: Number(db.config.premium_price_cents || 499),
+             premiumSeasonCents: Number(db.config.premium_season_price_cents || 799),
+             insightsEnabled: String(db.config.insights_enabled || 'false') === 'true',
+             referralsEnabled: String(db.config.referrals_enabled || 'false') === 'true',
              liveRarity: db.liveRarity || {},
              badgeDefs: db.badgeDefs || [], myBadges: db.myBadges || [],
              badgeCounts: db.badgeCounts || {},
@@ -1771,7 +1776,50 @@ document.addEventListener('keydown', function(e){
         });
         return { leagues };
       }
-      if (action === 'getSocial') { const db = await loadDB(); const lid = data.league_id; const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji })); const comments = db.comments.filter(c => c.league_id === lid).map(c => ({ jornada:String(c.jornada||''), code:(c.code||'').toUpperCase(), name:c.name, text:c.text, at:c.created_at })); return { reactions, comments }; }
+      if (action === 'getSocial') {
+        const db = await loadDB(); const lid = data.league_id;
+        const reactions = db.reactions.filter(r => r.league_id === lid).map(r => ({ from:(r.from_code||'').toUpperCase(), target:(r.target_code||'').toUpperCase(), emoji:r.emoji }));
+        // BANCADA → FEED (3 Ago 2026). O rpc_league_feed devolve as mensagens
+        // dos jogadores E os eventos automáticos do jogo, já com as reações
+        // agregadas. Se a migration 051 ainda não estiver aplicada, a chamada
+        // falha e caímos na leitura antiga da cache — a app não muda de
+        // comportamento nenhum. É de propósito: isto tem de funcionar antes E
+        // depois de correres a migration.
+        let comments = null;
+        try {
+          const feed = await rpc('rpc_league_feed', { p_lid: lid, p_limit: 200 }, true);
+          if (Array.isArray(feed)) {
+            comments = feed.map(f => ({
+              id: f.id, kind: f.kind || 'user',
+              code: (f.code || '').toUpperCase(), name: f.nome,
+              text: f.texto, payload: f.payload || null,
+              jornada: String(f.jornada || ''), at: f.at,
+              reacoes: f.reacoes || {}, minha: f.minha || null,
+            }));
+          }
+        } catch (e) { /* 051 por aplicar → fallback abaixo */ }
+        if (!comments) {
+          comments = db.comments.filter(c => c.league_id === lid).map(c => ({
+            id: null, kind: 'user', code:(c.code||'').toUpperCase(), name:c.name,
+            text:c.text, payload:null, jornada:String(c.jornada||''), at:c.created_at,
+            reacoes:{}, minha:null,
+          }));
+        }
+        // Silenciou esta liga? (RLS só devolve as linhas do próprio)
+        let muted = false;
+        try {
+          const m = await rest('league_mutes', 'league_id', 'league_id=eq.' + encodeURIComponent(lid), true);
+          muted = Array.isArray(m) && m.length > 0;
+        } catch (e) { /* 051 por aplicar */ }
+        return { reactions, comments, muted };
+      }
+      // Reagir a uma mensagem ou evento do feed (toggle no servidor).
+      if (action === 'reactComment') { await rpc('rpc_react_comment', { p_comment: data.comment_id, p_emoji: data.emoji || null }, true); return { success: true }; }
+      // Silenciar/reativar os eventos de uma liga (obrigatório: sem isto, quem
+      // está em várias ligas recebe push a mais e desinstala a app).
+      if (action === 'muteLeague') { await rpc('rpc_mute_league', { p_lid: data.league_id, p_mute: data.mute !== false }, true); return { success: true }; }
+      // Apagar um item do feed pelo id (eventos do sistema: só o dono da liga).
+      if (action === 'deleteFeedItem') { await rpc('rpc_delete_feed_item', { p_comment: data.comment_id }, true); DB = null; return { success: true }; }
       if (action === 'getUsers') { const db = await loadDB(); return { users: db.participants.map(p => ({ code:p.code, name:dispName(p), realName:p.name, nickname:p.nickname||null })) }; }
       // BADGES: recalcula os do próprio e devolve quantos níveis novos saíram.
       // A RPC trata da notificação no sino.
@@ -1835,6 +1883,57 @@ document.addEventListener('keydown', function(e){
       if (action === 'reportComment') { await rpc('rpc_report_comment', { p_lid: data.league_id, p_comment_code: data.comment_code, p_comment_at: data.comment_at || '', p_comment_text: data.comment_text || '' }, true); return { success: true }; }
       if (action === 'deleteComment') { await rpc('rpc_delete_comment', { p_lid: data.league_id, p_comment_code: data.comment_code, p_comment_at: data.comment_at || '' }, true); DB = null; return { success: true }; }
       if (action === 'blockUser') { const blocked = await rpc('rpc_block_user', { p_target: data.target_code, p_block: data.block !== false }, true); DB = null; return { success: true, blocked }; }
+
+      // ---- TRIAL / INSIGHTS / EMBAIXADORES (3 Ago 2026) ----
+      // Todos com falha suave: se a migration respetiva ainda não estiver
+      // aplicada, devolvem o estado "desligado" em vez de rebentar. É o que
+      // permite publicar o frontend antes ou depois das migrations.
+      if (action === 'trialState') {
+        try { const r = await rpc('rpc_trial_state', { p_comp: data.competition_id || COMP }, true); return r || {}; }
+        catch (e) { return { disponivel: false, ativo: false }; }
+      }
+      if (action === 'startTrial') {
+        try { const r = await rpc('rpc_start_trial', { p_comp: data.competition_id || COMP }, true); DB = null; return { success: true, expira: r && r.expira, jornadas: r && r.jornadas }; }
+        catch (e) {
+          let msg = 'Não foi possível activar o período de teste.';
+          try { const m = String(e.message || '').match(/\{.*\}/); if (m) { const j = JSON.parse(m[0]); if (j.message) msg = j.message; } } catch (e2) {}
+          return { success: false, error: msg };
+        }
+      }
+      if (action === 'getInsights') {
+        try { const r = await rpc('rpc_insights', { p_comp: data.competition_id || COMP, p_md: data.md != null ? String(data.md) : null }, true); return { insights: Array.isArray(r) ? r : [] }; }
+        catch (e) { return { insights: [] }; }
+      }
+      if (action === 'myReferrals') {
+        try { const r = await rpc('rpc_my_referrals', {}, true); return r || { enabled: false }; }
+        catch (e) { return { enabled: false }; }
+      }
+      if (action === 'setReferrer') {
+        try { const ok = await rpc('rpc_set_referrer', { p_referrer: String(data.ref || '').toUpperCase() }, true); return { success: ok === true }; }
+        catch (e) { return { success: false }; }
+      }
+
+      // ---- CONVITE POR LINK (3 Ago 2026) ----
+      // Uma chamada faz tudo: inscreve na competição da liga e entra na liga.
+      // O convidado que veio de /j/ nunca escreve um código nem escolhe uma
+      // competição. Falha suave: devolve { error } em vez de rebentar, para o
+      // arranque da app nunca ficar preso por causa de um convite inválido.
+      if (action === 'joinByInvite') {
+        try {
+          const r = await rpc('rpc_join_by_invite', { p_invite: String(data.invite || '').toUpperCase() }, true);
+          DB = null;
+          const lg = r && r.liga ? r.liga : null;
+          // regista o passo final do funil (best-effort, nunca bloqueia)
+          if (data.sid) { try { await rpc('rpc_track_invite', { p_sid: data.sid, p_step: 'joined', p_invite: String(data.invite || ''), p_league: lg ? lg.id : null }); } catch (e) {} }
+          return { success: true, competition: r ? r.competicao : null, leagueName: lg ? lg.name : '', league: lg };
+        } catch (e) {
+          // O rpc() atira o corpo cru do PostgREST. Extrair só a mensagem da
+          // exceção SQL (as nossas raise exception já estão em português).
+          let msg = 'Não foi possível entrar na liga.';
+          try { const m = String(e.message || '').match(/\{.*\}/); if (m) { const j = JSON.parse(m[0]); if (j.message) msg = j.message; } } catch (e2) {}
+          return { success: false, error: msg };
+        }
+      }
 
       // ---- NOTIFICAÇÕES / PREFS ----
       if (action === 'saveNotifPrefs') { await rpc('rpc_save_notif_prefs', { p_prefs: data.prefs || {} }, true); DB = null; return { success: true }; }
@@ -2009,6 +2108,10 @@ document.addEventListener('keydown', function(e){
          de compra -> pode aparecer na app. Só se mostra a quem tem passe, por
          isso a app nunca chega sequer a mencionar o premium. -->
     <button id="btn-stats" class="btn btn-outline btn-full" style="display:none;margin-bottom:8px" onclick="closeAccountMenu();showStats()">📊 Estatísticas avançadas</button>
+    <!-- Embaixadores: convidar dá passes. NÃO leva .up-premium — não menciona
+         preço nem link de compra, só marcos e o link de convite. Pode aparecer
+         na app. O JS só o mostra se referrals_enabled='true'. -->
+    <button id="btn-embaixadores" class="btn btn-outline btn-full" style="display:none;margin-bottom:8px" onclick="closeAccountMenu();showEmbaixadores()">🤝 Convidar amigos</button>
     <!-- Badges: para TODOS, não é premium. -->
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showBadges()">🏅 Badges</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
@@ -2043,6 +2146,17 @@ document.addEventListener('keydown', function(e){
     <div class="up-page-inner">
       <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closeStats()">✕ Fechar</button></div>
       <div id="stats-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Embaixadores. Reaproveita o CSS .up-page. Sem .up-premium: não fala de
+     preços, só de marcos e do link de convite — pode aparecer na app. -->
+<div id="embaixadores-overlay" style="display:none">
+  <div class="up-page">
+    <div class="up-page-inner">
+      <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closeEmbaixadores()">✕ Fechar</button></div>
+      <div id="embaixadores-body"></div>
     </div>
   </div>
 </div>
@@ -2476,6 +2590,21 @@ document.addEventListener('keydown', function(e){
           <button class="btn btn-outline" style="font-size:.73rem;padding:4px 10px" onclick="copyInviteCode()">📋 Copiar</button>
         </div>
         <div style="font-size:.72rem;color:var(--sub);margin-top:4px">Partilha este código para convidar jogadores</div>
+      </div>
+
+      <!-- Convidar por link (3 Ago 2026) ─────────────────────────────────────
+           O código escrito à mão é a maior fonte de desistência do convite:
+           quem recebe tem de o copiar, abrir a app, procurar a liga e colar.
+           O link leva o código consigo e entra na liga sozinho. -->
+      <div class="card" style="padding:12px;margin-bottom:12px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:4px">🔗 Convidar por link</div>
+        <div style="font-size:.72rem;color:var(--sub);margin-bottom:9px">Quem receber entra direto nesta liga — sem escrever códigos.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" style="font-size:.78rem;padding:7px 13px" onclick="shareLeagueWhatsApp()">💬 WhatsApp</button>
+          <button class="btn btn-outline" style="font-size:.78rem;padding:7px 13px" onclick="shareLeagueNative()">📤 Partilhar</button>
+          <button class="btn btn-outline" style="font-size:.78rem;padding:7px 13px" onclick="copyLeagueLink()">🔗 Copiar link</button>
+        </div>
+        <div id="league-link-preview" style="font-size:.68rem;color:var(--sub);margin-top:8px;word-break:break-all"></div>
       </div>
 
       <!-- Convidar jogador -->
@@ -3106,10 +3235,16 @@ const DEMO_SOCIAL = {
     {from:'JOAO26',target:'HUGO26',emoji:'👑'},
     {from:'PEDRO26',target:'JOAO26',emoji:'😂'},
   ],
+  // Forma unificada do feed: eventos do sistema (kind != 'user') misturados com
+  // as mensagens. Serve para a demo mostrar a bancada como ela fica de facto.
   comments:[
-    {jornada:'1',code:'JOAO26',name:'JOÃO',text:'Esse 4-0 à Alemanha foi sonho ou aposta? 😂',at:'2026-06-14T22:10:00Z'},
-    {jornada:'1',code:'HUGO26',name:'HUGO',text:'Confia no processo 💎',at:'2026-06-14T22:12:00Z'},
+    {id:'d1',kind:'pending',code:null,name:null,text:'Faltam 2h para o fecho. Já apostaram 4 de 5 — falta o PEDRO.',payload:null,jornada:'1',at:'2026-06-14T18:00:00Z',reacoes:{},minha:null},
+    {id:'d2',kind:'game_result',code:null,name:null,text:'Alemanha 4–0 Escócia. O HUGO foi o único da liga a acertar em cheio. +5 pts',payload:null,jornada:'1',at:'2026-06-14T22:05:00Z',reacoes:{'🔥':2},minha:null},
+    {id:'d3',kind:'user',jornada:'1',code:'JOAO26',name:'JOÃO',text:'Esse 4-0 à Alemanha foi sonho ou aposta? 😂',payload:null,at:'2026-06-14T22:10:00Z',reacoes:{},minha:null},
+    {id:'d4',kind:'user',jornada:'1',code:'HUGO26',name:'HUGO',text:'Confia no processo 💎',payload:null,at:'2026-06-14T22:12:00Z',reacoes:{'😂':1},minha:null},
+    {id:'d5',kind:'round_close',code:null,name:null,text:'Jornada 1 fechada. Melhor da jornada: HUGO (11 pts). Líder da liga: HUGO.',payload:null,jornada:'1',at:'2026-06-14T23:30:00Z',reacoes:{},minha:null},
   ],
+  muted:false,
 };
 
 function seededRng(seed) {
@@ -3941,6 +4076,9 @@ const COMP_FALLBACK={mundial2026:'🏆',ucl2627:'⭐',pl2627:'⚽'};
 // Mapa id-do-frontend → id-na-base-de-dados. Modo dev (?dev / localStorage up_dev='1')
 // desbloqueia a entrada de teste nas competições 'soon' - invisível ao público.
 const COMP_DB_ID={mundial2026:'WC2026',ucl2627:'UCL2627',pl2627:'PL2627'};
+// Mapa inverso (id da BD → id do frontend). Usado pelo convite por link, que
+// só conhece o id da BD devolvido pelo rpc_join_by_invite.
+const COMP_ID_BY_DB=Object.keys(COMP_DB_ID).reduce((a,k)=>{a[COMP_DB_ID[k]]=k;return a;},{});
 const isLeagueComp=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !!(c&&c.format==='league');};
 // Competições cujo formato ainda não tem vista construída (só o Mundial 'cup' tem).
 const compHasNoView=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !!(c&&c.format&&c.format!=='cup');};
@@ -3997,6 +4135,62 @@ function showCompetitions(){
     }).catch(()=>{});
   }
   window.scrollTo(0,0);
+  // Convite pendente vindo de /j/ (ver consumePendingInvite). Não bloqueia
+  // nada: se falhar, o utilizador fica na página de competições como sempre.
+  try{ consumePendingInvite(); }catch(e){}
+  try{ consumePendingReferrer(); }catch(e){}
+}
+
+// ── CONVITE PENDENTE (3 Ago 2026) ───────────────────────────────────────────
+// A página /j/ guarda o código de convite em localStorage antes de mandar o
+// visitante criar conta. Quando ele volta autenticado, isto inscreve-o na
+// competição E na liga de uma só vez (rpc_join_by_invite, migration 054).
+// O convidado nunca escreve um código nem escolhe uma competição.
+const UP_PENDING_INVITE = 'up_pending_invite';
+const UP_PENDING_REF = 'up_pending_ref';
+
+// ── PADRINHO (?ref=CODIGO) ──────────────────────────────────────────────────
+// Corre no arranque, ANTES de haver sessão: guarda o código de quem convidou.
+// Depois do login, o consumePendingReferrer() regista-o. É 1 padrinho por
+// conta, para sempre — o servidor garante isso, e também que não se pode ser
+// padrinho de si próprio nem fazer ciclos.
+(function captureRef(){
+  try{
+    const m=location.search.match(/[?&]ref=([A-Za-z0-9]{3,20})/);
+    if(m&&m[1]) localStorage.setItem(UP_PENDING_REF, m[1].toUpperCase());
+  }catch(e){}
+})();
+async function consumePendingReferrer(){
+  if(S.demoMode||!S.user||!S.user.code) return;
+  let ref=null; try{ ref=localStorage.getItem(UP_PENDING_REF); }catch(e){ return; }
+  if(!ref) return;
+  // consumir sempre: o servidor tem uma janela de 7 dias e recusa em silêncio
+  // o que não for válido; insistir em cada arranque não traria nada.
+  try{ localStorage.removeItem(UP_PENDING_REF); }catch(e){}
+  if(ref===String(S.user.code).toUpperCase()) return;
+  try{ await api('setReferrer',{ref:ref}); }catch(e){}
+}
+async function consumePendingInvite(){
+  if(S.demoMode || !S.user || !S.user.code) return;
+  let raw=null; try{ raw=localStorage.getItem(UP_PENDING_INVITE); }catch(e){ return; }
+  if(!raw) return;
+  let inv='', sid='';
+  try{ const o=JSON.parse(raw); inv=String(o.invite||'').toUpperCase(); sid=String(o.sid||''); }
+  catch(e){ inv=String(raw).toUpperCase(); }
+  // consumir SEMPRE, mesmo que falhe: senão ficava a tentar em cada arranque
+  try{ localStorage.removeItem(UP_PENDING_INVITE); }catch(e){}
+  if(!inv) return;
+  try{
+    const r = await api('joinByInvite', { invite: inv, sid: sid });
+    if(r && r.success){
+      showToast('Já estás na liga ' + (r.leagueName || '') + '!', 'success');
+      if(r.competition && COMP_ID_BY_DB && COMP_ID_BY_DB[r.competition]){
+        await enterCompetition(COMP_ID_BY_DB[r.competition]);
+      }
+    } else if(r && r.error){
+      showToast(r.error, 'error');
+    }
+  }catch(e){ /* silencioso: nunca estragar o arranque */ }
 }
 function compCard(c){
   const img=COMP_EMBLEM[c.id]||''; const emo=COMP_FALLBACK[c.id]||'🏆';
@@ -4231,7 +4425,11 @@ async function enterCompetition(id){
   S.lb=[]; S.lbPrev=null; S.lbReady=false; S.rarityMap={};
   S.preds={}; S.savedCards={}; S.prebets={}; S.allPreds={}; S.allPrebets={};
   S.results={}; S.koTeams={}; S.specials={}; S.live={}; S.scorers=[];
+  S.insights={};
   try{ await loadData(); }catch(e){}
+  // Insights depois do loadData (precisa de saber se sou premium e se o
+  // kill-switch está ligado). Não bloqueia: o botão ⚡ aparece quando chegar.
+  loadInsights().then(()=>{ if(S.curView==='games'||S.curView==='bets')showView(S.curView); }).catch(()=>{});
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
 }
@@ -4304,12 +4502,28 @@ let PREMIUM_LINKS={
   ucl2627:'https://buy.stripe.com/test_3cIdR955l0wa0VD8ZS5kk00',
   pl2627 :'https://buy.stripe.com/test_aFacN555ldiW8o56RK5kk01',
 };
+/* Preços (cêntimos). Fonte de verdade = config na BD; isto é só rede de
+   segurança. Mudar de preço faz-se na BD, sem publicar o frontend. */
+let PREMIUM_PRICE_CENTS=499;
+let PREMIUM_SEASON_CENTS=799;
+function eur(cents){
+  const v=(Number(cents)||0)/100;
+  return v.toFixed(2).replace('.',',')+' €';
+}
+/* O link do Passe Época só conta se já for um link real do Stripe. Enquanto
+   estiver o marcador da migration 055, o cartão do passe de época nem aparece
+   — mais vale não existir do que existir e dar erro ao carregar. */
+function premiumSeasonLink(){
+  const l=PREMIUM_LINKS.season||'';
+  return /^https:\/\/buy\.stripe\.com\//.test(l)?l:null;
+}
 /* Vantagens. `soon:true` mostra a etiqueta "Em breve" — pôr a false à medida
    que cada uma fica pronta. NÃO listar o badge ⭐ (decisão do Hugo, 2 Ago: não
    é uma vantagem real). "Sem anúncios" só entra quando houver anúncios a
    servir — o AdSense ainda está em revisão e prometer a ausência de algo que
    não existe não vende nada. */
 const PREMIUM_PERKS=[
+  {i:'⚡',t:'Insights de jogo',d:'Antes de cada jogo: o que as casas de apostas dizem, a forma das equipas, o confronto direto e onde está o resultado que a comunidade está a subestimar.',soon:false,nota:'Só informação pública e agregada. Nunca mostra apostas individuais.'},
   {i:'⏱️',t:'Apostas até ao apito',d:'Fechas a tua aposta até ao início do jogo. Sem premium, fecha uma hora antes.',soon:false},
   {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:false},
   {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:false,nota:'Só em jogos com apostas suficientes, para não expor apostas individuais.'},
@@ -4329,6 +4543,9 @@ function refreshPremiumEntry(){
     // porque não menciona preço nem compra.
     const st=document.getElementById('btn-stats');
     if(st) st.style.display=(S.premiumEnabled && S.premium)?'':'none';
+    // Embaixadores: não menciona preços, por isso aparece também na app.
+    const em=document.getElementById('btn-embaixadores');
+    if(em) em.style.display=S.referralsEnabled?'':'none';
     const p=document.getElementById('premium-pill');           // barra superior
     if(p){
       p.style.display=show?'':'none';
@@ -4392,14 +4609,93 @@ function showPremium(){
   }
 
   const link=PREMIUM_LINKS[compKey];
+  const ref=encodeURIComponent((S.user&&S.user.code)||'');
+  const seasonLink=premiumSeasonLink();
+
+  /* Trial. Nunca activa sozinho (decisão do Hugo): é preciso carregar. Só
+     aparece a quem ainda não o usou esta época e ainda não tem passe. */
+  const tr=S.trial||{};
+  const trialCta = (tr.disponivel && !S.premium)
+    ? `<div class="up-premium-buy" style="text-align:center;margin-top:14px">
+         <button class="btn btn-outline btn-full" style="font-size:.88rem;padding:11px" onclick="startTrial()">
+           Experimentar ${tr.jornadas||2} jornadas grátis
+         </button>
+         <div style="font-size:.68rem;color:var(--sub);margin-top:7px;line-height:1.5">
+           Sem cartão e sem compromisso. Acaba sozinho — não há nada a cancelar.</div>
+       </div>`
+    : '';
+
+  /* Os dois produtos lado a lado. A comparação é o que faz o Passe Época
+     funcionar: sozinho parece caro, ao lado do avulso é que se percebe. */
+  const poupa = (PREMIUM_PRICE_CENTS*2)-PREMIUM_SEASON_CENTS;
   const cta = link
-    ? `<a class="up-premium-buy btn btn-primary btn-full" style="display:block;text-align:center;text-decoration:none;margin-top:18px;font-size:.95rem;padding:13px"
-           href="${link}?client_reference_id=${encodeURIComponent((S.user&&S.user.code)||'')}">Obter premium · 5,00 €</a>
-       <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:9px;line-height:1.5">
+    ? `<div style="margin-top:18px;display:flex;flex-direction:column;gap:10px">
+         <a class="up-premium-buy" style="display:block;text-decoration:none;border:1px solid var(--border);border-radius:12px;padding:13px 14px"
+            href="${link}?client_reference_id=${ref}">
+           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+             <div>
+               <div style="font-size:.88rem;color:var(--text);font-weight:600">Passe de Competição</div>
+               <div style="font-size:.72rem;color:var(--sub);margin-top:2px">Só ${compName||'esta competição'}</div>
+             </div>
+             <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.25rem;color:var(--gold);white-space:nowrap">${eur(PREMIUM_PRICE_CENTS)}</div>
+           </div>
+         </a>
+         ${seasonLink?`
+         <div class="up-premium-buy" style="position:relative">
+           <span style="position:absolute;top:-8px;left:12px;z-index:1;background:var(--gold);color:var(--bg);font-size:.62rem;font-weight:700;letter-spacing:.05em;padding:2px 8px;border-radius:5px">MAIS POPULAR</span>
+           <a style="display:block;text-decoration:none;border:2px solid var(--gold);border-radius:12px;padding:14px" href="${seasonLink}?client_reference_id=${ref}">
+             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+               <div>
+                 <div style="font-size:.88rem;color:var(--text);font-weight:600">Passe Época</div>
+                 <div style="font-size:.72rem;color:var(--sub);margin-top:2px">Premier League + Champions${poupa>0?` · poupas ${eur(poupa)}`:''}</div>
+               </div>
+               <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.25rem;color:var(--gold);white-space:nowrap">${eur(PREMIUM_SEASON_CENTS)}</div>
+             </div>
+           </a>
+         </div>`:''}
+       </div>
+       ${trialCta}
+       <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:11px;line-height:1.5">
          Pagamento seguro através do Stripe.<br>O passe fica activo assim que o pagamento for confirmado.</div>`
-    : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível nesta competição.</div>`;
+    : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível nesta competição.</div>${trialCta}`;
 
   body.innerHTML=hero+perks+cta+comoFunciona;
+}
+
+/* ═══ TRIAL DE 2 JORNADAS ═══════════════════════════════════════════════════
+   Opt-in por decisão do Hugo: nunca se activa sozinho. Quem experimenta e
+   deixa acabar tem muito mais probabilidade de comprar do que quem nunca viu
+   as vantagens — mas quem é empurrado para um teste que não pediu fica com má
+   impressão. Daí o botão. */
+async function startTrial(){
+  if(window.UP_IS_NATIVE) return;
+  if(!S.user||!S.user.code){ showToast('Inicia sessão primeiro.','error'); return; }
+  const comp=COMP_DB_ID[S.competition];
+  if(!comp) return;
+  try{
+    const r=await api('startTrial',{competition_id:comp});
+    if(r&&r.success){
+      S.premium=true;
+      S.trial=Object.assign({},S.trial,{disponivel:false,ativo:true,expira:r.expira});
+      showToast('Período de teste activo! Aproveita.','success');
+      refreshPremiumEntry();
+      showPremium();          // redesenha a página já com o passe activo
+      loadData();
+    }else{
+      showToast((r&&r.error)||'Não foi possível activar.','error');
+    }
+  }catch(e){ showToast('Não foi possível activar.','error'); }
+}
+/* Faixa discreta a lembrar quando o teste acaba. Aparece no topo da
+   classificação enquanto o trial estiver a correr. */
+function trialBannerHtml(){
+  const tr=S.trial||{};
+  if(!tr.ativo||!tr.expira) return '';
+  const dias=Math.max(0,Math.ceil((new Date(tr.expira)-new Date())/86400000));
+  return `<div class="up-premium" style="background:var(--bg2);border:1px solid var(--gold);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.75rem;color:var(--text);line-height:1.5">
+    ⭐ Estás a testar o Premium. ${dias>0?`Faltam ${dias} ${dias===1?'dia':'dias'}.`:'Acaba hoje.'}
+    <span style="color:var(--gold);cursor:pointer;text-decoration:underline" onclick="showPremium()">Ver planos</span>
+  </div>`;
 }
 /* Nota de quota na página das Ligas: quantas tenho / quantas posso ter.
    Espelha a check_league_quota da BD (migration 031 + 034):
@@ -4529,6 +4825,125 @@ function showBadges(_manter){
 }
 function closeBadges(){
   const el=document.getElementById('badges-overlay');
+  if(el) el.style.display='none';
+  document.body.style.overflow='';
+}
+
+/* ═══ EMBAIXADORES ══════════════════════════════════════════════════════════
+   O utilizador vê MARCOS, nunca créditos (decisão do Hugo, 3 Ago). O ledger
+   de créditos existe por baixo para auditoria e clawback, mas expor "1 crédito
+   = 10 cêntimos" obrigaria a pessoa a fazer contas — e um programa que precisa
+   de explicação converte pior do que "3 amigos → 1 passe".
+
+   "Ativo" não é quem se regista: é quem apostou em 3 jornadas distintas ao
+   longo de pelo menos 14 dias. É esse critério que torna o farming caro em
+   TEMPO, que é a única moeda que o aldrabão não consegue imprimir. */
+function embaixadorLink(){
+  const c=(S.user&&S.user.code)||'';
+  return 'https://unclepredictor.pt/?ref='+encodeURIComponent(c);
+}
+function embaixadorMsg(){
+  return 'Anda jogar Uncle Predictor comigo ⚽\nPrevês os resultados, desafias os teus amigos. É grátis.\n'+embaixadorLink();
+}
+function shareEmbaixadorWhatsApp(){
+  window.open('https://wa.me/?text='+encodeURIComponent(embaixadorMsg()),'_blank');
+}
+async function shareEmbaixadorNative(){
+  if(navigator.share){ try{ await navigator.share({text:embaixadorMsg()}); }catch(e){} return; }
+  copyEmbaixadorLink();
+}
+function copyEmbaixadorLink(){
+  const l=embaixadorLink();
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(l).then(()=>showToast('Link copiado!','success')).catch(()=>{});
+  }else{
+    const ta=document.createElement('textarea'); ta.value=l; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); showToast('Link copiado!','success'); }catch(e){}
+    document.body.removeChild(ta);
+  }
+}
+async function showEmbaixadores(){
+  const ov=document.getElementById('embaixadores-overlay');
+  const body=document.getElementById('embaixadores-body');
+  if(!ov||!body) return;
+  ov.style.display='block'; document.body.style.overflow='hidden';
+  body.innerHTML='<div class="loading-center" style="padding:30px"><div class="spinner"></div></div>';
+
+  let d={};
+  try{ d=await api('myReferrals')||{}; }catch(e){ d={}; }
+  const marcos=Array.isArray(d.marcos)?d.marcos:[];
+  const ativos=Number(d.ativos||0);
+  const convidados=Number(d.convidados||0);
+  const atingidos=(d.atingidos||[]).reduce((a,x)=>{a[x.milestone]=x;return a;},{});
+  const proximo=marcos.find(m=>ativos<Number(m.n));
+
+  const REWARD_TXT={
+    competition:'Passe Premium de uma competição',
+    season:'Passe Época (Premier + Champions)',
+    season_x2:'Passe Época esta época e a seguinte',
+  };
+
+  const hero=`<div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:2.2rem;line-height:1">🤝</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.6rem;margin-top:4px">Convidar amigos</div>
+      <div style="font-size:.82rem;color:var(--sub);line-height:1.55;margin-top:6px">
+        Traz gente para o jogo e ganhas passes Premium.<br>Quantos mais jogarem, melhor fica a tua liga.</div>
+    </div>`;
+
+  const progresso=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;text-align:center">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:2.1rem;color:var(--gold);line-height:1">${ativos}</div>
+      <div style="font-size:.75rem;color:var(--sub);margin-top:2px">${ativos===1?'amigo a jogar a sério':'amigos a jogar a sério'}</div>
+      ${convidados>ativos?`<div style="font-size:.7rem;color:var(--sub);opacity:.8;margin-top:6px">${convidados-ativos} ainda a começar</div>`:''}
+      ${proximo?`<div style="font-size:.75rem;color:var(--text);margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+        Faltam <b style="color:var(--gold)">${Number(proximo.n)-ativos}</b> para ${REWARD_TXT[proximo.reward]||'o próximo prémio'}</div>`:''}
+    </div>`;
+
+  const lista=marcos.map(m=>{
+    const n=Number(m.n), feito=!!atingidos[n], perto=!feito&&ativos>=n;
+    const cor=feito?'var(--green)':(perto?'var(--gold)':'var(--border)');
+    const pct=Math.min(100,Math.round(ativos/n*100));
+    return `<div style="border:1px solid ${cor};border-radius:11px;padding:12px;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div>
+          <div style="font-size:.85rem;font-weight:600;color:var(--text)">${feito?'✅ ':''}${escapeHtml(m.label||n+' amigos')} · ${n} amigos</div>
+          <div style="font-size:.73rem;color:var(--sub);margin-top:2px">${REWARD_TXT[m.reward]||''}</div>
+        </div>
+        ${feito?`<span style="font-size:.66rem;color:var(--green);font-weight:700;white-space:nowrap">${atingidos[n].granted?'RECEBIDO':'A CONFIRMAR'}</span>`:''}
+      </div>
+      ${!feito?`<div style="height:5px;background:var(--bg2);border-radius:3px;margin-top:9px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:var(--gold)"></div></div>`:''}
+    </div>`;
+  }).join('');
+
+  const partilha=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin:16px 0">
+      <div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:9px">O teu link</div>
+      <div style="font-size:.72rem;color:var(--sub);word-break:break-all;margin-bottom:11px">${escapeHtml(embaixadorLink())}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" style="font-size:.8rem;padding:8px 14px" onclick="shareEmbaixadorWhatsApp()">💬 WhatsApp</button>
+        <button class="btn btn-outline" style="font-size:.8rem;padding:8px 14px" onclick="shareEmbaixadorNative()">📤 Partilhar</button>
+        <button class="btn btn-outline" style="font-size:.8rem;padding:8px 14px" onclick="copyEmbaixadorLink()">🔗 Copiar</button>
+      </div>
+    </div>`;
+
+  const regras=`<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:9px">Como conta</div>
+      <div style="font-size:.75rem;color:var(--sub);line-height:1.65">
+        Um amigo conta quando <b style="color:var(--text)">joga mesmo</b>: apostar em 3 jornadas diferentes, ao longo de pelo menos duas semanas.<br><br>
+        É de propósito. Se bastasse registar, encher isto com contas falsas seria trivial — e contas falsas a apostar <b style="color:var(--text)">estragam a raridade de toda a gente</b>, porque um resultado deixa de ser raro quando cinco fantasmas o escolhem.<br><br>
+        Os prémios são passes Premium. O Premium nunca dá pontos nem vantagem na classificação.
+      </div>
+    </div>`;
+
+  if(d.enabled===false){
+    body.innerHTML=hero+`<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:20px;line-height:1.6">
+      O programa ainda não arrancou.<br>Vem cá dentro de dias.</div>`+partilha;
+    return;
+  }
+  body.innerHTML=hero+progresso+lista+partilha+regras;
+}
+function closeEmbaixadores(){
+  const el=document.getElementById('embaixadores-overlay');
   if(el) el.style.display='none';
   document.body.style.overflow='';
 }
@@ -4723,6 +5138,129 @@ function rarityBarHtml(gameId){
         <span style="opacity:.7">· ${o.total} apostas</span>
       </div>`;
   }catch(e){ return ''; }
+}
+
+/* ═══ INSIGHTS DE JOGO (premium) ═══════════════════════════════════════════
+   O cartão vem pronto do servidor (`rpc_insights`, migration 052): quem tem
+   passe recebe o payload completo, quem não tem recebe `locked:true` e só o
+   nome das equipas. O payload NUNCA passa pelo browser de quem não pagou —
+   é a RPC que decide, não o frontend.
+
+   Gerado pela edge function `build-insights`, que não custa nada: as duas APIs
+   que usa (the-odds-api e football-data) já estavam ligadas. O texto é feito
+   por templates, sem IA — custo zero, latência zero, e nunca inventa um facto
+   sobre uma equipa. */
+async function loadInsights(){
+  S.insights={};
+  if(!S.insightsEnabled||S.demoMode) return;
+  const comp=COMP_DB_ID[S.competition];
+  if(!comp) return;
+  try{
+    const r=await api('getInsights',{competition_id:comp});
+    ((r&&r.insights)||[]).forEach(x=>{ S.insights[x.game_id]=x; });
+  }catch(e){ S.insights={}; }
+}
+/* Botão ⚡ no cartão do jogo. Só aparece se houver cartão para aquele jogo —
+   jogos já disputados ou sem odds não mostram nada, que é o certo. */
+function insightsBtnHtml(gameId){
+  try{
+    if(!S.insightsEnabled) return '';
+    const it=(S.insights||{})[gameId];
+    if(!it) return '';
+    const cor=it.locked?'var(--sub)':'var(--gold)';
+    return `<button onclick="showInsights('${gameId}')" title="${it.locked?'Insights (Premium)':'Ver insights deste jogo'}"
+      style="margin-left:4px;flex-shrink:0;background:var(--bg2);border:1px solid ${cor};color:${cor};border-radius:5px;font-size:.6rem;font-weight:700;padding:2px 5px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4">⚡</button>`;
+  }catch(e){ return ''; }
+}
+function _insBar(casa,empate,fora){
+  return `<div style="display:flex;height:20px;border-radius:5px;overflow:hidden;font-size:.6rem;color:var(--bg);text-align:center;line-height:20px;font-weight:700">
+      <div style="width:${casa}%;background:var(--green)">${casa>11?casa+'%':''}</div>
+      <div style="width:${empate}%;background:var(--sub)">${empate>11?empate+'%':''}</div>
+      <div style="width:${fora}%;background:var(--red)">${fora>11?fora+'%':''}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;color:var(--sub);font-size:.6rem;margin-top:4px"><span>Casa</span><span>Empate</span><span>Fora</span></div>`;
+}
+function _insForma(arr){
+  return (arr||[]).map(s=>{
+    const c=s==='V'?'var(--green)':s==='D'?'var(--red)':'var(--sub)';
+    return `<span style="color:${c};font-weight:700">${s}</span>`;
+  }).join(' ')||'<span style="color:var(--sub)">—</span>';
+}
+function showInsights(gameId){
+  const it=(S.insights||{})[gameId];
+  if(!it) return;
+  const te=it.teaser||{};
+  document.getElementById('modal-title').textContent='⚡ Insights';
+  document.getElementById('modal-subtitle').textContent=`${te.t1||''} vs ${te.t2||''}`;
+  const body=document.getElementById('modal-body');
+
+  if(it.locked){
+    // Estado bloqueado: mostra o ESQUELETO desfocado, não o conteúdo. O
+    // conteúdo nem sequer chegou ao browser. O que se vende é a forma.
+    const bloco=(h)=>`<div style="background:var(--card);border-radius:10px;height:${h}px;margin-bottom:9px"></div>`;
+    body.innerHTML=`<div style="position:relative">
+        <div style="filter:blur(4px);opacity:.45;pointer-events:none">
+          ${bloco(58)}${bloco(76)}${bloco(54)}
+          <div style="background:var(--bg2);border:1px solid var(--gold);border-radius:10px;height:66px"></div>
+        </div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px">
+          <div style="font-size:1.7rem;margin-bottom:8px">🔒</div>
+          <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:5px">Insights é Premium</div>
+          <div style="font-size:.75rem;color:var(--sub);line-height:1.55;max-width:250px">
+            O que o mercado diz, a forma das equipas, o confronto direto — e onde está o resultado que a comunidade está a subestimar.</div>
+        </div>
+      </div>
+      <div class="up-premium" style="margin-top:14px">
+        <button class="btn btn-primary btn-full" style="font-size:.86rem;padding:11px" onclick="closeModal();showPremium()">Ver o Premium</button>
+      </div>`;
+    openModal();
+    return;
+  }
+
+  const p=it.payload||{};
+  let h='<div style="font-size:.82rem">';
+
+  if(p.mercado){
+    h+=`<div style="margin-bottom:14px">
+      <div style="font-size:.63rem;letter-spacing:.06em;color:var(--sub);margin-bottom:7px">MERCADO · SEM A MARGEM DA CASA</div>
+      ${_insBar(p.mercado.casa,p.mercado.empate,p.mercado.fora)}</div>`;
+  }
+  if(p.forma){
+    h+=`<div style="margin-bottom:14px">
+      <div style="font-size:.63rem;letter-spacing:.06em;color:var(--sub);margin-bottom:7px">FORMA · ÚLTIMOS 5</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>${escapeHtml(te.t1||'')}</span><span style="letter-spacing:2px">${_insForma(p.forma.t1)}</span></div>
+      <div style="display:flex;justify-content:space-between"><span>${escapeHtml(te.t2||'')}</span><span style="letter-spacing:2px">${_insForma(p.forma.t2)}</span></div>
+      ${p.h2h_texto?`<div style="font-size:.73rem;color:var(--sub);margin-top:8px;line-height:1.5">${escapeHtml(p.h2h_texto)}</div>`:''}
+      ${p.forma_texto?`<div style="font-size:.73rem;color:var(--sub);margin-top:4px;line-height:1.5">${escapeHtml(p.forma_texto)}</div>`:''}
+    </div>`;
+  }
+  if(p.comunidade){
+    const c=p.comunidade;
+    h+=`<div style="margin-bottom:14px">
+      <div style="font-size:.63rem;letter-spacing:.06em;color:var(--sub);margin-bottom:7px">A COMUNIDADE · ${c.total} APOSTAS</div>
+      <div style="line-height:1.7;font-size:.78rem">
+        ${c.mais_apostado?`Placar mais apostado: <b style="color:var(--gold)">${escapeHtml(c.mais_apostado)}</b> · ${c.mais_apostado_pct}%<br>`:''}
+        Tendência: ${c.casa}% casa · ${c.empate}% empate · ${c.fora}% fora
+      </div></div>`;
+  }
+  if(p.valor_texto){
+    h+=`<div style="background:var(--bg2);border:1px solid var(--gold);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:.63rem;letter-spacing:.06em;color:var(--gold);margin-bottom:6px">💡 ONDE ESTÁ O VALOR</div>
+      <div style="font-size:.79rem;line-height:1.6">${escapeHtml(p.valor_texto)}</div></div>`;
+  }
+  const rodape=[];
+  if(p.bot) rodape.push(`🤖 O BOT_IA aposta <b style="color:var(--text)">${p.bot.t1}–${p.bot.t2}</b>`);
+  if(p.meteo&&p.meteo.temp!=null) rodape.push(`🌤️ ${p.meteo.temp}°`);
+  if(rodape.length) h+=`<div style="font-size:.72rem;color:var(--sub);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">${rodape.join('<span></span>')}</div>`;
+
+  if(!p.mercado&&!p.forma&&!p.comunidade){
+    h+=`<div style="color:var(--sub);text-align:center;padding:16px;line-height:1.6">Ainda não há dados suficientes para este jogo.<br>Volta mais perto do apito.</div>`;
+  }
+  h+=`<div style="font-size:.65rem;color:var(--sub);opacity:.75;margin-top:14px;line-height:1.5;border-top:1px solid var(--border);padding-top:9px">
+      Informação pública e agregada. Nunca mostra apostas individuais e não dá pontos — a classificação continua a depender só dos teus palpites.</div>`;
+  h+='</div>';
+  body.innerHTML=h;
+  openModal();
 }
 
 function renderLeagueQuota(){
@@ -5020,6 +5558,18 @@ async function loadData() {
     if (r.payLinks && typeof r.payLinks === 'object' && Object.keys(r.payLinks).length) {
       PREMIUM_LINKS = r.payLinks;
     }
+    // Preços e kill-switches novos (3 Ago). Como os links, mandam da BD.
+    if (r.premiumPriceCents) PREMIUM_PRICE_CENTS = Number(r.premiumPriceCents);
+    if (r.premiumSeasonCents) PREMIUM_SEASON_CENTS = Number(r.premiumSeasonCents);
+    S.insightsEnabled = !!r.insightsEnabled;
+    S.referralsEnabled = !!r.referralsEnabled;
+    // Estado do período de teste (não bloqueia o arranque: corre à parte).
+    if (S.premiumEnabled && !S.demoMode) {
+      api('trialState', { competition_id: COMP_DB_ID[S.competition] }).then(t => {
+        S.trial = t || {};
+        refreshPremiumEntry();
+      }).catch(() => { S.trial = {}; });
+    }
     S.liveRarity = r.liveRarity || {};
     // BADGES. Catálogo + os meus + o total de cada jogador (ícone na classificação).
     S.badgeDefs = r.badgeDefs || [];
@@ -5285,7 +5835,9 @@ function renderLB() {
 
   // O MVP e o card da jornada passaram para BAIXO da tabela, com dropdown de
   // jornada em vez de um chip por jornada - insustentável com 38 jornadas.
-  let html = ligaHdr + champHtml;
+  // Faixa do período de teste: discreta, no topo, e só enquanto o teste corre.
+  // Lembrar que acaba é o que transforma um teste numa compra.
+  let html = trialBannerHtml() + ligaHdr + champHtml;
   // Toggle row
   html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
     <div style="font-size:.7rem;color:var(--sub)">Clica num jogador para ver apostas</div>
@@ -5461,29 +6013,29 @@ function renderLB() {
     html+=`</div>`;
   }
 
-  // ── Bancada (#6B) - feed de comentários da liga ──
+  // ── Bancada (#6B) - feed da liga ──
+  // 3 Ago 2026: deixou de ser só comentários. O rpc_league_feed traz também os
+  // EVENTOS automáticos do jogo (quem falta apostar, quem acertou em cheio,
+  // fecho da jornada, badges, entradas). Foi a única coisa que faltava: a
+  // bancada não falhou por estar mal feita, falhou por estar à espera que
+  // alguém começasse. Agora é o jogo que escreve primeiro.
   if(social){
     const blk=(S.blocks||[]).map(c=>String(c).toUpperCase());
     const isLgAdmin=isCurLeagueAdmin();
-    const cms=social.comments.filter(c=>blk.indexOf((c.code||'').toUpperCase())===-1).slice(-30);
+    // bloqueados só filtram mensagens de pessoas; eventos do sistema ficam
+    const cmsAll=social.comments.filter(c=>(c.kind&&c.kind!=='user')||blk.indexOf((c.code||'').toUpperCase())===-1);
+    const cms=cmsAll.slice(-12);            // inline mostra os últimos; o resto vai no modal
+    const muted=!!social.muted;
     html+=`<div class="card" style="margin-top:14px;padding:12px">
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem;margin-bottom:8px">🗣️ BANCADA · ${escapeHtml(S.curLeague.name).toUpperCase()}</div>
-      <div id="bancada-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
-        ${cms.length?cms.map(c=>{
-          const cc=(c.code||'').toUpperCase();
-          const mine=S.user&&cc===String(S.user.code).toUpperCase();
-          const at=c.at||'';
-          let act='';
-          if(!mine){
-            act+=`<span onclick="reportComment('${cc}','${at}')" title="Denunciar" style="cursor:pointer;margin-left:8px">🚩</span>`;
-            act+=`<span onclick="blockUser('${cc}')" title="Bloquear" style="cursor:pointer;margin-left:4px">🚫</span>`;
-            if(isLgAdmin)act+=`<span onclick="deleteComment('${cc}','${at}')" title="Apagar" style="cursor:pointer;margin-left:4px">🗑️</span>`;
-          }
-          return `<div>
-          <div style="font-size:.62rem;color:var(--sub)">${escapeHtml(c.name)}${c.jornada?` · ${jornadaShort(c.jornada)}`:''}${c.at?` · ${new Date(c.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}${act}</div>
-          <div style="font-size:.8rem;line-height:1.4">${highlightMentions(escapeHtml(c.text))}</div>
-        </div>`;}).join(''):'<div style="font-size:.75rem;color:var(--sub)">Ainda ninguém falou. Sê o primeiro a mandar bitaites! 😏</div>'}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem">🗣️ BANCADA · ${escapeHtml(S.curLeague.name).toUpperCase()}</div>
+        <span onclick="toggleMuteLeague()" title="${muted?'Reativar notificações desta liga':'Silenciar notificações desta liga'}" style="cursor:pointer;font-size:.95rem;opacity:${muted?'1':'.55'}">${muted?'🔕':'🔔'}</span>
       </div>
+      <div id="bancada-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+        ${cms.length?cms.map(c=>feedItemHtml(c,isLgAdmin)).join(''):`<div style="font-size:.75rem;color:var(--sub);text-align:center;padding:14px 6px;line-height:1.5">A bancada acorda quando a jornada começar.<br><span style="opacity:.75">Os resultados e a classificação aparecem aqui.</span></div>`}
+      </div>
+      ${cmsAll.length>cms.length?`<div onclick="openFeedModal()" style="text-align:center;font-size:.72rem;color:var(--sub);cursor:pointer;margin-bottom:9px;text-decoration:underline">Ver tudo (${cmsAll.length})</div>`:''}
+      <div id="feed-react-bar" style="display:none;gap:2px;flex-wrap:wrap;margin-bottom:8px;justify-content:center"></div>
       ${blk.length?`<div style="font-size:.62rem;color:var(--sub);margin-bottom:8px">🚫 Bloqueados: ${blk.map(c=>{const p=(S.lb||[]).find(x=>(x.code||'').toUpperCase()===c);const nm=p?(p.name||'').split(' ')[0]:c;return `<span style="cursor:pointer;text-decoration:underline" onclick="unblockUser('${c}')" title="Desbloquear">${escapeHtml(nm)} ✕</span>`;}).join(' · ')}</div>`:''}
       <div id="bancada-sugg" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:6px"></div>
       <div style="display:flex;gap:8px">
@@ -5503,15 +6055,157 @@ function renderLB() {
 // ════════════════════════════════════════════════
 const REACT_EMOJIS=['🔥','😂','👏','👑','🤡'];
 
+// ── FEED DA BANCADA (3 Ago 2026) ────────────────────────────────────────────
+// Cada tipo de evento tem uma cor de borda à esquerda. Todas as cores já
+// existem no CSS - não foi preciso inventar nenhuma.
+const FEED_STYLE={
+  pending:     {cor:'var(--sub)',    ic:'⏱️'},
+  game_result: {cor:'var(--green)',  ic:'⚽'},
+  round_close: {cor:'var(--gold)',   ic:'🏆'},
+  badge:       {cor:'var(--orange)', ic:'🏅'},
+  joined:      {cor:'var(--sub)',    ic:'👋'},
+  zero:        {cor:'var(--red)',    ic:'💀'},
+};
+function feedWhen(at){
+  if(!at)return '';
+  try{ return new Date(at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
+  catch(e){ return ''; }
+}
+// Chips de reação. Só aparecem em itens que já vieram do servidor (têm id):
+// mensagens acabadas de enviar localmente ainda não têm.
+function feedReactionsHtml(c){
+  if(!c.id)return '';
+  const rs=c.reacoes||{};
+  const chips=Object.keys(rs).map(e=>{
+    const meu=c.minha===e;
+    return `<span onclick="reactFeed('${c.id}','${e}')" style="cursor:pointer;background:var(--bg2);border:1px solid ${meu?'var(--gold)':'var(--border)'};border-radius:10px;padding:1px 7px;font-size:.68rem;margin-right:4px">${e} ${rs[e]}</span>`;
+  }).join('');
+  const add=`<span onclick="openFeedReactPicker('${c.id}')" title="Reagir" style="cursor:pointer;border:1px dashed var(--border);border-radius:10px;padding:1px 7px;font-size:.68rem;color:var(--sub)">+</span>`;
+  return `<div style="margin-top:5px">${chips}${add}</div>`;
+}
+// Um item do feed: evento do sistema ou mensagem de jogador.
+function feedItemHtml(c,isLgAdmin){
+  const kind=c.kind||'user';
+  if(kind!=='user'){
+    const st=FEED_STYLE[kind]||{cor:'var(--sub)',ic:'•'};
+    // eventos não se denunciam nem se bloqueiam; só o dono da liga os apaga
+    const del=isLgAdmin&&c.id?`<span onclick="deleteFeedItem('${c.id}')" title="Apagar" style="cursor:pointer;margin-left:6px">🗑️</span>`:'';
+    return `<div style="border-left:2px solid ${st.cor};padding-left:9px">
+      <div style="font-size:.6rem;color:${st.cor}">${st.ic} ${escapeHtml(feedWhen(c.at))}${del}</div>
+      <div style="font-size:.78rem;line-height:1.45;color:var(--text)">${escapeHtml(c.text||'')}</div>
+      ${feedReactionsHtml(c)}
+    </div>`;
+  }
+  const cc=(c.code||'').toUpperCase();
+  const mine=S.user&&cc===String(S.user.code).toUpperCase();
+  const at=c.at||'';
+  let act='';
+  if(!mine){
+    act+=`<span onclick="reportComment('${cc}','${at}')" title="Denunciar" style="cursor:pointer;margin-left:8px">🚩</span>`;
+    act+=`<span onclick="blockUser('${cc}')" title="Bloquear" style="cursor:pointer;margin-left:4px">🚫</span>`;
+    if(isLgAdmin)act+=`<span onclick="deleteComment('${cc}','${at}')" title="Apagar" style="cursor:pointer;margin-left:4px">🗑️</span>`;
+  }
+  return `<div style="padding-left:11px">
+    <div style="font-size:.62rem;color:var(--sub)">${escapeHtml(c.name||'')}${c.jornada?` · ${jornadaShort(c.jornada)}`:''}${at?` · ${escapeHtml(feedWhen(at))}`:''}${act}</div>
+    <div style="font-size:.8rem;line-height:1.4">${highlightMentions(escapeHtml(c.text||''))}</div>
+    ${feedReactionsHtml(c)}
+  </div>`;
+}
+
+// ── Reagir ──────────────────────────────────────────────────────────────────
+let _feedReactFor=null;
+function openFeedReactPicker(id){
+  _feedReactFor=id;
+  const el=document.getElementById('feed-react-bar');
+  if(!el)return;
+  el.innerHTML=REACT_EMOJIS.map(e=>`<span class="react-pick" onclick="reactFeed(null,'${e}')">${e}</span>`).join('')
+    +`<span class="react-pick" onclick="closeFeedReactPicker()" style="color:var(--sub)">✕</span>`;
+  el.style.display='flex';
+}
+function closeFeedReactPicker(){
+  _feedReactFor=null;
+  const el=document.getElementById('feed-react-bar');
+  if(el){el.style.display='none';el.innerHTML='';}
+}
+async function reactFeed(id,emoji){
+  const cid=id||_feedReactFor;
+  if(!cid)return;
+  closeFeedReactPicker();
+  // atualização otimista: o feed é curto e o servidor é a fonte de verdade
+  const item=(S.social&&S.social.comments||[]).find(c=>c.id===cid);
+  if(item){
+    item.reacoes=item.reacoes||{};
+    if(item.minha===emoji){ item.reacoes[emoji]=Math.max(0,(item.reacoes[emoji]||1)-1); if(!item.reacoes[emoji])delete item.reacoes[emoji]; item.minha=null; }
+    else{
+      if(item.minha&&item.reacoes[item.minha]){ item.reacoes[item.minha]--; if(!item.reacoes[item.minha])delete item.reacoes[item.minha]; }
+      item.reacoes[emoji]=(item.reacoes[emoji]||0)+1; item.minha=emoji;
+    }
+    if(S.curView==='leaderboard')renderLB();
+    if(document.getElementById('modal-overlay').classList.contains('open'))renderFeedModalBody();
+  }
+  try{ await api('reactComment',{comment_id:cid,emoji:emoji}); }
+  catch(e){ loadSocial(); }   // divergiu do servidor -> recarrega
+}
+
+// ── Silenciar liga ──────────────────────────────────────────────────────────
+async function toggleMuteLeague(){
+  if(!S.curLeague||!S.social)return;
+  const novo=!S.social.muted;
+  S.social.muted=novo;                       // otimista
+  if(S.curView==='leaderboard')renderLB();
+  try{
+    await api('muteLeague',{league_id:S.curLeague.id,mute:novo});
+    showToast(novo?'Liga silenciada.':'Notificações reativadas.','success');
+  }catch(e){
+    S.social.muted=!novo;
+    if(S.curView==='leaderboard')renderLB();
+    showToast('Não foi possível guardar.','error');
+  }
+}
+
+// ── Apagar um evento (só o dono da liga) ────────────────────────────────────
+async function deleteFeedItem(id){
+  if(!confirm('Apagar esta mensagem da bancada?'))return;
+  try{
+    await api('deleteFeedItem',{comment_id:id});
+    if(S.social)S.social.comments=(S.social.comments||[]).filter(c=>c.id!==id);
+    if(S.curView==='leaderboard')renderLB();
+    if(document.getElementById('modal-overlay').classList.contains('open'))renderFeedModalBody();
+  }catch(e){ showToast('Não foi possível apagar.','error'); }
+}
+
+// ── Modal "Ver tudo" ────────────────────────────────────────────────────────
+function renderFeedModalBody(){
+  const body=document.getElementById('modal-body');
+  if(!body)return;
+  const blk=(S.blocks||[]).map(c=>String(c).toUpperCase());
+  const isLgAdmin=isCurLeagueAdmin();
+  const cms=((S.social&&S.social.comments)||[])
+    .filter(c=>(c.kind&&c.kind!=='user')||blk.indexOf((c.code||'').toUpperCase())===-1);
+  body.innerHTML=`<div id="feed-react-bar" style="display:none;gap:2px;flex-wrap:wrap;margin-bottom:10px;justify-content:center"></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${cms.length?cms.map(c=>feedItemHtml(c,isLgAdmin)).join(''):'<div style="font-size:.78rem;color:var(--sub);text-align:center;padding:18px">Ainda não há nada por aqui.</div>'}
+    </div>`;
+}
+function openFeedModal(){
+  if(!S.curLeague)return;
+  document.getElementById('modal-title').textContent='🗣️ Bancada';
+  document.getElementById('modal-subtitle').textContent=S.curLeague.name||'';
+  renderFeedModalBody();
+  openModal();
+  // abrir já no fim, que é onde está o que acabou de acontecer
+  const b=document.getElementById('modal-body'); if(b)b.scrollTop=b.scrollHeight;
+}
+
 async function loadSocial(){
   if(!S.curLeague)return;
   S.socialLoading=true;
   const lid=S.curLeague.id;
   try{
     const r=await api('getSocial',{league_id:lid});
-    S.social={reactions:r.reactions||[],comments:r.comments||[]};
+    S.social={reactions:r.reactions||[],comments:r.comments||[],muted:!!r.muted};
     S.socialLeague=lid;
-  }catch(e){S.social={reactions:[],comments:[]};S.socialLeague=lid;}
+  }catch(e){S.social={reactions:[],comments:[],muted:false};S.socialLeague=lid;}
   S.socialLoading=false;
   if(S.curView==='leaderboard')renderLB();
 }
@@ -5574,10 +6268,13 @@ async function sendBancada(){
   const sg=document.getElementById('bancada-sugg');
   if(sg)sg.style.display='none';
   const j=nextJornada()||'FIN';
-  const c={jornada:j,code:S.user.code,name:S.user.name,text,at:new Date().toISOString()};
+  // Forma unificada do feed (kind/reacoes/id). Sem id porque ainda não voltou
+  // do servidor — é por isso que os chips de reação só aparecem depois do
+  // loadSocial seguinte.
+  const c={id:null,kind:'user',jornada:j,code:S.user.code,name:S.user.name,text,payload:null,at:new Date().toISOString(),reacoes:{},minha:null};
   if(S.social)S.social.comments.push(c);
   renderLB();
-  try{await api('addComment',{league_id:S.curLeague.id,jornada:j,code:S.user.code,text});}
+  try{await api('addComment',{league_id:S.curLeague.id,jornada:j,code:S.user.code,text});loadSocial();}
   catch(e){showToast('Erro ao comentar','error');loadSocial();}
 }
 
@@ -7186,7 +7883,7 @@ function renderBracket() {
         <span class="bracket-score-badge">${hasScore?`${res.t1}-${res.t2}${res.pen?`<span class="pen-star" title="${(res.pen==='t1'?t1:t2)} passou por penáltis">★</span>`:''}`:'·'}</span>
         <span class="bracket-team${t2ph?' placeholder':''}${t2wins?' bracket-winner':''}" style="text-align:right">${f2}${t2}</span>
         <span style="font-size:.63rem;color:var(--sub);white-space:nowrap;margin-left:2px">${dateShort} ${timeShort}</span>
-        <button onclick="showTVInfo('${g.id}')" style="${tvBtnStyle};border-radius:5px;font-size:.58rem;font-weight:700;padding:2px 4px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4;margin-left:2px;flex-shrink:0">📺</button>
+        <button onclick="showTVInfo('${g.id}')" style="${tvBtnStyle};border-radius:5px;font-size:.58rem;font-weight:700;padding:2px 4px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4;margin-left:2px;flex-shrink:0">📺</button>${insightsBtnHtml(g.id)}
       </div>`;
     });
   });
@@ -7358,7 +8055,7 @@ function renderMundialGroup() {
       <span style="flex:1;font-size:.79rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t1)}${g.t1}</span>
       <span class="game-result-score">${res?`${res.t1} - ${res.t2}`:'- -'}</span>
       <span style="flex:1;font-size:.79rem;font-weight:500;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${flag(g.t2)}${g.t2}</span>
-      <button onclick="showTVInfo('${g.id}')" style="margin-left:5px;flex-shrink:0;${tvBtnStyle};border-radius:5px;font-size:.6rem;font-weight:700;padding:2px 5px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4">📺</button>
+      <button onclick="showTVInfo('${g.id}')" style="margin-left:5px;flex-shrink:0;${tvBtnStyle};border-radius:5px;font-size:.6rem;font-weight:700;padding:2px 5px;cursor:pointer;font-family:'Rajdhani',sans-serif;line-height:1.4">📺</button>${insightsBtnHtml(g.id)}
     </div>`;
   });
 
@@ -8743,6 +9440,12 @@ function mockApi(action,data){
               {id:'n2',type:'invite',text:'💌 Foste convidado para a liga "Amigos"! Entra em Ligas com o código AMG26.',at:'2026-06-10T09:30:00Z'}]};
   }
   if(action==='getUsers')return{users:DEMO_USERS};
+  if(action==='joinByInvite'){
+    const inv=String((data&&data.invite)||'').toUpperCase();
+    const lg=DEMO_LEAGUES.find(l=>l.invite===inv);
+    if(!lg)return{success:false,error:'Código de convite inválido.'};
+    return{success:true,competition:'WC2026',leagueName:lg.name,league:lg};
+  }
   if(action==='fetchResults')return{success:false,error:'Auto-fetch não disponível em modo demo. Configura o Apps Script e uma API key para usar em produção.'};
   if(action==='getMyLeagues'){
     const c=(data.code||'').toUpperCase();
@@ -8779,7 +9482,23 @@ function mockApi(action,data){
     if(idx>=0)DEMO_LEAGUES.splice(idx,1);
     return{success:true};
   }
-  if(action==='getSocial')return{reactions:DEMO_SOCIAL.reactions,comments:DEMO_SOCIAL.comments};
+  if(action==='trialState')return{disponivel:false,ativo:false,jornadas:2};
+  if(action==='startTrial')return{success:false,error:'Não disponível em modo demo.'};
+  if(action==='getInsights')return{insights:[]};
+  if(action==='myReferrals')return{enabled:false,convidados:0,ativos:0,marcos:[],atingidos:[],lista:[]};
+  if(action==='setReferrer')return{success:false};
+  if(action==='getSocial')return{reactions:DEMO_SOCIAL.reactions,comments:DEMO_SOCIAL.comments,muted:!!DEMO_SOCIAL.muted};
+  if(action==='muteLeague'){DEMO_SOCIAL.muted=data.mute!==false;return{success:true};}
+  if(action==='deleteFeedItem'){DEMO_SOCIAL.comments=DEMO_SOCIAL.comments.filter(c=>c.id!==data.comment_id);return{success:true};}
+  if(action==='reactComment'){
+    const it=DEMO_SOCIAL.comments.find(c=>c.id===data.comment_id);
+    if(it){
+      it.reacoes=it.reacoes||{};
+      if(it.minha===data.emoji){it.reacoes[data.emoji]=Math.max(0,(it.reacoes[data.emoji]||1)-1);if(!it.reacoes[data.emoji])delete it.reacoes[data.emoji];it.minha=null;}
+      else{if(it.minha&&it.reacoes[it.minha]){it.reacoes[it.minha]--;if(!it.reacoes[it.minha])delete it.reacoes[it.minha];}it.reacoes[data.emoji]=(it.reacoes[data.emoji]||0)+1;it.minha=data.emoji;}
+    }
+    return{success:true};
+  }
   if(action==='react'){
     const me=(data.code||'').toUpperCase(),tg=(data.target_code||'').toUpperCase();
     const ex=DEMO_SOCIAL.reactions.find(r=>r.from===me&&r.target===tg);
@@ -8789,7 +9508,7 @@ function mockApi(action,data){
     return{success:true};
   }
   if(action==='addComment'){
-    DEMO_SOCIAL.comments.push({jornada:String(data.jornada||''),code:(data.code||'').toUpperCase(),name:(S.user&&S.user.name)||data.code,text:String(data.text||'').substring(0,200),at:new Date().toISOString()});
+    DEMO_SOCIAL.comments.push({id:'d'+Date.now(),kind:'user',jornada:String(data.jornada||''),code:(data.code||'').toUpperCase(),name:(S.user&&S.user.name)||data.code,text:String(data.text||'').substring(0,200),payload:null,at:new Date().toISOString(),reacoes:{},minha:null});
     return{success:true};
   }
   if(action==='inviteToLeague')return{success:true,message:'(demo) Convite enviado a '+data.target+'.'};
@@ -9273,9 +9992,57 @@ async function showLeagueManagement(leagueId) {
   const fullLg = S.leagues.find(l => l.id === leagueId);
   document.getElementById('manage-invite-code').textContent = fullLg ? fullLg.invite : '...';
 
+  const prev = document.getElementById('league-link-preview');
+  if (prev) prev.textContent = fullLg ? leagueInviteLink(fullLg.invite) : '';
+
   // Carregar pedidos + membros em paralelo
   loadManageRequests(leagueId);
   loadManageMembers(leagueId, fullLg);
+}
+
+// ── CONVITE POR LINK (3 Ago 2026) ───────────────────────────────────────────
+// O link transporta o código de convite. A página /j/ mostra a liga (prova
+// social) antes de pedir seja o que for, e depois do login entra na liga
+// sozinha — o convidado nunca escreve um código nem escolhe uma competição.
+function leagueInviteLink(invite) {
+  return 'https://unclepredictor.pt/j/?' + encodeURIComponent(String(invite || '').toUpperCase());
+}
+function leagueInviteMsg() {
+  const lg = S_managingLeague;
+  const inv = (document.getElementById('manage-invite-code') || {}).textContent || '';
+  if (!inv || inv === '...') return null;
+  const nome = (lg && lg.name) ? lg.name : 'a minha liga';
+  return 'Entra na minha liga do Uncle Predictor 👀\n' + nome + '\n' + leagueInviteLink(inv);
+}
+function shareLeagueWhatsApp() {
+  const msg = leagueInviteMsg();
+  if (!msg) return;
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+async function shareLeagueNative() {
+  const msg = leagueInviteMsg();
+  if (!msg) return;
+  // navigator.share abre o menu do sistema (WhatsApp, SMS, Messenger...).
+  // Só existe em HTTPS e sobretudo em telemóvel; sem ele, cai para copiar.
+  if (navigator.share) {
+    try { await navigator.share({ text: msg }); return; } catch (e) { /* cancelou */ return; }
+  }
+  copyLeagueLink();
+}
+function copyLeagueLink() {
+  const inv = (document.getElementById('manage-invite-code') || {}).textContent || '';
+  if (!inv || inv === '...') return;
+  const link = leagueInviteLink(inv);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(() => showToast('Link copiado!', 'success')).catch(() => {});
+  } else {
+    // fallback para browsers antigos / contextos sem clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = link; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showToast('Link copiado!', 'success'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
 }
 
 function closeLeagueManagement() {

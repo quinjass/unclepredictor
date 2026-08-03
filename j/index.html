@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convite — Uncle Predictor</title>
+<!-- ⚠️ NOINDEX de propósito. Esta página é o destino de links privados de
+     convite; não deve ser indexada nem entrar no sitemap. Foi criada a 3 Ago
+     2026 SEM tocar em nenhuma página que esteja na revisão do AdSense
+     (robots.txt e sitemap.xml ficaram intactos). -->
+<meta name="robots" content="noindex,nofollow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Entra na minha liga — Uncle Predictor">
+<meta property="og:description" content="Prevê os resultados, desafia os teus amigos e vê quem percebe mesmo de futebol. Grátis.">
+<meta property="og:image" content="https://unclepredictor.pt/logo.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d1b2a;--bg2:#1a2d42;--card:#162032;--gold:#f5c518;--green:#27ae60;
+        --red:#e74c3c;--text:#e8e8e8;--sub:#7a9bb5;--border:#253a50}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .wrap{width:100%;max-width:380px}
+  .logo{text-align:center;margin-bottom:22px}
+  .logo img{width:62px;height:62px;border-radius:14px}
+  .logo .nm{font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.32rem;color:var(--gold);
+            letter-spacing:.5px;margin-top:7px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 20px}
+  .lbl{font-size:.68rem;color:var(--sub);letter-spacing:.07em;text-transform:uppercase;text-align:center}
+  .liga{font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.55rem;line-height:1.15;
+        text-align:center;margin:6px 0 3px}
+  .comp{font-size:.82rem;color:var(--sub);text-align:center;margin-bottom:16px}
+  .avs{display:flex;justify-content:center;gap:2px;font-size:1.45rem;margin-bottom:6px}
+  .cnt{font-size:.78rem;color:var(--sub);text-align:center;margin-bottom:16px}
+  .jogo{background:var(--bg2);border-radius:9px;padding:10px;text-align:center;
+        font-size:.79rem;color:var(--sub);margin-bottom:18px}
+  .jogo b{color:var(--text);font-weight:600}
+  .btn{display:block;width:100%;text-align:center;text-decoration:none;border:0;cursor:pointer;
+       font-family:inherit;font-size:.92rem;font-weight:600;padding:13px;border-radius:10px;margin-bottom:9px}
+  .btn-p{background:var(--gold);color:var(--bg)}
+  .btn-o{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .foot{font-size:.72rem;color:var(--sub);text-align:center;margin-top:14px;line-height:1.6}
+  .foot a{color:var(--sub)}
+  .spin{width:26px;height:26px;border:2.5px solid var(--border);border-top-color:var(--gold);
+        border-radius:50%;animation:sp .8s linear infinite;margin:26px auto}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .err{text-align:center;padding:8px 0}
+  .err .ic{font-size:2rem;margin-bottom:10px}
+  .err h2{font-family:Rajdhani,sans-serif;font-size:1.2rem;margin-bottom:7px}
+  .err p{font-size:.84rem;color:var(--sub);line-height:1.6;margin-bottom:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <img src="/logo.png" alt="Uncle Predictor" onerror="this.style.display='none'">
+    <div class="nm">UNCLE PREDICTOR</div>
+  </div>
+  <div class="card" id="card"><div class="spin"></div></div>
+  <div class="foot">
+    Jogo grátis de prognósticos de futebol.<br>
+    Sem apostas a dinheiro. <a href="/">Saber mais</a>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// PÁGINA DE CONVITE  /j/?CODIGO
+// ----------------------------------------------------------------------------
+// Porquê uma página só para isto: o funil antigo tinha 8 passos e perdia a
+// esmagadora maioria das pessoas. Aqui a ordem é outra — primeiro mostra-se a
+// liga (prova social: nome, quantos já lá estão, o próximo jogo) e só depois
+// se pede alguma coisa. O código de convite viaja no localStorage e a app
+// entra na liga sozinha depois do login (ver consumePendingInvite).
+//
+// Formatos aceites, por tolerância:
+//   /j/?ABC1234      ← o que o botão Convidar gera
+//   /j/?l=ABC1234
+//   /j/#ABC1234
+// ============================================================================
+(function () {
+  var SB  = 'https://pzvwzqynxsaelyyakqes.supabase.co';
+  var KEY = 'sb_publishable_5aiD7taF5eYKvfDBsGbklQ_XoBoFPyN';
+  var card = document.getElementById('card');
+
+  // ── código de convite ─────────────────────────────────────────────────────
+  function readInvite() {
+    var q = location.search.replace(/^\?/, '');
+    if (q) {
+      var p = new URLSearchParams(q);
+      var v = p.get('l') || p.get('c') || p.get('liga');
+      if (v) return v.toUpperCase();
+      // formato curto: /j/?ABC1234  (a query inteira é o código)
+      if (/^[A-Za-z0-9]{3,20}$/.test(q)) return q.toUpperCase();
+    }
+    var h = location.hash.replace(/^#/, '');
+    if (/^[A-Za-z0-9]{3,20}$/.test(h)) return h.toUpperCase();
+    return '';
+  }
+  var invite = readInvite();
+
+  // id de percurso para medir o funil (não identifica a pessoa)
+  var sid = '';
+  try {
+    sid = sessionStorage.getItem('up_sid') || '';
+    if (!sid) { sid = Math.random().toString(36).slice(2) + Date.now().toString(36); sessionStorage.setItem('up_sid', sid); }
+  } catch (e) { sid = Math.random().toString(36).slice(2); }
+
+  function rpc(fn, args) {
+    return fetch(SB + '/rest/v1/rpc/' + fn, {
+      method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args || {})
+    }).then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+      .then(function (t) { return t ? JSON.parse(t) : null; });
+  }
+  // Medição best-effort: nunca atrasa nem parte a página.
+  function track(step) { try { rpc('rpc_track_invite', { p_sid: sid, p_step: step, p_invite: invite }).catch(function () {}); } catch (e) {} }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+
+  function erro(titulo, texto) {
+    card.innerHTML = '<div class="err"><div class="ic">🤔</div><h2>' + esc(titulo) + '</h2>' +
+      '<p>' + esc(texto) + '</p>' +
+      '<a class="btn btn-p" href="/">Ir para o Uncle Predictor</a></div>';
+  }
+
+  // ── guardar o convite e mandar para a app ─────────────────────────────────
+  // A app lê isto em consumePendingInvite() logo a seguir ao login e faz a
+  // inscrição na competição + entrada na liga numa só chamada.
+  function irParaApp(novaConta) {
+    try { localStorage.setItem('up_pending_invite', JSON.stringify({ invite: invite, sid: sid, at: Date.now() })); } catch (e) {}
+    track('auth_start');
+    location.href = '/#entrar' + (novaConta ? '&novo=1' : '');
+  }
+  window.__upEntrar = function (novo) { irParaApp(!!novo); };
+
+  // ── arranque ──────────────────────────────────────────────────────────────
+  if (!invite) { erro('Convite em falta', 'Este link não traz nenhum código de liga. Pede à pessoa que te convidou para reenviar.'); return; }
+
+  track('link_open');
+
+  rpc('rpc_league_preview', { p_invite: invite }).then(function (d) {
+    if (!d) {
+      track('preview_fail');
+      erro('Liga não encontrada', 'O código ' + invite + ' não corresponde a nenhuma liga. Confirma o link com quem te convidou.');
+      return;
+    }
+    track('preview_ok');
+
+    var avs = (d.avatares || []).map(function (a) { return '<span>' + esc(a) + '</span>'; }).join('');
+    var n = d.membros || 0;
+    var extra = n > 6 ? '<span style="font-size:.8rem;color:var(--sub);align-self:center;margin-left:5px">+' + (n - 6) + '</span>' : '';
+
+    var jogo = '';
+    if (d.proximo && d.proximo.t1) {
+      var dt = d.proximo.kickoff ? new Date(d.proximo.kickoff) : null;
+      var quando = dt ? dt.toLocaleString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      jogo = '<div class="jogo">Próximo jogo<br><b>' + esc(d.proximo.t1) + ' – ' + esc(d.proximo.t2) + '</b>' +
+             (quando ? '<br>' + esc(quando) : '') + '</div>';
+    }
+
+    var fechada = d.comp_status && d.comp_status !== 'active';
+
+    card.innerHTML =
+      '<div class="lbl">Foste convidado para</div>' +
+      '<div class="liga">' + esc(d.liga) + '</div>' +
+      '<div class="comp">' + esc(d.comp_nome || d.competicao) + '</div>' +
+      (avs ? '<div class="avs">' + avs + extra + '</div>' : '') +
+      '<div class="cnt">' + n + (n === 1 ? ' jogador já dentro' : ' jogadores já dentro') + '</div>' +
+      jogo +
+      (fechada
+        ? '<div class="jogo" style="color:var(--gold)">As inscrições para esta competição ainda não abriram.</div>' +
+          '<a class="btn btn-o" href="/">Ver o Uncle Predictor</a>'
+        : '<button class="btn btn-p" onclick="__upEntrar(1)">Entrar na liga</button>' +
+          '<button class="btn btn-o" onclick="__upEntrar(0)">Já tenho conta</button>') +
+      '<div style="font-size:.7rem;color:var(--sub);text-align:center;margin-top:11px;line-height:1.55">' +
+      'Grátis. Entras direto nesta liga — não precisas de escrever nenhum código.</div>';
+  }).catch(function () {
+    erro('Não foi possível carregar', 'Tenta outra vez daqui a pouco, ou abre o unclepredictor.pt e usa o código ' + invite + '.');
+  });
+})();
+</script>
+</body>
+</html>

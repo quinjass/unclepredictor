@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Obrigado — Uncle Predictor</title>
+<!-- ⚠️ NOINDEX. Página de retorno do Stripe; não deve ser indexada nem entrar
+     no sitemap. Criada a 3 Ago 2026 sem tocar em nenhuma página que esteja na
+     revisão do AdSense (robots.txt e sitemap.xml intactos).
+
+     PORQUE EXISTE: o webhook do Stripe demora 1-2 segundos a criar o passe.
+     Se o Payment Link mandasse direto para a app, o cliente que acabou de
+     pagar poderia chegar lá e ver-se ainda sem premium — a pior altura
+     possível para uma dúvida. Esta página dá esse tempo e diz-lhe o que
+     está a acontecer. -->
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0d1b2a;--bg2:#1a2d42;--card:#162032;--gold:#f5c518;--green:#27ae60;
+        --text:#e8e8e8;--sub:#7a9bb5;--border:#253a50}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center}
+  .wrap{width:100%;max-width:370px}
+  .logo{width:58px;height:58px;border-radius:14px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px 22px}
+  .tick{width:56px;height:56px;border-radius:50%;background:rgba(39,174,96,.15);border:2px solid var(--green);
+        display:flex;align-items:center;justify-content:center;font-size:1.7rem;margin:0 auto 14px}
+  h1{font-family:Rajdhani,sans-serif;font-weight:700;font-size:1.5rem;color:var(--gold);margin-bottom:8px}
+  p{font-size:.85rem;color:var(--sub);line-height:1.6;margin-bottom:16px}
+  .status{font-size:.78rem;color:var(--text);background:var(--bg2);border-radius:9px;padding:10px;margin-bottom:16px}
+  .dots::after{content:'';animation:d 1.4s steps(4,end) infinite}
+  @keyframes d{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+  .btn{display:block;width:100%;text-decoration:none;border:0;cursor:pointer;font-family:inherit;
+       font-size:.92rem;font-weight:600;padding:13px;border-radius:10px;background:var(--gold);color:var(--bg)}
+  .foot{font-size:.7rem;color:var(--sub);margin-top:16px;line-height:1.6}
+  .foot a{color:var(--sub)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="/logo.png" alt="Uncle Predictor" onerror="this.style.display='none'">
+  <div class="card">
+    <div class="tick">✓</div>
+    <h1>Pagamento recebido</h1>
+    <p>Obrigado pelo apoio. O teu Passe Premium está a ser ativado na conta com que estás a jogar.</p>
+    <div class="status" id="status"><span class="dots">A ativar o passe</span></div>
+    <a class="btn" id="ir" href="https://unclepredictor.pt/">Voltar ao Uncle Predictor</a>
+  </div>
+  <div class="foot">
+    Se o passe não aparecer dentro de alguns minutos,<br>
+    escreve para <a href="mailto:geral@unclepredictor.pt">geral@unclepredictor.pt</a>.
+  </div>
+</div>
+
+<script>
+// Conta 5 segundos e segue. Não é uma barra de progresso a fingir: é o tempo
+// real que o webhook do Stripe costuma levar a criar o passe. Quem não quiser
+// esperar carrega no botão — nada aqui bloqueia ninguém.
+(function () {
+  var s = 5;
+  var el = document.getElementById('status');
+  var t = setInterval(function () {
+    s--;
+    if (s > 0) { el.innerHTML = '<span class="dots">A ativar o passe</span>'; return; }
+    clearInterval(t);
+    el.textContent = 'Pronto. A abrir a app…';
+    setTimeout(function () { location.href = 'https://unclepredictor.pt/'; }, 700);
+  }, 1000);
+})();
+</script>
+</body>
+</html>
