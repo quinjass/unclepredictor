@@ -3990,6 +3990,10 @@ function showLeagueApp(){
     for(const md of S.league.mds){ cur=md; if(S.league.byMd[md].some(g=>g.kickoff_utc&&new Date(g.kickoff_utc).getTime()>now)) break; }
     S.league.curMd=cur;
     renderLeagueView();
+    // Insights: carrega em segundo plano e redesenha quando chegar. Tem de ser
+    // AQUI e não no enterCompetition — a vista de liga é construída dentro
+    // deste callback, e o botão ⚡ vive nos cartões que ela desenha.
+    loadInsights().then(()=>{ if(S.league) renderLeagueView(); }).catch(()=>{});
   }).catch(e=>{ const bd=document.getElementById('league-body'); if(bd)bd.innerHTML='<div style="color:var(--red);text-align:center;padding:30px">Erro: '+escapeHtml(e.message||'')+'</div>'; });
 }
 // Fecho de EDIÇÃO nas ligas domésticas/UCL, a contar com o tier (o premium
@@ -4028,7 +4032,7 @@ function renderLeagueView(){
     if(res){ const pts=calcPts({t1:p.t1,t2:p.t2,joker:jok},res,KO_STAGE_LIST.indexOf(g.stage)>=0);
       ptsHtml=`<div style="font-size:.7rem;color:var(--sub);text-align:center;margin-top:7px">Resultado <b style="color:var(--text)">${res.t1}-${res.t2}</b> · ${p.t1!=null?`aposta ${p.t1}-${p.t2} → <b style="color:var(--gold)">${pts} pts</b>`:'sem aposta'}</div>`; }
     cards+=`<div style="background:var(--card);border:1px solid ${jok?'var(--gold)':'var(--border)'};border-radius:12px;padding:12px;margin-bottom:10px">
-      <div style="font-size:.68rem;color:var(--sub);text-align:center;margin-bottom:8px">${dt}${locked&&!res?' · 🔒 fechado':''}</div>
+      <div style="font-size:.68rem;color:var(--sub);text-align:center;margin-bottom:8px">${dt}${locked&&!res?' · 🔒 fechado':''}${insightsBtnHtml(g.game_id)}</div>
       <div style="display:flex;align-items:center;gap:8px">
         <div style="flex:1;text-align:right;font-weight:600;font-size:.9rem">${escapeHtml(g.t1_team||'?')}</div>
         ${inp(g.game_id,'t1',t1v,locked)}<span style="color:var(--sub)">-</span>${inp(g.game_id,'t2',t2v,locked)}
@@ -4429,7 +4433,12 @@ async function enterCompetition(id){
   try{ await loadData(); }catch(e){}
   // Insights depois do loadData (precisa de saber se sou premium e se o
   // kill-switch está ligado). Não bloqueia: o botão ⚡ aparece quando chegar.
-  loadInsights().then(()=>{ if(S.curView==='games'||S.curView==='bets')showView(S.curView); }).catch(()=>{});
+  // Redesenha SEJA QUAL FOR a vista aberta — o ⚡ existe no cartão de aposta,
+  // no separador Real e nas vistas do Mundial.
+  loadInsights().then(()=>{
+    if(S.league){ renderLeagueView(); return; }
+    if(S.curView) showView(S.curView);
+  }).catch(()=>{});
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
 }
@@ -7814,7 +7823,7 @@ function buildLeagueResultsHtml(){
       <span class="bracket-team${w1?' bracket-winner':''}">${crest(g.t1,15)}${escapeHtml(g.t1||'')}</span>
       <span class="bracket-score-badge">${has?`${r.t1}-${r.t2}`:'·'}</span>
       <span class="bracket-team${w2?' bracket-winner':''}" style="text-align:right">${escapeHtml(g.t2||'')}${crest(g.t2,15)}</span>
-      <span style="font-size:.63rem;color:var(--sub);white-space:nowrap;margin-left:2px">${when}</span>
+      <span style="font-size:.63rem;color:var(--sub);white-space:nowrap;margin-left:2px">${when}</span>${insightsBtnHtml(g.id)}
     </div>`;
   });
   return html;
