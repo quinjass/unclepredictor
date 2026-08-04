@@ -897,13 +897,26 @@ function closeLoginBox(){
 document.addEventListener('keydown', function(e){
   if (e.key === 'Escape' && document.body.classList.contains('up-show-login')) closeLoginBox();
 });
-/* Se o URL trouxer #entrar (ou vier de um fluxo de OAuth/recuperação), abre já. */
+/* Se o URL trouxer #entrar (ou vier de um fluxo de OAuth/recuperação), abre já.
+   E se trouxer ?ref=CODIGO, abre DIRETO no ecrã de criar conta — quem veio por
+   um convite não devia ter de descobrir onde se carrega para se registar. */
 (function(){
   function maybeOpen(){
     var h = (location.hash || '').toLowerCase();
+    var temRef = /[?&]ref=[A-Za-z0-9]{3,20}/.test(location.search || '');
     if (h.indexOf('entrar') > -1 || h.indexOf('access_token') > -1 ||
-        h.indexOf('type=recovery') > -1 || h.indexOf('error') > -1) {
+        h.indexOf('type=recovery') > -1 || h.indexOf('error') > -1 || temRef) {
       document.body.classList.add('up-show-login');
+    }
+    if (temRef) {
+      // Só se ainda não houver sessão: quem já está dentro não quer um ecrã de
+      // registo em cima. O atraso deixa o resto da página montar primeiro.
+      setTimeout(function(){
+        try {
+          if (localStorage.getItem('upsb_session')) return;
+          if (typeof showRegister === 'function') showRegister();
+        } catch (e) {}
+      }, 400);
     }
   }
   if (document.readyState === 'loading') {
@@ -1908,6 +1921,12 @@ document.addEventListener('keydown', function(e){
         try { const r = await rpc('rpc_my_referrals', {}, true); return r || { enabled: false }; }
         catch (e) { return { enabled: false }; }
       }
+      // Quem me convidou → nome a mostrar no registo. Anon: corre antes de
+      // haver sessão. Devolve null a códigos inválidos, sem dizer porquê.
+      if (action === 'referrerPreview') {
+        try { return await rpc('rpc_referrer_preview', { p_code: String(data.ref || '').toUpperCase() }) || {}; }
+        catch (e) { return {}; }
+      }
       if (action === 'setReferrer') {
         try { const ok = await rpc('rpc_set_referrer', { p_referrer: String(data.ref || '').toUpperCase() }, true); return { success: ok === true }; }
         catch (e) { return { success: false }; }
@@ -2214,6 +2233,13 @@ document.addEventListener('keydown', function(e){
 <div class="switcher-overlay" id="register-overlay">
   <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
     <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:16px">Criar conta</div>
+    <!-- Padrinho: só aparece a quem chegou por um link ?ref=. Campo bloqueado,
+         para a pessoa ver quem a convidou e o convite deixar de ser anónimo. -->
+    <div class="form-group" id="reg-padrinho-wrap" style="display:none;margin-bottom:10px">
+      <label class="form-label">Convidado por</label>
+      <input class="form-input" id="reg-padrinho" type="text" readonly disabled
+             style="background:var(--bg2);color:var(--gold);font-weight:600;cursor:default">
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
       <div class="form-group" style="margin-bottom:0"><label class="form-label">Primeiro nome</label>
         <input class="form-input" id="reg-first" type="text" placeholder="ex: Hugo" autocomplete="given-name"></div>
@@ -3617,8 +3643,27 @@ function showGoogleBlocked(){ const el=document.getElementById('googleblocked-ov
 function closeGoogleBlocked(){ const el=document.getElementById('googleblocked-overlay'); if(el) el.classList.remove('open'); }
 
 // ── Registo ──
+// Mostra quem convidou, no campo bloqueado do registo. O código vem do
+// localStorage (guardado pelo captureRef no arranque) e é traduzido em nome
+// pela rpc_referrer_preview, que devolve só nickname + primeiro nome.
+async function preencherPadrinho(){
+  const wrap=document.getElementById('reg-padrinho-wrap');
+  const inp=document.getElementById('reg-padrinho');
+  if(!wrap||!inp) return;
+  wrap.style.display='none'; inp.value='';
+  let ref=null; try{ ref=localStorage.getItem(UP_PENDING_REF); }catch(e){ return; }
+  if(!ref) return;
+  try{
+    const r=await api('referrerPreview',{ref:ref});
+    if(r&&r.nick){
+      inp.value = r.nome ? `${r.nome} (${r.nick})` : r.nick;
+      wrap.style.display='';
+    }
+  }catch(e){ /* código inválido → o campo simplesmente não aparece */ }
+}
 function showRegister() {
   ['reg-first','reg-last','reg-email','reg-pw','reg-pw2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  preencherPadrinho();
   document.getElementById('reg-error').style.display='none';
   document.getElementById('reg-success').style.display='none';
   const btn=document.getElementById('reg-btn'); btn.disabled=false; btn.style.display=''; btn.textContent='Criar conta';
@@ -4935,21 +4980,49 @@ async function showEmbaixadores(){
       </div>
     </div>`;
 
+  // ⚠️ Deliberadamente VAGO sobre o critério exato. A versão anterior explicava
+  // ao pormenor como se contava um amigo ativo e porquê — o que é o mesmo que
+  // dar o manual a quem queira contornar o sistema. Diz-se o que a pessoa
+  // precisa de saber (traz amigos que joguem), não a mecânica de defesa.
   const regras=`<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
       <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:9px">Como conta</div>
       <div style="font-size:.75rem;color:var(--sub);line-height:1.65">
-        Um amigo conta quando <b style="color:var(--text)">joga mesmo</b>: apostar em 3 jornadas diferentes, ao longo de pelo menos duas semanas.<br><br>
-        É de propósito. Se bastasse registar, encher isto com contas falsas seria trivial — e contas falsas a apostar <b style="color:var(--text)">estragam a raridade de toda a gente</b>, porque um resultado deixa de ser raro quando cinco fantasmas o escolhem.<br><br>
+        Contam os amigos que <b style="color:var(--text)">jogam a sério</b> — que apostam com regularidade ao longo das jornadas, não apenas quem se regista.<br><br>
         Os prémios são passes Premium. O Premium nunca dá pontos nem vantagem na classificação.
       </div>
     </div>`;
+
+  // ── Quem já veio pelo teu link ────────────────────────────────────────────
+  // Separa os que já jogam a sério dos que ainda estão a começar. Ver os nomes
+  // é o que dá ao embaixador a noção de a quem vale a pena dar um toque —
+  // "o Rui registou-se há duas semanas e nunca mais apostou" é acionável;
+  // "tens 4 convidados, 1 ativo" não é.
+  const amigos=Array.isArray(d.lista)?d.lista:[];
+  const dataPt=(s)=>{ try{ return new Date(s).toLocaleDateString('pt-PT',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return ''; } };
+  const linhaAmigo=(a)=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${a.ativo?'var(--green)':'var(--sub)'}"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.82rem;color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(a.nome||'—')}</div>
+        <div style="font-size:.68rem;color:var(--sub)">desde ${escapeHtml(dataPt(a.desde))}${a.jornadas!=null?` · ${a.jornadas} ${a.jornadas===1?'jornada':'jornadas'}`:''}</div>
+      </div>
+      <div style="font-size:.66rem;font-weight:700;white-space:nowrap;color:${a.ativo?'var(--green)':'var(--sub)'}">${a.ativo?'A JOGAR':'A COMEÇAR'}</div>
+    </div>`;
+  const ativos_=amigos.filter(a=>a.ativo), comecar=amigos.filter(a=>!a.ativo);
+  const listaAmigos = amigos.length
+    ? `<div style="margin:16px 0">
+        <div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:4px">Os teus convidados (${amigos.length})</div>
+        ${ativos_.map(linhaAmigo).join('')}
+        ${comecar.length?`<div style="font-size:.7rem;color:var(--sub);margin:12px 0 2px;opacity:.85">Ainda a começar — um empurrão pode ajudar</div>${comecar.map(linhaAmigo).join('')}`:''}
+      </div>`
+    : `<div style="text-align:center;color:var(--sub);font-size:.78rem;padding:16px 6px;line-height:1.6">
+        Ainda não convidaste ninguém.<br>Partilha o teu link e eles aparecem aqui.</div>`;
 
   if(d.enabled===false){
     body.innerHTML=hero+`<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:20px;line-height:1.6">
       O programa ainda não arrancou.<br>Vem cá dentro de dias.</div>`+partilha;
     return;
   }
-  body.innerHTML=hero+progresso+lista+partilha+regras;
+  body.innerHTML=hero+progresso+lista+listaAmigos+partilha+regras;
 }
 function closeEmbaixadores(){
   const el=document.getElementById('embaixadores-overlay');
