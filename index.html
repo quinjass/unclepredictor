@@ -5498,12 +5498,18 @@ async function registerPush(){
 //  build. Na prática, AD_CFG.enabled é um kill-switch instantâneo.
 // ════════════════════════════════════════════════
 const AD_CFG = {
-  enabled: false,   // ⇦ PÔR A true só depois de existirem as unidades reais no AdMob
-  testing: true,    // true = anúncios de TESTE da Google. NUNCA testar com os reais:
-                    //        cliques próprios em anúncios reais = conta banida.
-  // ID de teste oficial da Google. Substituir pelo ID da unidade real
-  // (formato ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY) e pôr testing:false.
-  bannerId: 'ca-app-pub-3940256099942544/6300978111'
+  // Kill-switch. Ligado é INÓCUO enquanto a versão da app na loja não tiver o
+  // plugin AdMob: sem plugin, _adPlugin() devolve null e não acontece nada.
+  enabled: true,
+  // true = anúncios de TESTE da Google (falsos, não geram receita).
+  // ⚠️ PÔR A false ANTES de publicar o AAB na Play Store. Publicar com
+  // testing:true = todos os utilizadores veem anúncios de teste: zero receita
+  // e problema de conformidade.
+  // ⚠️ Enquanto for true, podes clicar à vontade. Com false, NUNCA cliques
+  // nos teus próprios anúncios — é banimento da conta AdMob.
+  testing: true,
+  // Bloco "Banner_1" da conta pub-5711304316759124.
+  bannerId: 'ca-app-pub-5711304316759124/3479802310'
 };
 
 const _ad = { init:false, shown:false };
