@@ -69,6 +69,17 @@
     .nav-btn svg{width:19px;height:19px}
     .nav-btn.active{color:var(--gold)}
 
+    /* ── BANNER ADMOB (só na app nativa) ──
+       O banner é uma vista NATIVA desenhada por cima da WebView, no fundo do
+       ecrã. Se não levantarmos a navegação, o banner tapa-a. --up-ad-h é
+       preenchido pelo JS com a altura real do banner (evento SizeChanged) e
+       fica a 0px em todo o lado onde não há anúncio: browser, premium, login.
+       Estas regras vêm DEPOIS das originais de propósito — mesma
+       especificidade, ganha a última. */
+    :root{--up-ad-h:0px}
+    .bottom-nav{bottom:var(--up-ad-h)}
+    body{padding-bottom:calc(80px + var(--up-ad-h))}
+
     /* ── LAYOUT ── */
     .main{padding:16px;max-width:660px;margin:0 auto}
     .view{display:none}.view.active{display:block}
@@ -4004,6 +4015,7 @@ function showApp() {
   updateLeaguePill();
   showView('leaderboard');
   registerPush();
+  try{ syncAds(); }catch(e){}   // banner AdMob (só app nativa, só não-premium)
 }
 // ══════════════════════════════════════════════════════════════════════════
 //  VISTA DE LIGA (pontos-corridos) - Fase 1
@@ -5476,6 +5488,92 @@ async function registerPush(){
   }catch(e){ _pushDone = false; console.warn('push register falhou', e); }
 }
 
+// ════════════════════════════════════════════════
+//  ADMOB - banner no fundo. Só corre dentro da app nativa (Capacitor) e só
+//  para quem NÃO tem premium. No browser é totalmente ignorado.
+//
+//  NOTA IMPORTANTE: este código vive na página remota que a app carrega, por
+//  isso ligar, desligar ou trocar os anúncios NÃO exige build novo nem passar
+//  pela revisão da Play Store. Só o plugin nativo e o APPLICATION_ID exigem
+//  build. Na prática, AD_CFG.enabled é um kill-switch instantâneo.
+// ════════════════════════════════════════════════
+const AD_CFG = {
+  enabled: false,   // ⇦ PÔR A true só depois de existirem as unidades reais no AdMob
+  testing: true,    // true = anúncios de TESTE da Google. NUNCA testar com os reais:
+                    //        cliques próprios em anúncios reais = conta banida.
+  // ID de teste oficial da Google. Substituir pelo ID da unidade real
+  // (formato ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY) e pôr testing:false.
+  bannerId: 'ca-app-pub-3940256099942544/6300978111'
+};
+
+const _ad = { init:false, shown:false };
+
+// Só há anúncios se: build nativo + kill-switch ligado + sessão iniciada +
+// utilizador SEM premium. Qualquer uma destas a falhar → banner fora.
+function adsAllowed(){
+  if(!AD_CFG.enabled) return false;
+  if(!window.UP_IS_NATIVE) return false;
+  if(!S.user) return false;
+  if(S.premium) return false;
+  return true;
+}
+
+function _adPlugin(){
+  try{
+    const Cap = window.Capacitor;
+    if(!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) return null;
+    return (Cap.Plugins && Cap.Plugins.AdMob) || null;
+  }catch(e){ return null; }
+}
+
+function _setAdHeight(px){
+  document.documentElement.style.setProperty('--up-ad-h', (Number(px)||0)+'px');
+}
+
+// Idempotente: pode ser chamada as vezes que forem precisas. Mostra, esconde
+// ou não faz nada, conforme o estado atual.
+async function syncAds(){
+  try{
+    const AdMob = _adPlugin();
+    if(!AdMob) return;                          // browser ou plugin ausente
+
+    if(!adsAllowed()){                          // premium, logout ou desligado
+      if(_ad.shown){
+        try{ await AdMob.removeBanner(); }catch(_){}
+        _ad.shown = false;
+      }
+      _setAdHeight(0);
+      return;
+    }
+
+    if(_ad.shown) return;                       // já está lá
+
+    if(!_ad.init){
+      await AdMob.initialize();
+      // CONSENTIMENTO (UMP) - obrigatório na UE ANTES de servir anúncios.
+      // Ordem imposta pela Google: initialize → requestConsentInfo →
+      // showConsentForm (se necessário) → showBanner.
+      let info = await AdMob.requestConsentInfo();
+      if(info && info.canRequestAds === false && info.isConsentFormAvailable){
+        info = await AdMob.showConsentForm();
+      }
+      if(info && info.canRequestAds === false) return;   // recusou → sem anúncios
+      // A altura do banner varia com o ecrã; o evento dá-nos o valor real.
+      AdMob.addListener('bannerAdSizeChanged', (sz)=>{ _setAdHeight(sz && sz.height); });
+      _ad.init = true;
+    }
+
+    await AdMob.showBanner({
+      adId: AD_CFG.bannerId,
+      adSize: 'ADAPTIVE_BANNER',
+      position: 'BOTTOM_CENTER',
+      margin: 0,
+      isTesting: AD_CFG.testing
+    });
+    _ad.shown = true;
+  }catch(e){ console.warn('admob falhou', e); }   // nunca partir a app por causa de um anúncio
+}
+
 function showLeaguePicker() {
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-league-picker').classList.add('active');
@@ -5665,6 +5763,9 @@ async function loadData() {
     S.premiumCodes = new Set(r.premiumCodes || []);
     S.premiumEnabled = !!r.premiumEnabled;
     S.premiumDeadlineMin = Number(r.premiumDeadlineMin || 0);
+    // Se o passe premium acabou de ser ativado (ou expirou), o banner tem de
+    // acompanhar sem obrigar a reiniciar a app.
+    try{ if(typeof syncAds==='function') syncAds(); }catch(e){}
     // Links de pagamento: a BD manda (046). Só substitui se vier alguma coisa
     // utilizável — senão fica a rede de segurança local.
     if (r.payLinks && typeof r.payLinks === 'object' && Object.keys(r.payLinks).length) {
