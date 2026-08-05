@@ -1510,13 +1510,19 @@ document.addEventListener('keydown', function(e){
   // migração JIT (migrate-login) é uma preocupação SÓ de produção e é injetada
   // na geração do frontend de produção por `_build_prod.py` (T5) - fonte única.
   // Password grant: devolve o JSON do token, ou null se falhar.
+  // Guarda a razão da última falha em LAST_AUTH_ERR: sem isto, quem se
+  // registou e ainda não confirmou o email levava com "credenciais inválidas"
+  // e ficava preso sem perceber porquê (6 Ago 2026).
+  let LAST_AUTH_ERR = '';
   async function passwordGrant(email, password) {
     const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     const j = await r.json().catch(() => ({}));
-    return (r.ok && j.access_token) ? j : null;
+    if (r.ok && j.access_token) { LAST_AUTH_ERR = ''; return j; }
+    LAST_AUTH_ERR = String(j.error_code || j.error || j.msg || j.error_description || '').toLowerCase();
+    return null;
   }
 
   async function login(data) {
@@ -1553,7 +1559,16 @@ document.addEventListener('keydown', function(e){
         if (nj && nj.ok && nj.token && nj.token.access_token) { j = nj.token; email = nj.email || ''; }
       } catch (e) { /* falha de login normal */ }
     }
-    if (!j || !j.access_token) return { success: false };
+    if (!j || !j.access_token) {
+      // Conta criada mas email por confirmar: dizer isso em vez de "dados
+      // errados". O scanner do Outlook/Hotmail chega a consumir o link de
+      // confirmação sozinho — nesse caso a conta JÁ está confirmada e o login
+      // passa; quem ainda não abriu o email vê esta mensagem.
+      if (LAST_AUTH_ERR.includes('not_confirmed') || LAST_AUTH_ERR.includes('not confirmed')) {
+        return { success: false, error: 'Confirma primeiro o teu email — o link foi enviado quando criaste a conta. Vê também o spam.' };
+      }
+      return { success: false };
+    }
     const sess = { access_token: j.access_token, refresh_token: j.refresh_token,
                    expires_at: Math.floor(realNowMs() / 1000) + (j.expires_in || 3600) };
     const who = await fetch(`${SB_URL}/rest/v1/rpc/me`, { method: 'POST',
@@ -2063,6 +2078,40 @@ document.addEventListener('keydown', function(e){
           if (m) { try { const j = JSON.parse(m[0]); if (j && j.message) msg = j.message; } catch (_) {} }
           return { success: false, error: msg };
         }
+      }
+
+      // ---- REGISTO email/password (6 Ago 2026) -------------------------------
+      // Esta ação NUNCA existiu aqui: até 19 Jul o fall-through fabricava
+      // { success:true } e o "Conta criada com sucesso!" era mentira; depois
+      // passou a devolver "ação não disponível". Agora é real: a edge function
+      // `register` cria conta Auth (com email de confirmação), participante e
+      // inscrição, com rollback. Precisa de service role -> não pode ser aqui.
+      // ⚠️ O código do padrinho é lido do localStorage com a chave em texto:
+      // a const UP_PENDING_REF vive noutro bloco <script> e NÃO existe neste
+      // âmbito (ver o incidente do COMP a 30 Jul).
+      if (action === 'register') {
+        const nome = [String(data.firstName || '').trim(), String(data.lastName || '').trim()]
+          .filter(Boolean).join(' ');
+        let ref = '';
+        try {
+          const raw = localStorage.getItem('up_pending_ref');
+          if (raw) ref = raw.charAt(0) === '{' ? String((JSON.parse(raw) || {}).ref || '') : String(raw);
+        } catch (e) { /* sem padrinho */ }
+        const r = await fetch(`${SB_URL}/functions/v1/register`, {
+          method: 'POST',
+          headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: String(data.email || '').trim().toLowerCase(),
+            password: data.password || '',
+            name: nome,
+            comp: COMP,
+            ref,
+            redirect: location.origin + location.pathname,
+          }),
+        });
+        const rj = await r.json().catch(() => ({}));
+        if (rj && rj.ok) return { success: true, code: rj.code, confirm: rj.confirm !== false };
+        return { success: false, error: (rj && rj.error) || 'Não foi possível criar a conta.' };
       }
 
       // Password (Supabase Auth + SMTP)
@@ -3630,7 +3679,10 @@ async function login() {
       loadData();         // buscar em paralelo (atualiza o nº de inscritos)
       loadMyLeagues();
     } else {
-      showLoginErr('Email/nickname ou password incorretos.');
+      // r.error só vem preenchido em casos específicos (ex.: email por
+      // confirmar). Fora disso, mensagem genérica — não dizemos se o email
+      // existe.
+      showLoginErr(r.error || 'Email/nickname ou password incorretos.');
     }
   } catch(e) { showLoginErr('Erro de ligação.'); }
   btn.textContent = 'Entrar no jogo'; btn.disabled = false;
@@ -3706,9 +3758,23 @@ async function submitRegister() {
   try {
     const r=await api('register',{email,firstName,lastName,password:pw});
     if (r.success) {
-      sucEl.textContent='Conta criada com sucesso! Recebeste um email de confirmação. Podes fazer login agora.';
-      sucEl.style.display='block'; btn.style.display='none';
-      setTimeout(()=>{ closeRegister(); document.getElementById('login-email').value=email; document.getElementById('login-pw').focus(); }, 2800);
+      // Duas mensagens diferentes conforme a confirmação de email esteja ou não
+      // exigida no projeto. Nunca dizer "podes entrar já" quando a conta ainda
+      // está por confirmar — era o que dizia a mensagem antiga, e mandava a
+      // pessoa contra um login que ia falhar.
+      if (r.confirm === false) {
+        sucEl.textContent='Conta criada! Já podes entrar com o teu email e password.';
+        sucEl.style.display='block'; btn.style.display='none';
+        setTimeout(()=>{ closeRegister(); document.getElementById('login-email').value=email; document.getElementById('login-pw').focus(); }, 2800);
+      } else {
+        sucEl.innerHTML='Conta criada! Enviámos um email de confirmação para <b>'+
+          email.replace(/[<>&]/g,'')+'</b>. Confirma o email e depois entra com a tua password. '+
+          '<span style="opacity:.8">(Se não o vires, procura no spam.)</span>';
+        sucEl.style.display='block'; btn.style.display='none';
+        // Sem fecho automático: a pessoa tem de ir ao email, não faz sentido
+        // atirá-la para o login 3 segundos depois.
+        document.getElementById('login-email').value=email;
+      }
     } else {
       errEl.textContent=r.error||'Erro ao criar conta.'; errEl.style.display='block';
       btn.disabled=false; btn.textContent='Criar conta';
