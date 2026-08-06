@@ -46,7 +46,7 @@
   <div class="card">
     <div class="tick">✓</div>
     <h1>Pagamento recebido</h1>
-    <p>Obrigado pelo apoio. O teu Passe Premium está a ser ativado na conta com que estás a jogar.</p>
+    <p id="msg">Obrigado pelo apoio. O teu Passe Premium está a ser ativado na conta com que estás a jogar.</p>
     <div class="status" id="status"><span class="dots">A ativar o passe</span></div>
     <a class="btn" id="ir" href="https://unclepredictor.pt/">Voltar ao Uncle Predictor</a>
   </div>
@@ -57,17 +57,38 @@
 </div>
 
 <script>
-// Conta 5 segundos e segue. Não é uma barra de progresso a fingir: é o tempo
-// real que o webhook do Stripe costuma levar a criar o passe. Quem não quiser
-// esperar carrega no botão — nada aqui bloqueia ninguém.
+// ⚠️ DOIS PRODUTOS DIFERENTES CHEGAM A ESTA PÁGINA (6 Ago 2026):
+//
+//   · Links por competição (os antigos) -> o passe fica ACTIVO sozinho. É o
+//     texto de sempre.
+//   · Link único (?v=1) -> o passe fica na conta POR USAR e a pessoa tem de
+//     escolher a competição. Dizer-lhe "a ativar o passe" seria mandá-la
+//     procurar uma coisa que não vai encontrar sozinha.
+//
+// A distinção vem do `?v=1` no URL de sucesso do Payment Link novo. Os links
+// antigos não o levam, por isso não muda nada para quem já comprou.
 (function () {
-  var s = 5;
+  var voucher = /[?&]v=1\b/.test(location.search || '');
   var el = document.getElementById('status');
+  var msg = document.getElementById('msg');
+  var ir  = document.getElementById('ir');
+
+  if (voucher) {
+    msg.textContent = 'Obrigado pelo apoio. O teu Passe Premium já está na tua conta — falta só escolheres a competição onde o queres usar.';
+    ir.textContent = 'Escolher a competição';
+  }
+
+  // Conta 5 segundos e segue. Não é uma barra de progresso a fingir: é o tempo
+  // real que o webhook do Stripe costuma levar. Quem não quiser esperar carrega
+  // no botão — nada aqui bloqueia ninguém.
+  var s = 5;
+  var aDecorrer = voucher ? 'A preparar o teu passe' : 'A ativar o passe';
+  el.innerHTML = '<span class="dots">' + aDecorrer + '</span>';
   var t = setInterval(function () {
     s--;
-    if (s > 0) { el.innerHTML = '<span class="dots">A ativar o passe</span>'; return; }
+    if (s > 0) { el.innerHTML = '<span class="dots">' + aDecorrer + '</span>'; return; }
     clearInterval(t);
-    el.textContent = 'Pronto. A abrir a app…';
+    el.textContent = voucher ? 'Pronto. A abrir a app para escolheres…' : 'Pronto. A abrir a app…';
     setTimeout(function () { location.href = 'https://unclepredictor.pt/'; }, 700);
   }, 1000);
 })();
