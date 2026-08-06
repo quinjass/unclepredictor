@@ -4783,6 +4783,14 @@ function showPremium(){
        </div>
      </div>`).join('');
 
+  /* LINK ÚNICO (059). Se existir a chave `any` no stripe_pay_links, é esse o
+     link de compra para todas as competições: o passe entra na conta como
+     "por usar" e a pessoa escolhe onde o gasta. Enquanto a chave não existir,
+     continua a valer o link da competição actual e nada muda — por isso todos
+     os textos daqui para baixo têm as duas versões. */
+  const linkAny=PREMIUM_LINKS.any||null;
+  const ref=encodeURIComponent((S.user&&S.user.code)||'');
+
   const hero=`
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:2.2rem;line-height:1">⭐</div>
@@ -4790,7 +4798,9 @@ function showPremium(){
       <div style="font-size:.82rem;color:var(--sub);line-height:1.55;margin-top:6px">
         ${S.premium
           ? 'Tens o passe activo '+deCompeticao+'. Obrigado pelo apoio.'
-          : 'Um passe por competição, válido até ao fim '+deCompeticao+'.<br>Pagamento único, sem renovação automática.'}
+          : (linkAny
+              ? 'Um passe por competição, à tua escolha, válido até ao fim dela.<br>Pagamento único, sem renovação automática.'
+              : 'Um passe por competição, válido até ao fim '+deCompeticao+'.<br>Pagamento único, sem renovação automática.')}
       </div>
     </div>`;
 
@@ -4799,7 +4809,9 @@ function showPremium(){
       <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Como funciona</div>
       <div style="font-size:.76rem;color:var(--sub);line-height:1.65">
         O passe é <b style="color:var(--text)">por competição</b>, não é uma subscrição — pagas uma vez e não há renovação nem nada a cancelar.<br><br>
-        Fica <b style="color:var(--text)">activo automaticamente</b> mal o pagamento seja confirmado, na conta com que estás a jogar.<br><br>
+        ${linkAny
+          ? 'Depois do pagamento o passe fica na tua conta como <b style="color:var(--text)">por usar</b>. Escolhes aqui a competição onde o queres gastar, quando quiseres — não há prazo.'
+          : 'Fica <b style="color:var(--text)">activo automaticamente</b> mal o pagamento seja confirmado, na conta com que estás a jogar.'}<br><br>
         O premium <b style="color:var(--text)">nunca dá pontos nem vantagem na pontuação</b>. Dá conveniência, informação e personalização — a classificação continua a depender só dos teus palpites.
       </div>
     </div>`;
@@ -4807,14 +4819,27 @@ function showPremium(){
   if(S.premium){
     // Ter passe activo AQUI não quer dizer não ter passes por usar noutras
     // competições — por isso o bloco de resgate aparece nos dois ramos.
+    // E com o link único faz sentido poder comprar outro sem sair daqui: o
+    // passe não está preso a esta competição.
+    const outro = linkAny
+      ? `<a class="up-premium-buy" style="display:block;text-decoration:none;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px"
+            href="${linkAny}?client_reference_id=${ref}">
+           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+             <div>
+               <div style="font-size:.85rem;color:var(--text);font-weight:600">Comprar outro passe</div>
+               <div style="font-size:.72rem;color:var(--sub);margin-top:2px">Para outra competição, à tua escolha</div>
+             </div>
+             <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem;color:var(--gold);white-space:nowrap">${eur(PREMIUM_PRICE_CENTS)}</div>
+           </div>
+         </a>`
+      : '';
     body.innerHTML=hero
       +`<div style="border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:14px;text-align:center;color:var(--gold);font-weight:700;font-size:.85rem">⭐ Passe activo</div>`
-      +voucherBlockHtml()+perks+comoFunciona;
+      +voucherBlockHtml()+outro+perks+comoFunciona;
     return;
   }
 
-  const link=PREMIUM_LINKS[compKey];
-  const ref=encodeURIComponent((S.user&&S.user.code)||'');
+  const link=linkAny||PREMIUM_LINKS[compKey];
   const seasonLink=premiumSeasonLink();
 
   /* Trial. Nunca activa sozinho (decisão do Hugo): é preciso carregar. Só
@@ -4840,7 +4865,7 @@ function showPremium(){
            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
              <div>
                <div style="font-size:.88rem;color:var(--text);font-weight:600">Passe de Competição</div>
-               <div style="font-size:.72rem;color:var(--sub);margin-top:2px">Só ${compName||'esta competição'}</div>
+               <div style="font-size:.72rem;color:var(--sub);margin-top:2px">${linkAny?'Numa competição à tua escolha':'Só '+(compName||'esta competição')}</div>
              </div>
              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.25rem;color:var(--gold);white-space:nowrap">${eur(PREMIUM_PRICE_CENTS)}</div>
            </div>
@@ -4861,7 +4886,9 @@ function showPremium(){
        </div>
        ${trialCta}
        <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:11px;line-height:1.5">
-         Pagamento seguro através do Stripe.<br>O passe fica activo assim que o pagamento for confirmado.</div>`
+         Pagamento seguro através do Stripe.<br>${linkAny
+           ? 'Depois do pagamento escolhes aqui a competição onde queres usar o passe.'
+           : 'O passe fica activo assim que o pagamento for confirmado.'}</div>`
     : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível nesta competição.</div>${trialCta}`;
 
   body.innerHTML=hero+voucherBlockHtml()+perks+cta+comoFunciona;
@@ -4944,7 +4971,17 @@ function voucherBlockHtml(){
   const vs=vouchersDisponiveis();
   if(!vs.length) return '';
   const comps=(S.vouchers&&Array.isArray(S.vouchers.comps))?S.vouchers.comps:[];
-  const cartoes=vs.map(v=>{
+  // ⚠️ AGRUPAR POR TIPO. Passes do mesmo tipo são intermutáveis, por isso três
+  // cartões iguais um debaixo do outro não dão informação nenhuma — só obrigam
+  // a pessoa a perceber sozinha que tanto faz qual usa. Um cartão com "×3" diz
+  // a mesma coisa numa linha. Gasta-se um de cada vez: o botão usa o primeiro
+  // do grupo e o contador desce.
+  const grupos=[];
+  vs.forEach(v=>{
+    const g=grupos.find(x=>x.kind===v.kind);
+    if(g) g.n++; else grupos.push({kind:v.kind,n:1,id:v.id});
+  });
+  const cartoes=grupos.map(v=>{
     const meta=VOUCHER_TXT[v.kind]||{t:'Passe Premium',d:''};
     const id=escapeHtml(String(v.id));
     // Só o passe de competição faz uma pergunta. Os de época dão tudo o que há
@@ -4957,11 +4994,11 @@ function voucherBlockHtml(){
              <button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:8px" onclick="usarVoucher('${id}','competition')">Usar este passe</button>`
           : `<div style="font-size:.72rem;color:var(--sub);margin-top:9px;line-height:1.5">
                Já tens passe activo em todas as competições disponíveis. Este fica guardado para a próxima.</div>`)
-      : `<button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:9px" onclick="usarVoucher('${id}','${escapeHtml(v.kind)}')">Usar este passe</button>`;
+      : `<button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:9px" onclick="usarVoucher('${id}','${escapeHtml(v.kind)}')">Usar ${v.n>1?'um passe':'este passe'}</button>`;
     return `<div style="border:1px solid var(--gold);border-radius:11px;padding:12px;margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div>
-          <div style="font-size:.86rem;font-weight:600;color:var(--text)">⭐ ${meta.t}</div>
+          <div style="font-size:.86rem;font-weight:600;color:var(--text)">⭐ ${meta.t}${v.n>1?` <span style="color:var(--gold)">×${v.n}</span>`:''}</div>
           <div style="font-size:.73rem;color:var(--sub);margin-top:2px">${meta.d}</div>
         </div>
         <span style="font-size:.62rem;font-weight:700;letter-spacing:.05em;color:var(--gold);white-space:nowrap">POR USAR</span>
@@ -4969,8 +5006,9 @@ function voucherBlockHtml(){
       ${escolha}
     </div>`;
   }).join('');
+  const total=vs.length;
   return `<div style="margin-bottom:18px">
-      <div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:9px">Os teus passes por usar</div>
+      <div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:9px">${total>1?`Os teus passes por usar (${total})`:'O teu passe por usar'}</div>
       ${cartoes}
       <div style="font-size:.68rem;color:var(--sub);line-height:1.5;opacity:.85">Não há prazo. Podes guardar e usar quando quiseres.</div>
     </div>`;
