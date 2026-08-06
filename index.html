@@ -59,6 +59,11 @@
 
     /* ── HEADER ── */
     .header{background:var(--bg2);border-bottom:2px solid var(--gold);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+    /* --up-ad-h aqui empurra o cabeçalho para baixo, para o banner TOP_CENTER
+       não ficar por cima do logo/sino. Sticky (não fixed) já ocupa espaço no
+       fluxo normal, por isso margin-top chega - não precisa de padding extra
+       no body como o bottom-nav precisava. */
+    .header{margin-top:var(--up-ad-h)}
     .logo{font-family:'Rajdhani',sans-serif;font-size:1.35rem;font-weight:700;color:var(--gold);letter-spacing:1px}
     .logo span{color:var(--text)}
     .user-pill{background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:.78rem;color:var(--sub);cursor:pointer;white-space:nowrap}
@@ -77,13 +82,11 @@
        Estas regras vêm DEPOIS das originais de propósito — mesma
        especificidade, ganha a última. */
     :root{--up-ad-h:0px}
-    /* + env(safe-area-inset-bottom): em telemóveis com navegação por gestos
-       (ex.: Samsung), o banner nativo fica acima da barra de gestos - se não
-       somarmos essa margem aqui, a --up-ad-h sozinha fica curta e a barra de
-       navegação continua tapada mesmo com a altura do anúncio já correta
-       (bug real, apanhado em teste em dispositivo a 7 Ago 2026). */
-    .bottom-nav{bottom:calc(var(--up-ad-h) + env(safe-area-inset-bottom,0px))}
-    body{padding-bottom:calc(80px + var(--up-ad-h) + env(safe-area-inset-bottom,0px))}
+    /* O banner passou para TOP_CENTER (ver syncAds() - bug do plugin em
+       Android 15/16 no fundo, github.com/capacitor-community/admob/issues/390).
+       Já não tapa a bottom-nav nem o rodapé, por isso estas ficam simples,
+       sem depender de --up-ad-h. */
+    body{padding-bottom:80px}
 
     /* ── LAYOUT ── */
     .main{padding:16px;max-width:660px;margin:0 auto}
@@ -423,7 +426,7 @@
     /* ── MODAL ── */
     #modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;justify-content:flex-end;flex-direction:column;align-items:center}
     #modal-overlay.open{display:flex}
-    #modal-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;max-height:88vh;overflow-y:auto;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + env(safe-area-inset-bottom,0px))}
+    #modal-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;max-height:88vh;overflow-y:auto;border-top:2px solid var(--gold);margin-bottom:env(safe-area-inset-bottom,0px)}
     .modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1}
     .modal-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;color:var(--gold)}
     .modal-subtitle{font-size:.75rem;color:var(--sub);margin-top:2px}
@@ -492,7 +495,7 @@
     @keyframes pulse-warn{0%,100%{opacity:1}50%{opacity:.6}}
     /* 9600: acima da .switcher-overlay (9500) — os toasts têm de continuar a
        ver-se por cima das janelas, como acontecia com 500 vs 450. */
-    .toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.82rem;opacity:0;transition:all .3s;z-index:9600;white-space:nowrap;pointer-events:none}
+    .toast{position:fixed;top:calc(68px + var(--up-ad-h));left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.82rem;opacity:0;transition:all .3s;z-index:9600;white-space:nowrap;pointer-events:none}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     .toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}
     /* ── MUNDIAL ── */
@@ -557,7 +560,7 @@
        login-modal subir de z-index, este tem de subir também. */
     .switcher-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:flex-end;justify-content:center}
     .switcher-overlay.open{display:flex}
-    .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + env(safe-area-inset-bottom,0px))}
+    .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold);margin-bottom:env(safe-area-inset-bottom,0px)}
     /* ── FASE A ELIMINAR - tabs apostas ── */
     .ko-divider{display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:.72rem;color:#7986cb;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
     .ko-divider::before,.ko-divider::after{content:'';flex:1;height:1px;background:rgba(99,102,241,.2)}
@@ -5862,7 +5865,12 @@ async function syncAds(){
     await AdMob.showBanner({
       adId: AD_CFG.bannerId,
       adSize: 'ADAPTIVE_BANNER',
-      position: 'BOTTOM_CENTER',
+      // TOP_CENTER em vez de BOTTOM_CENTER: bug conhecido e por resolver do
+      // plugin em Android 15/16 (edge-to-edge) faz a margem do banner no
+      // fundo ser ignorada, tapando a nav e sem hipótese de compensar por
+      // CSS (github.com/capacitor-community/admob/issues/390, testado em
+      // dispositivo real a 7 Ago 2026). O topo não tem esse conflito.
+      position: 'TOP_CENTER',
       margin: 0,
       isTesting: AD_CFG.testing
     });
