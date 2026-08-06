@@ -485,7 +485,9 @@
     .unsaved-pill{background:rgba(231,76,60,.12);color:var(--red);border:1px solid rgba(231,76,60,.35);animation:pulse-warn 2s ease-in-out infinite}
     .autosave-ok{background:rgba(39,174,96,.12);color:var(--green);border:1px solid rgba(39,174,96,.25)}
     @keyframes pulse-warn{0%,100%{opacity:1}50%{opacity:.6}}
-    .toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.82rem;opacity:0;transition:all .3s;z-index:500;white-space:nowrap;pointer-events:none}
+    /* 9600: acima da .switcher-overlay (9500) — os toasts têm de continuar a
+       ver-se por cima das janelas, como acontecia com 500 vs 450. */
+    .toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.82rem;opacity:0;transition:all .3s;z-index:9600;white-space:nowrap;pointer-events:none}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     .toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}
     /* ── MUNDIAL ── */
@@ -543,7 +545,12 @@
     .league-search:focus{border-color:var(--gold)}
     .league-section-title{font-family:'Rajdhani',sans-serif;font-size:.8rem;font-weight:700;color:var(--sub);letter-spacing:.8px;text-transform:uppercase;margin:14px 0 8px}
     /* ── LIGAS MODAL ── */
-    .switcher-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:450;align-items:flex-end;justify-content:center}
+    /* ⚠️ z-index 9500: TEM de ficar acima do #login-modal (9000) e do
+       #login-close (9001). Com os 450 antigos, o "Recuperar password" e o
+       pedido de nickname abriam POR TRÁS da caixa de login e pareciam não
+       funcionar (bug apanhado nos testes de 6 Ago 2026). Se algum dia o
+       login-modal subir de z-index, este tem de subir também. */
+    .switcher-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:flex-end;justify-content:center}
     .switcher-overlay.open{display:flex}
     .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold)}
     /* ── FASE A ELIMINAR - tabs apostas ── */
@@ -2104,6 +2111,7 @@ document.addEventListener('keydown', function(e){
             email: String(data.email || '').trim().toLowerCase(),
             password: data.password || '',
             name: nome,
+            nickname: String(data.nickname || '').trim(),
             comp: COMP,
             ref,
             redirect: location.origin + location.pathname,
@@ -2307,6 +2315,12 @@ document.addEventListener('keydown', function(e){
       <div class="form-group" style="margin-bottom:0"><label class="form-label">Apelido</label>
         <input class="form-input" id="reg-last" type="text" placeholder="ex: Ribeiro" autocomplete="family-name"></div>
     </div>
+    <!-- Nickname pedido JÁ AQUI (6 Ago 2026). Antes só era pedido depois do
+         primeiro login, numa janela que aparecia por trás da caixa de login e
+         parecia que o login tinha bloqueado. A janela do nickname fica a
+         existir só para os jogadores antigos do Mundial, que ainda não têm. -->
+    <div class="form-group"><label class="form-label">Nickname <span style="color:var(--sub);font-weight:400">(é o nome que aparece nas classificações)</span></label>
+      <input class="form-input" id="reg-nick" type="text" placeholder="ex: hugo_r" autocomplete="nickname" maxlength="20"></div>
     <div class="form-group"><label class="form-label">Email</label>
       <input class="form-input" id="reg-email" type="email" placeholder="o-teu@email.com" autocomplete="email"></div>
     <div class="form-group"><label class="form-label">Password <span style="color:var(--sub);font-weight:400">(mín. 6 caracteres)</span></label>
@@ -3673,6 +3687,11 @@ async function login() {
       const sc = localStorage.getItem('up26_saved_'+S.user.code);
       if (sc) S.savedCards = JSON.parse(sc); else S.savedCards = {};
       // Nickname obrigatório (1x por conta): quem ainda não tem define-o já no login.
+      // ⚠️ Repor o botão ANTES de esperar pelo nickname. Sem isto ficava preso
+      // em "A verificar..." durante todo o tempo em que a janela do nickname
+      // estava aberta — e como essa janela também aparecia escondida, parecia
+      // simplesmente que o login tinha bloqueado (bug de 6 Ago 2026).
+      btn.textContent = 'Entrar no jogo'; btn.disabled = false;
       if(!S.user.nickname){ await ensureNickname(); if(!S.user.nickname) return; }
       // Entrar SEMPRE pela página de seleção de competições (decisão Hugo, 14 Jul).
       showCompetitions();
@@ -3734,7 +3753,7 @@ function showRegister() {
   // Fechar o login antes de abrir o registo: senão ficavam os dois no ecrã,
   // com a caixa de login por cima da de criar conta.
   try{ if(typeof closeLoginBox==='function') closeLoginBox(); }catch(e){}
-  ['reg-first','reg-last','reg-email','reg-pw','reg-pw2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['reg-first','reg-last','reg-nick','reg-email','reg-pw','reg-pw2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   preencherPadrinho();
   document.getElementById('reg-error').style.display='none';
   document.getElementById('reg-success').style.display='none';
@@ -3746,17 +3765,21 @@ function closeRegister(){ document.getElementById('register-overlay').classList.
 async function submitRegister() {
   const firstName = document.getElementById('reg-first').value.trim();
   const lastName  = document.getElementById('reg-last').value.trim();
+  const nick      = document.getElementById('reg-nick').value.trim();
   const email     = document.getElementById('reg-email').value.trim();
   const pw        = document.getElementById('reg-pw').value;
   const pw2       = document.getElementById('reg-pw2').value;
   const errEl=document.getElementById('reg-error'); const sucEl=document.getElementById('reg-success');
   errEl.style.display='none'; sucEl.style.display='none';
-  if (!firstName||!lastName||!email||!pw) { errEl.textContent='Preenche todos os campos.'; errEl.style.display='block'; return; }
+  if (!firstName||!lastName||!nick||!email||!pw) { errEl.textContent='Preenche todos os campos.'; errEl.style.display='block'; return; }
+  // Mesmas regras do rpc_set_nickname (migração 012) — validar já aqui poupa
+  // uma ida ao servidor e dá a mensagem certa em vez de um erro de base de dados.
+  if (!/^[A-Za-z0-9_.\-]{3,20}$/.test(nick)) { errEl.textContent='Nickname inválido: 3 a 20 caracteres (letras, números, . _ -).'; errEl.style.display='block'; return; }
   if (pw.length<6) { errEl.textContent='A password deve ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
   if (pw!==pw2) { errEl.textContent='As passwords não coincidem.'; errEl.style.display='block'; return; }
   const btn=document.getElementById('reg-btn'); btn.textContent='A criar...'; btn.disabled=true;
   try {
-    const r=await api('register',{email,firstName,lastName,password:pw});
+    const r=await api('register',{email,firstName,lastName,nickname:nick,password:pw});
     if (r.success) {
       // Duas mensagens diferentes conforme a confirmação de email esteja ou não
       // exigida no projeto. Nunca dizer "podes entrar já" quando a conta ainda
