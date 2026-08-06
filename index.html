@@ -1966,6 +1966,26 @@ document.addEventListener('keydown', function(e){
         catch (e) { return { success: false }; }
       }
 
+      // ---- PASSES POR USAR + HALL (058, 6 Ago 2026) --------------------------
+      // O prémio de um marco é um voucher que fica na conta; o jogador escolhe
+      // a competição. Falha suave: sem a migration 058 devolve lista vazia e a
+      // UI simplesmente não mostra o bloco.
+      if (action === 'myVouchers') {
+        try { const r = await rpc('rpc_my_vouchers', {}, true); return r || { vouchers: [], comps: [] }; }
+        catch (e) { return { vouchers: [], comps: [] }; }
+      }
+      if (action === 'redeemVoucher') {
+        try {
+          const r = await rpc('rpc_redeem_voucher', { p_id: data.id, p_comp: data.competition_id || null }, true);
+          if (r && r.ok) DB = null;   // o passe muda o estado premium: recarregar
+          return r || { ok: false, error: 'Não foi possível usar o passe.' };
+        } catch (e) { return { ok: false, error: 'Não foi possível usar o passe.' }; }
+      }
+      if (action === 'referralHall') {
+        try { const r = await rpc('rpc_referral_hall', { p_limit: Number(data.limit) || 20 }, true); return r || { lista: [] }; }
+        catch (e) { return { lista: [] }; }
+      }
+
       // ---- CONVITE POR LINK (3 Ago 2026) ----
       // Uma chamada faz tudo: inscreve na competição da liga e entra na liga.
       // O convidado que veio de /j/ nunca escreve um código nem escolhe uma
@@ -4785,9 +4805,11 @@ function showPremium(){
     </div>`;
 
   if(S.premium){
+    // Ter passe activo AQUI não quer dizer não ter passes por usar noutras
+    // competições — por isso o bloco de resgate aparece nos dois ramos.
     body.innerHTML=hero
       +`<div style="border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:14px;text-align:center;color:var(--gold);font-weight:700;font-size:.85rem">⭐ Passe activo</div>`
-      +perks+comoFunciona;
+      +voucherBlockHtml()+perks+comoFunciona;
     return;
   }
 
@@ -4842,7 +4864,7 @@ function showPremium(){
          Pagamento seguro através do Stripe.<br>O passe fica activo assim que o pagamento for confirmado.</div>`
     : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível nesta competição.</div>${trialCta}`;
 
-  body.innerHTML=hero+perks+cta+comoFunciona;
+  body.innerHTML=hero+voucherBlockHtml()+perks+cta+comoFunciona;
 }
 
 /* ═══ TRIAL DE 2 JORNADAS ═══════════════════════════════════════════════════
@@ -4879,6 +4901,104 @@ function trialBannerHtml(){
     ⭐ Estás a testar o Premium. ${dias>0?`Faltam ${dias} ${dias===1?'dia':'dias'}.`:'Acaba hoje.'}
     <span style="color:var(--gold);cursor:pointer;text-decoration:underline" onclick="showPremium()">Ver planos</span>
   </div>`;
+}
+
+/* ═══ PASSES POR USAR (vouchers, 058) ═══════════════════════════════════════
+   Um marco de embaixador dá um passe que FICA NA CONTA. O jogador escolhe
+   depois onde o usa — pode não haver competição aberta no dia em que o ganha,
+   e obrigá-lo a gastá-lo já seria dar-lhe menos do que se prometeu.
+
+   ⚠️ Isto NÃO leva a classe .up-premium nem o guarda window.UP_IS_NATIVE.
+   Usar um passe que já se ganhou não é uma compra, por isso não cai nas regras
+   do Play Billing — ao contrário do ecrã de preços, que continua fora da app.
+   O resgate vive no ecrã "Convidar amigos" precisamente por causa disso: é o
+   único sítio onde o jogador da app o consegue alcançar. */
+const VOUCHER_TXT={
+  competition:{t:'Passe de Competição',d:'Válido numa competição à tua escolha'},
+  season:{t:'Passe Época',d:'Premier League + Champions'},
+  season_x2:{t:'Passe Época ×2',d:'Esta época e a seguinte'},
+};
+async function loadVouchers(){
+  if(S.demoMode||!S.user||!S.user.code){ S.vouchers=null; return; }
+  try{ S.vouchers=await api('myVouchers')||null; }catch(e){ S.vouchers=null; }
+}
+function vouchersDisponiveis(){
+  const v=S.vouchers&&Array.isArray(S.vouchers.vouchers)?S.vouchers.vouchers:[];
+  return v;
+}
+/* Faixa no topo da classificação. Só aparece a quem tem passe por usar E ainda
+   não é premium nesta competição — a quem já é, não há nada a fazer aqui. */
+function voucherBannerHtml(){
+  const n=vouchersDisponiveis().length;
+  if(!n||S.premium) return '';
+  return `<div style="background:var(--bg2);border:1px solid var(--gold);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.75rem;color:var(--text);line-height:1.5">
+    🎁 Tens ${n===1?'um Passe Premium':n+' Passes Premium'} por usar.
+    <span style="color:var(--gold);cursor:pointer;text-decoration:underline" onclick="showEmbaixadores()">Usar agora</span>
+  </div>`;
+}
+/* Bloco de resgate, partilhado pelo ecrã de Embaixadores e pelo do Premium.
+   A lista de competições vem do servidor (rpc_my_vouchers) — as regras de
+   elegibilidade são de lá, e duplicá-las aqui era garantir que um dia
+   divergiam. */
+function voucherBlockHtml(){
+  const vs=vouchersDisponiveis();
+  if(!vs.length) return '';
+  const comps=(S.vouchers&&Array.isArray(S.vouchers.comps))?S.vouchers.comps:[];
+  const cartoes=vs.map(v=>{
+    const meta=VOUCHER_TXT[v.kind]||{t:'Passe Premium',d:''};
+    const id=escapeHtml(String(v.id));
+    // Só o passe de competição faz uma pergunta. Os de época dão tudo o que há
+    // para dar, e um selector com uma opção só é ruído.
+    const escolha = v.kind==='competition'
+      ? (comps.length
+          ? `<select id="vsel-${id}" class="form-input" style="font-size:.8rem;padding:8px;margin-top:9px">
+               ${comps.map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome)}${c.estado==='draft'?' (em breve)':''}</option>`).join('')}
+             </select>
+             <button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:8px" onclick="usarVoucher('${id}','competition')">Usar este passe</button>`
+          : `<div style="font-size:.72rem;color:var(--sub);margin-top:9px;line-height:1.5">
+               Já tens passe activo em todas as competições disponíveis. Este fica guardado para a próxima.</div>`)
+      : `<button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:9px" onclick="usarVoucher('${id}','${escapeHtml(v.kind)}')">Usar este passe</button>`;
+    return `<div style="border:1px solid var(--gold);border-radius:11px;padding:12px;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div>
+          <div style="font-size:.86rem;font-weight:600;color:var(--text)">⭐ ${meta.t}</div>
+          <div style="font-size:.73rem;color:var(--sub);margin-top:2px">${meta.d}</div>
+        </div>
+        <span style="font-size:.62rem;font-weight:700;letter-spacing:.05em;color:var(--gold);white-space:nowrap">POR USAR</span>
+      </div>
+      ${escolha}
+    </div>`;
+  }).join('');
+  return `<div style="margin-bottom:18px">
+      <div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:9px">Os teus passes por usar</div>
+      ${cartoes}
+      <div style="font-size:.68rem;color:var(--sub);line-height:1.5;opacity:.85">Não há prazo. Podes guardar e usar quando quiseres.</div>
+    </div>`;
+}
+async function usarVoucher(id,kind){
+  let comp=null;
+  if(kind==='competition'){
+    const sel=document.getElementById('vsel-'+id);
+    comp=sel?sel.value:null;
+    if(!comp){ showToast('Escolhe a competição.','error'); return; }
+  }
+  try{
+    const r=await api('redeemVoucher',{id:id,competition_id:comp});
+    if(r&&r.ok){
+      showToast('Passe activado!','success');
+      await loadVouchers();
+      // Recarregar: o passe muda o estado premium, os prazos e as vantagens.
+      if(typeof loadData==='function') loadData();
+      if(typeof refreshPremiumEntry==='function') refreshPremiumEntry();
+      // Redesenhar o ecrã que estiver aberto.
+      const emb=document.getElementById('embaixadores-overlay');
+      if(emb&&emb.style.display!=='none') showEmbaixadores();
+      const pr=document.getElementById('premium-overlay');
+      if(pr&&pr.classList.contains('open')&&typeof showPremium==='function') showPremium();
+    }else{
+      showToast((r&&r.error)||'Não foi possível usar o passe.','error');
+    }
+  }catch(e){ showToast('Não foi possível usar o passe.','error'); }
 }
 /* Nota de quota na página das Ligas: quantas tenho / quantas posso ter.
    Espelha a check_league_quota da BD (migration 031 + 034):
@@ -5053,8 +5173,17 @@ async function showEmbaixadores(){
   ov.style.display='block'; document.body.style.overflow='hidden';
   body.innerHTML='<div class="loading-center" style="padding:30px"><div class="spinner"></div></div>';
 
-  let d={};
-  try{ d=await api('myReferrals')||{}; }catch(e){ d={}; }
+  let d={}, hall={};
+  // As três leituras em paralelo: o ecrã só desenha quando tiver tudo, e em
+  // série eram três idas ao servidor à vez.
+  try{
+    const [a,b,c]=await Promise.all([
+      api('myReferrals').catch(()=>({})),
+      loadVouchers().catch(()=>null),
+      api('referralHall',{limit:10}).catch(()=>({})),
+    ]);
+    d=a||{}; hall=c||{};
+  }catch(e){ d={}; hall={}; }
   const marcos=Array.isArray(d.marcos)?d.marcos:[];
   const ativos=Number(d.ativos||0);
   const convidados=Number(d.convidados||0);
@@ -5146,12 +5275,34 @@ async function showEmbaixadores(){
     : `<div style="text-align:center;color:var(--sub);font-size:.78rem;padding:16px 6px;line-height:1.6">
         Ainda não convidaste ninguém.<br>Partilha o teu link e eles aparecem aqui.</div>`;
 
+  // ── Hall dos Embaixadores ─────────────────────────────────────────────────
+  // Agregado: mostra quem trouxe gente e quantos, nunca quem convidou quem.
+  // Só entra quem tem pelo menos 1 convidado activo — um quadro cheio de zeros
+  // não mostra nada e transforma o Hall numa lista de quem tentou.
+  const hl=Array.isArray(hall.lista)?hall.lista:[];
+  const MEDALHA=['🥇','🥈','🥉'];
+  const hallHtml = hl.length
+    ? `<div style="margin:16px 0">
+        <div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:6px">Hall dos Embaixadores</div>
+        ${hl.map((h,i)=>`<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)${h.eu?';background:rgba(245,197,24,.06)':''}">
+            <div style="width:26px;text-align:center;font-size:${i<3?'1rem':'.78rem'};color:var(--sub);flex-shrink:0">${MEDALHA[i]||(i+1)}</div>
+            <div style="flex:1;min-width:0;font-size:.82rem;font-weight:${h.eu?'700':'600'};color:${h.eu?'var(--gold)':'var(--text)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(h.nome||'—')}${h.eu?' (tu)':''}</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:var(--gold);white-space:nowrap">${Number(h.ativos||0)}</div>
+          </div>`).join('')}
+        ${(!hl.some(h=>h.eu)&&Number(hall.meus_ativos||0)>0)
+          ? `<div style="font-size:.72rem;color:var(--sub);margin-top:8px">Estás em ${Number(hall.minha_posicao||0)}.º, com ${Number(hall.meus_ativos)} ${Number(hall.meus_ativos)===1?'amigo':'amigos'}.</div>`
+          : ''}
+      </div>`
+    : '';
+
   if(d.enabled===false){
-    body.innerHTML=hero+`<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:20px;line-height:1.6">
+    // Mesmo com o programa desligado, quem tem passe por usar tem de o
+    // conseguir usar: já foi ganho, não é uma promessa por cumprir.
+    body.innerHTML=hero+voucherBlockHtml()+`<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:20px;line-height:1.6">
       O programa ainda não arrancou.<br>Vem cá dentro de dias.</div>`+partilha;
     return;
   }
-  body.innerHTML=hero+progresso+lista+listaAmigos+partilha+regras;
+  body.innerHTML=hero+voucherBlockHtml()+progresso+lista+listaAmigos+hallHtml+partilha+regras;
 }
 function closeEmbaixadores(){
   const el=document.getElementById('embaixadores-overlay');
@@ -5877,6 +6028,17 @@ async function loadData() {
         S.trial = t || {};
         refreshPremiumEntry();
       }).catch(() => { S.trial = {}; });
+      // Passes por usar (058). Também à parte: se falhar, a app carrega na
+      // mesma e a faixa simplesmente não aparece.
+      loadVouchers().then(() => {
+        // A leitura chega depois do desenho da classificação. Se houver passe
+        // por usar E a classificação já estiver no ecrã, redesenha-se para a
+        // faixa entrar; caso contrário não se toca em nada.
+        try{
+          const el = document.getElementById('lb-content');
+          if (vouchersDisponiveis().length && el && el.innerHTML && typeof renderLB === 'function') renderLB();
+        }catch(e){}
+      }).catch(() => {});
     }
     S.liveRarity = r.liveRarity || {};
     // BADGES. Catálogo + os meus + o total de cada jogador (ícone na classificação).
@@ -6145,7 +6307,7 @@ function renderLB() {
   // jornada em vez de um chip por jornada - insustentável com 38 jornadas.
   // Faixa do período de teste: discreta, no topo, e só enquanto o teste corre.
   // Lembrar que acaba é o que transforma um teste numa compra.
-  let html = trialBannerHtml() + ligaHdr + champHtml;
+  let html = trialBannerHtml() + voucherBannerHtml() + ligaHdr + champHtml;
   // Toggle row
   html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px">
     <div style="font-size:.7rem;color:var(--sub)">Clica num jogador para ver apostas</div>
@@ -9795,6 +9957,9 @@ function mockApi(action,data){
   if(action==='getInsights')return{insights:[]};
   if(action==='myReferrals')return{enabled:false,convidados:0,ativos:0,marcos:[],atingidos:[],lista:[]};
   if(action==='setReferrer')return{success:false};
+  if(action==='myVouchers')return{enabled:false,vouchers:[],comps:[],season_comps:[]};
+  if(action==='redeemVoucher')return{ok:false,error:'Não disponível em modo demo.'};
+  if(action==='referralHall')return{lista:[],minha_posicao:0,meus_ativos:0};
   if(action==='getSocial')return{reactions:DEMO_SOCIAL.reactions,comments:DEMO_SOCIAL.comments,muted:!!DEMO_SOCIAL.muted};
   if(action==='muteLeague'){DEMO_SOCIAL.muted=data.mute!==false;return{success:true};}
   if(action==='deleteFeedItem'){DEMO_SOCIAL.comments=DEMO_SOCIAL.comments.filter(c=>c.id!==data.comment_id);return{success:true};}
