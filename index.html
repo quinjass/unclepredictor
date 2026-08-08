@@ -3532,8 +3532,8 @@ const S = {
   competition:'mundial2026',
   competitions:[
     {id:'mundial2026',format:'cup',name:'Mundial 2026',status:'finished',subtitle:'11 Jun - 19 Jul · EUA · Canadá · México',stats:{teams:48,games:104},registered:true,participants:0},
-    {id:'ucl2627',format:'hybrid',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'A iniciar em setembro de 2026',stats:{},registered:false,participants:0},
-    {id:'pl2627',format:'league',name:'Premier League 2026/27',status:'soon',subtitle:'A iniciar em agosto de 2026',stats:{},registered:false,participants:0}
+    {id:'ucl2627',format:'hybrid',name:'UEFA Champions League 2026/27',status:'soon',subtitle:'Sorteio 27 Ago · 1.ª jornada 8 Set',stats:{teams:36},registered:false,participants:0},
+    {id:'pl2627',format:'league',name:'Premier League 2026/27',status:'soon',subtitle:'38 jornadas · arranca 21 de agosto',stats:{teams:20,games:380},registered:false,participants:0}
   ],
   live:{}, liveLB:false,
 };
@@ -4203,8 +4203,18 @@ function leagueGameLocked(g){
 function renderLeagueView(){
   const L=S.league; if(!L) return; const b=document.getElementById('league-body'); if(!b) return;
   if(!L.mds.length){
-    b.innerHTML=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">
-      Ainda não há jornadas para esta competição.<br><span style="font-size:.8rem">Corre a <b>sync-fixtures</b> ou aguarda o sorteio do calendário.</span></div>`;
+    // Antes do sorteio isto NÃO é um erro — é o estado esperado. Mensagem virada
+    // para o utilizador (a antiga falava em correr a sync-fixtures, linguagem de
+    // bastidores que nunca devia ter chegado ao público).
+    b.innerHTML=drawPending()
+      ?`<div style="background:var(--card);border:1px solid rgba(59,130,246,.4);border-radius:12px;padding:26px 22px;text-align:center;line-height:1.6">
+          <div style="font-size:2rem;line-height:1">🎲</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem;margin-top:8px">O sorteio ainda não foi feito</div>
+          <div style="color:var(--sub);font-size:.86rem;margin-top:8px">O sorteio da fase de liga é a <b style="color:#60a5fa">${drawDateStr()}</b>. Assim que sair, o calendário aparece aqui e as apostas abrem.</div>
+          <div style="color:var(--sub);font-size:.78rem;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">Já estás inscrito — não tens de fazer mais nada. Aproveita para criar a tua liga privada e convidar quem quiseres.</div>
+        </div>`
+      :`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">
+          O calendário desta competição ainda não está disponível.<br><span style="font-size:.8rem">Assim que for publicado, as jornadas aparecem aqui.</span></div>`;
     return;
   }
   const md=L.curMd, games=L.byMd[md]||[], idx=L.mds.indexOf(md);
@@ -4282,6 +4292,25 @@ const isLeagueComp=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !
 // Competições cujo formato ainda não tem vista construída (só o Mundial 'cup' tem).
 const compHasNoView=id=>{const c=(S.competitions||[]).find(x=>x.id===id);return !!(c&&c.format&&c.format!=='cup');};
 const UP_DEV=()=>{try{return /[?#&]dev\b/.test(location.href)||localStorage.getItem('up_dev')==='1';}catch(e){return /[?#&]dev\b/.test(location.href);}};
+// ── SORTEIO POR REALIZAR (9 Ago 2026) ──────────────────────────────────────
+// Estado intermédio que não existia: competição ABERTA A INSCRIÇÕES mas ainda
+// SEM CALENDÁRIO. A UCL 26/27 sorteia a fase de liga a 27 Ago (Nyon, 18:00 CEST)
+// e só arranca a 8 Set — queremos que o pessoal entre já, na altura em que a
+// campanha traz gente, sem lhes mostrar jogos que ainda não existem.
+// Enquanto a data não passar: apostas, pré-apostas e compra do passe fechadas.
+// ⚠️ Passada a data o aviso desaparece SOZINHO, mas os jogos só entram quando
+//    correres  sync-fixtures?comp=UCL2627&replace=1  (o replace é obrigatório:
+//    a BD tem o calendário de 24/25 como dados de teste).
+const COMP_DRAW={ucl2627:'2026-08-27T16:00:00Z'};
+function drawPending(id){
+  const d=COMP_DRAW[id||S.competition]; if(!d) return false;
+  const t=Date.parse(d); return isFinite(t)&&Date.now()<t;
+}
+function drawDateStr(id){
+  const d=COMP_DRAW[id||S.competition]; if(!d) return '';
+  try{ return new Date(d).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}); }
+  catch(e){ return '27 de agosto'; }
+}
 // ── Nome de exibição do PRÓPRIO consoante a competição atual ────────────────
 // Mundial (WC2026) -> nome real; restantes -> nickname (fallback: código). O
 // S.user.name é mantido em sincronia com o modo da competição para que a
@@ -4415,7 +4444,9 @@ function compCard(c){
   const emblem=`<div style="width:58px;height:58px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid var(--border);overflow:hidden">
     ${img?`<img src="${img}" alt="${c.name}" style="width:84%;height:84%;object-fit:contain" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:''}<span style="display:${img?'none':'flex'};width:100%;height:100%;align-items:center;justify-content:center;font-size:1.9rem">${emo}</span>
   </div>`;
-  const badge=c.status==='active'
+  const badge=(c.status==='active'&&drawPending(c.id))
+    ?`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(59,130,246,.16);color:#60a5fa;border:1px solid rgba(59,130,246,.45)">Inscrições abertas</span>`
+    :c.status==='active'
     ?`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(39,174,96,.16);color:#4ade80;border:1px solid rgba(39,174,96,.4)">● A decorrer</span>`
     :c.status==='finished'
     ?`<span style="font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:rgba(245,197,24,.16);color:var(--gold);border:1px solid rgba(245,197,24,.45)">✓ Terminado</span>`
@@ -4443,14 +4474,21 @@ function compCard(c){
   }
   const st=c.stats||{};
   const stat=(v,l)=>`<div><b style="display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.05rem;color:var(--text)">${v}</b>${l}</div>`;
+  // 'seleções' só faz sentido no Mundial; nas competições de clubes é 'equipas'.
+  const lblTeams=(c.format==='cup')?'seleções':'equipas';
   const stats=`<div style="display:flex;gap:16px;font-size:.74rem;color:var(--sub)">
-    ${stat(c.participants||0,'inscritos')}${st.teams?stat(st.teams,'seleções'):''}${st.games?stat(st.games,'jogos'):''}
+    ${stat(c.participants||0,'inscritos')}${st.teams?stat(st.teams,lblTeams):''}${st.games?stat(st.games,'jogos'):''}
   </div>`;
   const action=c.registered
     ?`<button class="btn btn-primary" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();enterCompetition('${c.id}')">Entrar →</button>`
     :`<button class="btn btn-primary" style="font-size:.86rem;padding:11px 22px" onclick="event.stopPropagation();registerToCompetition('${c.id}')">Inscrever-me</button>`;
   const click=c.registered?`onclick="enterCompetition('${c.id}')"`:'';
-  return `<div ${click} style="position:relative;background:var(--card);border:1px solid rgba(245,197,24,.5);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 0 1px rgba(245,197,24,.15)${c.registered?';cursor:pointer':''}">${head}
+  // Aberta a inscrições mas ainda sem sorteio: dizê-lo no cartão, para ninguém
+  // se inscrever à espera de apostar hoje e achar que a app está avariada.
+  const nota=drawPending(c.id)
+    ?`<div style="margin-top:12px;font-size:.76rem;color:#60a5fa;line-height:1.45">🎲 Sorteio a ${drawDateStr(c.id)} — inscreve-te já e apostas assim que sair o calendário.</div>`
+    :'';
+  return `<div ${click} style="position:relative;background:var(--card);border:1px solid rgba(245,197,24,.5);border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 0 0 1px rgba(245,197,24,.15)${c.registered?';cursor:pointer':''}">${head}${nota}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">${stats}${action}</div></div>`;
 }
 // ════════════════════════════════════════════════
@@ -4611,12 +4649,15 @@ function renderRules(){
 
 function renderCompetitions(){
   const list=S.competitions||[];
-  const active=list.filter(c=>c.status==='active');
+  const active=list.filter(c=>c.status==='active'&&!drawPending(c.id));
+  // Grupo novo: já se pode entrar, ainda não há calendário (UCL antes do sorteio).
+  const abrindo=list.filter(c=>c.status==='active'&&drawPending(c.id));
   const finished=list.filter(c=>c.status==='finished');
   const soon=list.filter(c=>c.status!=='active'&&c.status!=='finished');
   const label=t=>`<div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:8px 4px 10px">${t}</div>`;
   let html='';
   if(active.length){ html+=label('A decorrer'); active.forEach(c=>html+=compCard(c)); }
+  if(abrindo.length){ html+=label('Inscrições abertas'); abrindo.forEach(c=>html+=compCard(c)); }
   if(finished.length){ html+=label('Terminadas'); finished.forEach(c=>html+=compCard(c)); }
   if(soon.length){ html+=label('Em breve'); soon.forEach(c=>html+=compCard(c)); }
   const el=document.getElementById('competitions-list'); if(el)el.innerHTML=html;
@@ -4759,7 +4800,11 @@ const PREMIUM_PERKS=[
    na app nativa. Cinto e suspensórios: o CSS já esconderia o botão na app. */
 function refreshPremiumEntry(){
   try{
-    const show=(S.premiumEnabled && !window.UP_IS_NATIVE);
+    // Competição ainda por sortear: não se vende acesso a uma competição sem um
+    // único jogo visível (decisão de 9 Ago). Esconde a entrada enquanto se está
+    // DENTRO dessa competição — o Passe Época continua à venda a partir da
+    // Premier, que essa já tem calendário. Reavaliar depois do sorteio.
+    const show=(S.premiumEnabled && !window.UP_IS_NATIVE && !drawPending());
     const b=document.getElementById('btn-premium');            // menu de conta
     if(b) b.style.display=show?'':'none';
     // Estatísticas avançadas: só a quem TEM passe. Não leva o gating da app
@@ -4780,6 +4825,9 @@ function refreshPremiumEntry(){
 }
 function showPremium(){
   if(window.UP_IS_NATIVE) return;              // nunca na app
+  // Cinto e suspensórios do refreshPremiumEntry(): mesmo que alguém chegue aqui
+  // por um atalho antigo, não se abre a compra de uma competição por sortear.
+  if(drawPending()){ try{ showToast('O passe desta competição abre depois do sorteio de '+drawDateStr()+'.','info'); }catch(e){} return; }
   const body=document.getElementById('premium-body');
   const ov=document.getElementById('premium-overlay');
   if(ov){ ov.style.display='block'; ov.classList.add('open'); }
@@ -6104,7 +6152,9 @@ async function loadData() {
     S.insightsEnabled = !!r.insightsEnabled;
     S.referralsEnabled = !!r.referralsEnabled;
     // Estado do período de teste (não bloqueia o arranque: corre à parte).
-    if (S.premiumEnabled && !S.demoMode) {
+    // drawPending: o _trial_expiry precisa do calendário (3.ª jornada) e ainda
+    // não há nenhum — pedir o estado do trial aqui só daria o fallback de 14 dias.
+    if (S.premiumEnabled && !S.demoMode && !drawPending()) {
       api('trialState', { competition_id: COMP_DB_ID[S.competition] }).then(t => {
         S.trial = t || {};
         refreshPremiumEntry();
@@ -8082,6 +8132,14 @@ function leaguePrebetGet(item){
 }
 function _specArr(v){ if(v==null)return[]; if(Array.isArray(v))return v; if(typeof v==='string'&&v.trim().startsWith('[')){ try{return JSON.parse(v);}catch(e){return[];} } return v?[v]:[]; }
 function renderLeaguePrebets(){
+  // Antes do sorteio não há lista de equipas fiável: a config teams_UCL2627 tem
+  // as equipas de 24/25 e o fallback deriva do calendário, que ainda não existe.
+  // Abrir aqui daria dropdowns com equipas erradas — decisão de 9 Ago: esperar.
+  if(drawPending()){
+    leagueTabPlaceholder('prebets','🔮 Pré-apostas de época',
+      'Abrem depois do sorteio de '+drawDateStr()+', quando se souber quem defronta quem. São o teu palpite para toda a época — campeão, top 8 e companhia.');
+    return;
+  }
   const cfg=S.leaguePrebetsCfg;
   if(!cfg||!cfg.length){ leagueTabPlaceholder('prebets','🏆 Pré-apostas de época','Ainda não há pré-apostas definidas para esta competição.'); return; }
   // Equipas dos dropdowns: config teams_<comp> se existir; senão deriva do
