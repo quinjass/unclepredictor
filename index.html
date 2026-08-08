@@ -5885,6 +5885,36 @@ async function syncAds(){
   }catch(e){ console.warn('admob falhou', e); }   // nunca partir a app por causa de um anúncio
 }
 
+// ══════════════════════════════════════════════
+//  ⚠️ DIAGNÓSTICO TEMPORÁRIO - REMOVER (7 Ago 2026)
+//  Painel vermelho no topo, só na app nativa, com as medidas necessárias
+//  para calibrar a folga do banner sem depender do chrome://inspect.
+//  Toca no painel para o fechar. APAGAR ESTE BLOCO assim que calibrado.
+// ══════════════════════════════════════════════
+if(window.UP_IS_NATIVE){
+  setTimeout(function(){
+    try{
+      var probe=document.createElement('div');
+      probe.style.cssText='position:fixed;left:0;bottom:0;width:1px;height:env(safe-area-inset-bottom,0px)';
+      document.body.appendChild(probe);
+      var inset=getComputedStyle(probe).height;
+      probe.remove();
+      var n=document.getElementById('bottom-nav');
+      var box=document.createElement('div');
+      box.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font:700 11px/1.5 monospace;padding:7px 9px;white-space:pre-wrap;word-break:break-all';
+      box.textContent='adH='+getComputedStyle(document.documentElement).getPropertyValue('--up-ad-h').trim()
+        +'  inset='+inset
+        +'  innerH='+window.innerHeight
+        +'  dpr='+window.devicePixelRatio
+        +'  screenH='+screen.height
+        +'  navBottom='+(n?Math.round(window.innerHeight-n.getBoundingClientRect().bottom):'-')
+        +'\nUA='+navigator.userAgent;
+      box.onclick=function(){ box.remove(); };
+      document.body.appendChild(box);
+    }catch(e){}
+  }, 6000);
+}
+
 function showLeaguePicker() {
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-league-picker').classList.add('active');
