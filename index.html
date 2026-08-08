@@ -88,8 +88,8 @@
        mais alta que isto, o banner volta a tapar um pouco a nav - ver
        histórico desta secção antes de subir o valor às cegas. */
     :root{--up-ad-h:0px}
-    .bottom-nav{bottom:calc(var(--up-ad-h) + 24px)}
-    body{padding-bottom:calc(80px + var(--up-ad-h) + 24px)}
+    .bottom-nav{bottom:calc(var(--up-ad-h) + 36px)}
+    body{padding-bottom:calc(80px + var(--up-ad-h) + 36px)}
 
     /* ── LAYOUT ── */
     .main{padding:16px;max-width:660px;margin:0 auto}
@@ -429,7 +429,7 @@
     /* ── MODAL ── */
     #modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;justify-content:flex-end;flex-direction:column;align-items:center}
     #modal-overlay.open{display:flex}
-    #modal-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;max-height:88vh;overflow-y:auto;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + 24px)}
+    #modal-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;max-height:88vh;overflow-y:auto;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + 36px)}
     .modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1}
     .modal-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;color:var(--gold)}
     .modal-subtitle{font-size:.75rem;color:var(--sub);margin-top:2px}
@@ -563,7 +563,7 @@
        login-modal subir de z-index, este tem de subir também. */
     .switcher-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:flex-end;justify-content:center}
     .switcher-overlay.open{display:flex}
-    .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + 24px)}
+    .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + 36px)}
     /* ── FASE A ELIMINAR - tabs apostas ── */
     .ko-divider{display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:.72rem;color:#7986cb;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
     .ko-divider::before,.ko-divider::after{content:'';flex:1;height:1px;background:rgba(99,102,241,.2)}
