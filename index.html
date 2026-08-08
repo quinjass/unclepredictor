@@ -76,20 +76,29 @@
        fica a 0px em todo o lado onde não há anúncio: browser, premium, login.
        Estas regras vêm DEPOIS das originais de propósito — mesma
        especificidade, ganha a última.
-       ⚠️ NÃO usar env(safe-area-inset-bottom) aqui: confirmado (7 Ago 2026,
-       investigação com o plugin oficial + bug do Chromium
-       issues.chromium.org/issues/40699457) que o WebView do Android só reporta
-       valores corretos de safe-area a partir da versão 140 do WebView; em
-       versões anteriores devolve 0 ou lixo, e por isso o cálculo ficava
-       sempre curto. Em vez de depender disso, soma-se uma folga FIXA
-       (24px, valor típico da barra de gestos Android - ajustado a partir de
-       teste real em dispositivo a 7 Ago 2026) independente da versão do
-       WebView instalado no aparelho. Se noutro aparelho a barra de gestos for
-       mais alta que isto, o banner volta a tapar um pouco a nav - ver
-       histórico desta secção antes de subir o valor às cegas. */
+
+       ⚠️ NÃO somar folgas ao `bottom` da nav (histórico de 6-7 Ago 2026:
+       tentou-se env(safe-area-inset-bottom) e depois 48/24/36px fixos, tudo
+       errado). Medição no aparelho (S23, Android 16, WebView 150) provou que:
+         innerHeight=806 < screen.height=892  ->  a WebView NÃO é edge-to-edge,
+         já está confinada entre a status bar e a barra de botões do sistema.
+       Logo `bottom:0` já é o topo da barra do sistema e env() devolve 0px
+       CORRETAMENTE - não há área insegura dentro da WebView.
+       O gap que se via era do PLUGIN: com WebView >=140 o AdMob aplica ao
+       banner um recuo do tamanho da barra de navegação (~48px) que já estava
+       aplicado à WebView, ficando duplicado. Resultado: o banner flutua entre
+       ~48px e ~112px do fundo, deixando ~48px livres por baixo - e a nav mede
+       ~46px, por isso ENCAIXA nesse espaço com bottom:0.
+       Ver github.com/capacitor-community/admob/issues/390 e pull/428.
+       ⚠️ Em aparelhos com navegação por GESTOS o recuo do plugin é menor
+       (~24px) e o banner pode tapar parte da nav. Se isso aparecer, a solução
+       NÃO é voltar a somar folga (empurra a nav para dentro do banner) - é
+       tratar o recuo do plugin, ou esperar pelo fix do pull/428. */
     :root{--up-ad-h:0px}
-    .bottom-nav{bottom:calc(var(--up-ad-h) + 36px)}
-    body{padding-bottom:calc(80px + var(--up-ad-h) + 36px)}
+    /* --up-ad-off: recuo que o plugin dá ao banner (JS mete 48px com banner
+       visível, 0 sem). Só serve para as folhas que sobem do fundo (modais,
+       menu de conta) passarem por cima do banner. */
+    body{padding-bottom:calc(80px + var(--up-ad-h))}
 
     /* ── LAYOUT ── */
     .main{padding:16px;max-width:660px;margin:0 auto}
@@ -429,7 +438,7 @@
     /* ── MODAL ── */
     #modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;justify-content:flex-end;flex-direction:column;align-items:center}
     #modal-overlay.open{display:flex}
-    #modal-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;max-height:88vh;overflow-y:auto;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + 36px)}
+    #modal-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;max-height:88vh;overflow-y:auto;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + var(--up-ad-off,0px))}
     .modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1}
     .modal-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;color:var(--gold)}
     .modal-subtitle{font-size:.75rem;color:var(--sub);margin-top:2px}
@@ -563,7 +572,7 @@
        login-modal subir de z-index, este tem de subir também. */
     .switcher-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:flex-end;justify-content:center}
     .switcher-overlay.open{display:flex}
-    .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + 36px)}
+    .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + var(--up-ad-off,0px))}
     /* ── FASE A ELIMINAR - tabs apostas ── */
     .ko-divider{display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:.72rem;color:#7986cb;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
     .ko-divider::before,.ko-divider::after{content:'';flex:1;height:1px;background:rgba(99,102,241,.2)}
@@ -5824,6 +5833,12 @@ function _adPlugin(){
 function _setAdHeight(px){
   document.documentElement.style.setProperty('--up-ad-h', (Number(px)||0)+'px');
 }
+// Recuo que o plugin dá ao banner a partir do fundo da WebView (ver comentário
+// grande no CSS). Só as folhas que sobem do fundo precisam disto; a bottom-nav
+// vive DENTRO desse recuo, com bottom:0.
+function _setAdOffset(px){
+  document.documentElement.style.setProperty('--up-ad-off', (Number(px)||0)+'px');
+}
 
 // Idempotente: pode ser chamada as vezes que forem precisas. Mostra, esconde
 // ou não faz nada, conforme o estado atual.
@@ -5838,6 +5853,7 @@ async function syncAds(){
         _ad.shown = false;
       }
       _setAdHeight(0);
+      _setAdOffset(0);
       return;
     }
 
@@ -5864,55 +5880,25 @@ async function syncAds(){
     // tapados pelo banner nativo - bug apanhado em teste real a 6 Ago 2026).
     // O listener acima corrige para o valor exato assim que ele chegar.
     _setAdHeight(60);
+    // 48px = recuo que o plugin aplica ao banner (medido no aparelho). Não
+    // afeta a bottom-nav (que fica em bottom:0, por baixo do banner); serve
+    // só para as folhas que sobem do fundo não ficarem tapadas.
+    _setAdOffset(48);
 
     await AdMob.showBanner({
       adId: AD_CFG.bannerId,
       adSize: 'ADAPTIVE_BANNER',
-      // BOTTOM_CENTER (voltou ao fundo, 7 Ago 2026): TOP_CENTER só deslocou o
-      // mesmo problema para o cabeçalho (logo/sino tapados). Causa real
-      // confirmada: bug do Chromium/WebView do Android
-      // (issues.chromium.org/issues/40699457) - o WebView só reporta
-      // env(safe-area-*) correto a partir da versão 140; por baixo disso o
-      // plugin (e nós) recebem 0/lixo, seja qual for o lado do banner. Fix:
-      // já não depende de env() - ver folga fixa de 48px no CSS de
-      // --up-ad-h. Ver github.com/capacitor-community/admob/issues/390 e
-      // pull/428 para o contexto completo.
+      // BOTTOM_CENTER (voltou ao fundo, 7 Ago 2026): TOP_CENTER chegou a ser
+      // tentado e só deslocou o problema para o cabeçalho (logo/sino tapados).
+      // O banner fica ~48px acima do fundo da WebView por causa do recuo
+      // duplicado do plugin - a bottom-nav encaixa nesse espaço. Ver o
+      // comentário grande do bloco "BANNER ADMOB" no CSS.
       position: 'BOTTOM_CENTER',
       margin: 0,
       isTesting: AD_CFG.testing
     });
     _ad.shown = true;
   }catch(e){ console.warn('admob falhou', e); }   // nunca partir a app por causa de um anúncio
-}
-
-// ══════════════════════════════════════════════
-//  ⚠️ DIAGNÓSTICO TEMPORÁRIO - REMOVER (7 Ago 2026)
-//  Painel vermelho no topo, só na app nativa, com as medidas necessárias
-//  para calibrar a folga do banner sem depender do chrome://inspect.
-//  Toca no painel para o fechar. APAGAR ESTE BLOCO assim que calibrado.
-// ══════════════════════════════════════════════
-if(window.UP_IS_NATIVE){
-  setTimeout(function(){
-    try{
-      var probe=document.createElement('div');
-      probe.style.cssText='position:fixed;left:0;bottom:0;width:1px;height:env(safe-area-inset-bottom,0px)';
-      document.body.appendChild(probe);
-      var inset=getComputedStyle(probe).height;
-      probe.remove();
-      var n=document.getElementById('bottom-nav');
-      var box=document.createElement('div');
-      box.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font:700 11px/1.5 monospace;padding:7px 9px;white-space:pre-wrap;word-break:break-all';
-      box.textContent='adH='+getComputedStyle(document.documentElement).getPropertyValue('--up-ad-h').trim()
-        +'  inset='+inset
-        +'  innerH='+window.innerHeight
-        +'  dpr='+window.devicePixelRatio
-        +'  screenH='+screen.height
-        +'  navBottom='+(n?Math.round(window.innerHeight-n.getBoundingClientRect().bottom):'-')
-        +'\nUA='+navigator.userAgent;
-      box.onclick=function(){ box.remove(); };
-      document.body.appendChild(box);
-    }catch(e){}
-  }, 6000);
 }
 
 function showLeaguePicker() {
