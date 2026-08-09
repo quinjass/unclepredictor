@@ -4306,7 +4306,9 @@ function backToCompetitions(){
 }
 
 // ── Página de seleção de competição (landing pós-login; sempre acessível) ──
-const COMP_EMBLEM={mundial2026:'img/comp-mundial.jpg',ucl2627:'img/comp-ucl.jpg',pl2627:'img/comp-pl.png'};
+/* Caminhos ABSOLUTOS: a app vive em /jogar/ desde 9 Ago 2026 e 'img/...'
+   resolveria para /jogar/img/... (404). */
+const COMP_EMBLEM={mundial2026:'/img/comp-mundial.jpg',ucl2627:'/img/comp-ucl.jpg',pl2627:'/img/comp-pl.png'};
 const COMP_FALLBACK={mundial2026:'🏆',ucl2627:'⭐',pl2627:'⚽'};
 // ── Multi-competição (Fase 0) ──────────────────────────────────────────────
 // Mapa id-do-frontend → id-na-base-de-dados. Modo dev (?dev / localStorage up_dev='1')
