@@ -1516,6 +1516,12 @@ document.addEventListener('keydown', function(e){
     return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium,
              premiumCodes: db.premiumCodes || [],
              premiumEnabled: String(db.config.premium_enabled || 'false') === 'true',
+             // Interruptor SEPARADO das vendas (9 Ago 2026). O premium_enabled liga
+             // as FUNCIONALIDADES (⭐, insights, prazo ao apito); este liga só a
+             // COMPRA. Serve para oferecer premium a toda a gente sem abrir a caixa
+             // registadora antes do início de actividade estar tratado.
+             // Ausente = 'true', para que nada mude onde a linha não exista.
+             premiumSalesEnabled: String(db.config.premium_sales_enabled ?? 'true') === 'true',
              premiumDeadlineMin: Number(db.config.premium_deadline_minutes || 0),
              // Preços vêm da BD (055): mudar de preço não obriga a publicar.
              premiumPriceCents: Number(db.config.premium_price_cents || 499),
@@ -4858,6 +4864,17 @@ function showPremium(){
      os textos daqui para baixo têm as duas versões. */
   const linkAny=PREMIUM_LINKS.any||null;
   const ref=encodeURIComponent((S.user&&S.user.code)||'');
+  // Vendas fechadas: as vantagens mostram-se na mesma (é o que dá valor ao que
+  // está a ser oferecido), mas nenhum botão leva ao Stripe. O resgate de
+  // vouchers fica DE FORA deste travão — usar um passe que já é teu não é compra.
+  const vendas = (S.premiumSalesEnabled !== false);
+  const vendasFechadas = `
+    <div style="margin-top:18px;border:1px solid var(--gold);border-radius:12px;padding:14px 15px;text-align:center;line-height:1.6">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.02rem">Oferecido a todos nesta fase</div>
+      <div style="font-size:.78rem;color:var(--sub);margin-top:6px">
+        Não há nada a comprar por agora — o passe está aberto a toda a gente no arranque da época.
+        Quando as compras abrirem, avisamos-te aqui.</div>
+    </div>`;
 
   const hero=`
     <div style="text-align:center;margin-bottom:20px">
@@ -4889,7 +4906,7 @@ function showPremium(){
     // competições — por isso o bloco de resgate aparece nos dois ramos.
     // E com o link único faz sentido poder comprar outro sem sair daqui: o
     // passe não está preso a esta competição.
-    const outro = linkAny
+    const outro = (vendas && linkAny)
       ? `<a class="up-premium-buy" style="display:block;text-decoration:none;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px"
             href="${linkAny}?client_reference_id=${ref}">
            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
@@ -4926,7 +4943,9 @@ function showPremium(){
   /* Os dois produtos lado a lado. A comparação é o que faz o Passe Época
      funcionar: sozinho parece caro, ao lado do avulso é que se percebe. */
   const poupa = (PREMIUM_PRICE_CENTS*2)-PREMIUM_SEASON_CENTS;
-  const cta = link
+  const cta = !vendas
+    ? vendasFechadas
+    : link
     ? `<div style="margin-top:18px;display:flex;flex-direction:column;gap:10px">
          <a class="up-premium-buy" style="display:block;text-decoration:none;border:1px solid var(--border);border-radius:12px;padding:13px 14px"
             href="${link}?client_reference_id=${ref}">
@@ -6137,6 +6156,7 @@ async function loadData() {
     // enquanto o kill-switch estiver desligado.
     S.premiumCodes = new Set(r.premiumCodes || []);
     S.premiumEnabled = !!r.premiumEnabled;
+    S.premiumSalesEnabled = (r.premiumSalesEnabled !== false);
     S.premiumDeadlineMin = Number(r.premiumDeadlineMin || 0);
     // Se o passe premium acabou de ser ativado (ou expirou), o banner tem de
     // acompanhar sem obrigar a reiniciar a app.
@@ -7462,7 +7482,7 @@ function renderBets() {
 
       html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||locked)?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
         <div class="game-meta">
-          <span><span class="grp-badge">Gr.${g.g}</span>${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})} · ${g.venue}</span>
+          <span>${g.g?`<span class="grp-badge">Gr.${g.g}</span>`:''}${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}${g.venue?' · '+g.venue:''}</span>
           <span>${dlWarn}${ptsHtml}${insightsBtnHtml(g.id)}</span>
         </div>
         <div class="game-teams">
@@ -9670,7 +9690,7 @@ function renderAdminResults(){
     dg.forEach(g=>{
       const r=S.results[g.id]||{};
       html+=`<div class="admin-row">
-        <div style="flex:1;font-size:.82rem"><span class="grp-badge">Gr.${g.g}</span>${g.t1} vs ${g.t2}${lockChip(g.id)}</div>
+        <div style="flex:1;font-size:.82rem">${g.g?`<span class="grp-badge">Gr.${g.g}</span>`:''}${g.t1} vs ${g.t2}${lockChip(g.id)}</div>
         <input class="admin-score" type="number" min="0" max="20" value="${r.t1!==undefined?r.t1:''}" placeholder="-" oninput="setResult('${g.id}','t1',this.value)">
         <span style="color:var(--sub);font-size:.8rem">-</span>
         <input class="admin-score" type="number" min="0" max="20" value="${r.t2!==undefined?r.t2:''}" placeholder="-" oninput="setResult('${g.id}','t2',this.value)">
