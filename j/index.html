@@ -134,7 +134,10 @@
   function irParaApp(novaConta) {
     try { localStorage.setItem('up_pending_invite', JSON.stringify({ invite: invite, sid: sid, at: Date.now() })); } catch (e) {}
     track('auth_start');
-    location.href = '/#entrar' + (novaConta ? '&novo=1' : '');
+    // A app passou da raiz para /jogar/ a 9 Ago 2026 (a raiz é agora a landing
+    // estática). A landing reencaminha #entrar à mesma, mas apontar direto
+    // evita um salto extra no funil, que é onde se perdem pessoas.
+    location.href = '/jogar/#entrar' + (novaConta ? '&novo=1' : '');
   }
   window.__upEntrar = function (novo) { irParaApp(!!novo); };
 
