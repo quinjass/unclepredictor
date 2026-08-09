@@ -115,9 +115,11 @@ li{margin:.35em 0}
 
 /* ── Tabelas ─────────────────────────────────── */
 table{width:100%; border-collapse:collapse; margin:1.1em 0; font-size:.82rem}
-th,td{text-align:left; padding:9px 11px; border-bottom:1px solid var(--border)}
+th,td{text-align:center; padding:9px 11px; border-bottom:1px solid var(--border); vertical-align:middle}
 th{color:var(--gold); font-size:.76rem; text-transform:uppercase; letter-spacing:.4px}
-td.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap}
+td.num{font-variant-numeric:tabular-nums; white-space:nowrap}
+/* Coluna de texto longo continua legível à esquerda dentro da tabela centrada */
+th.txt,td.txt{text-align:left}
 
 /* ── FAQ ─────────────────────────────────────── */
 details{
