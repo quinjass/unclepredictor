@@ -4812,15 +4812,19 @@ function premiumSeasonLink(){
 }
 /* Vantagens. `soon:true` mostra a etiqueta "Em breve" — pôr a false à medida
    que cada uma fica pronta. NÃO listar o badge ⭐ (decisão do Hugo, 2 Ago: não
-   é uma vantagem real). "Sem anúncios" só entra quando houver anúncios a
-   servir — o AdSense ainda está em revisão e prometer a ausência de algo que
-   não existe não vende nada. */
+   é uma vantagem real).
+   "Sem anúncios" (9 Ago): entra com soon:true. A página pública já a anuncia
+   porque os anúncios estarão resolvidos até 21 Ago; aqui fica com a etiqueta
+   "Em breve" enquanto não houver mesmo publicidade a servir. ⚠️ No dia em que
+   o AdMob/AdSense começarem a servir, pôr soon:false — senão fica a dizer
+   "Em breve" com os anúncios já no ar. */
 const PREMIUM_PERKS=[
   {i:'⚡',t:'Insights de jogo',d:'Antes de cada jogo: o que as casas de apostas dizem, a forma das equipas, o confronto direto e onde está o resultado que a comunidade está a subestimar.',soon:false,nota:'Só informação pública e agregada. Nunca mostra apostas individuais.'},
   {i:'⏱️',t:'Apostas até ao apito',d:'Fechas a tua aposta até ao início do jogo. Sem premium, fecha uma hora antes.',soon:false},
   {i:'🏆',t:'Mais ligas privadas',d:'Entras em 15 ligas por competição, em vez de 5.',soon:false},
   {i:'👥',t:'Raridade em tempo real',d:'Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.',soon:false,nota:'Só em jogos com apostas suficientes, para não expor apostas individuais.'},
   {i:'📊',t:'Estatísticas avançadas',d:'Evolução da tua posição ao longo da competição, taxa de acerto por tipo e confronto direto com qualquer jogador.',soon:false},
+  {i:'🚫',t:'Sem anúncios',d:'A publicidade que os jogadores gratuitos veem desaparece por completo. Nunca aparece no ecrã de apostar nem no ao vivo, mas com premium não aparece de todo.',soon:true},
 ];
 // NOTA: o "Bracket multi-cenário" foi retirado das vantagens a 2 Ago e passou a
 // estar disponível para todos — na Champions o caminho do mata-mata depende de
@@ -4969,10 +4973,15 @@ function showPremium(){
       : '';
     // Quem TEM passe também tem de perceber por que não vê preços — senão
     // parece que a app escondeu a compra. E tem de ver o prazo.
-    const ofertaNota = (!vendas && S.premiumSource==='welcome')
+    // Vale para QUALQUER origem de passe, não só a oferta: quem tem passe de
+    // admin ou comprado também estranha um ecrã sem preços nenhuns. Foi assim
+    // que este ecrã pareceu avariado a 9 Ago — estava certo, faltava a frase.
+    const ofertaNota = !vendas
       ? `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;text-align:center;line-height:1.55">
-           <div style="font-size:.85rem;color:var(--text);font-weight:600">Oferecido no arranque da época</div>
-           <div style="font-size:.74rem;color:var(--sub);margin-top:4px">Não pagaste nem tens nada a cancelar. Quando terminar, poderás comprar se quiseres continuar.</div>
+           <div style="font-size:.85rem;color:var(--text);font-weight:600">${S.premiumSource==='welcome'?'Oferecido no arranque da época':'As compras estão fechadas nesta fase'}</div>
+           <div style="font-size:.74rem;color:var(--sub);margin-top:4px">${S.premiumSource==='welcome'
+              ? 'Não pagaste nem tens nada a cancelar. Quando terminar, poderás comprar se quiseres continuar.'
+              : 'O teu passe mantém-se activo. Quando as compras abrirem, os preços aparecem aqui.'}</div>
          </div>`
       : '';
     body.innerHTML=hero
