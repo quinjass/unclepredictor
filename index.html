@@ -4846,12 +4846,16 @@ function refreshPremiumEntry(){
     const p=document.getElementById('premium-pill');           // barra superior
     if(p){
       p.style.display=show?'':'none';
-      // Quem já tem passe vê o ⭐ cheio; quem não tem vê o convite.
-      // Na reta final do passe, a pastilha passa a contar os dias. Antes disso
-      // seria ansiedade desnecessária; nos últimos 14 dias é informação útil.
+      // Quem já tem passe vê o ⭐ com os dias que lhe restam; quem não tem vê o
+      // convite. A contagem aparece SEMPRE que houver prazo (decisão de 9 Ago):
+      // um passe que se sabe temporário desde o primeiro dia não apanha ninguém
+      // de surpresa no último.
       const _exp=S.premiumExpires?Date.parse(S.premiumExpires):NaN;
       const _d=isFinite(_exp)?Math.ceil((_exp-Date.now())/86400000):null;
-      p.textContent=S.premium?((_d!=null&&_d<=14&&_d>0)?('⭐ '+_d+'d'):'⭐'):'⭐ Premium';
+      p.textContent=S.premium?((_d!=null&&_d>0)?('⭐ '+_d+'d'):'⭐'):'⭐ Premium';
+      // Últimos 14 dias: passa a laranja, para se distinguir do resto do topo.
+      p.style.borderColor=(_d!=null&&_d<=14)?'#f39c12':'var(--gold)';
+      p.style.color=(_d!=null&&_d<=14)?'#f39c12':'var(--gold)';
       p.title=S.premium
         ?('Passe Premium activo'+(_d!=null?' — acaba daqui a '+_d+' dia'+(_d===1?'':'s'):''))
         :'Obter o Passe Premium';
