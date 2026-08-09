@@ -2198,9 +2198,18 @@ document.addEventListener('keydown', function(e){
 
 <!-- Header -->
 <header class="header" id="header" style="display:none">
-  <div style="display:flex;align-items:center;gap:8px">
+  <!-- Dentro de uma competição, o wordmark dá lugar ao NOME DA COMPETIÇÃO e a
+       caixa toda passa a ser o botão de troca. Com três competições ao mesmo
+       tempo, saber onde se está deixou de ser detalhe: era preciso adivinhar
+       pela tab das apostas. O ecrã de competições esconde este cabeçalho, por
+       isso a marca não se perde — continua lá, e no logótipo. -->
+  <div id="comp-switch" style="display:flex;align-items:center;gap:8px;cursor:pointer;min-width:0"
+       onclick="showCompetitions()" title="Trocar de competição">
     <img src="https://unclepredictor.pt/logo.png" alt="Uncle Predictor" class="logo-img-sm">
-    <div class="logo">UNCLE <span>PREDICTOR</span></div>
+    <div style="min-width:0">
+      <div class="logo" id="comp-switch-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">UNCLE <span>PREDICTOR</span></div>
+      <div id="comp-switch-hint" style="display:none;font-size:.6rem;color:var(--sub);letter-spacing:.04em;margin-top:-2px">⇄ trocar de competição</div>
+    </div>
   </div>
   <div class="header-right">
     <div class="header-right-top">
@@ -4147,6 +4156,7 @@ function showApp() {
   syncAppFooter();
   setupLeagueNav();
   document.getElementById('user-pill').textContent='👤 '+S.user.name;
+  updateCompSwitch();
   updateLeaguePill();
   showView('leaderboard');
   registerPush();
@@ -4307,6 +4317,19 @@ const UP_DEV=()=>{try{return /[?#&]dev\b/.test(location.href)||localStorage.getI
 // ⚠️ Passada a data o aviso desaparece SOZINHO, mas os jogos só entram quando
 //    correres  sync-fixtures?comp=UCL2627&replace=1  (o replace é obrigatório:
 //    a BD tem o calendário de 24/25 como dados de teste).
+// Nome curto por competição. Fonte única — o cabeçalho e o ecrã do Premium
+// liam-no de sítios diferentes e podiam divergir.
+const COMP_SHORT={mundial2026:'Mundial 2026',ucl2627:'Champions League',pl2627:'Premier League'};
+// Escreve no cabeçalho a competição onde estamos. Sem competição escolhida
+// (ou no Mundial antes de entrar) mantém a marca.
+function updateCompSwitch(){
+  const n=document.getElementById('comp-switch-name'), h=document.getElementById('comp-switch-hint');
+  if(!n) return;
+  const nome=COMP_SHORT[S.competition]||'';
+  if(!nome){ n.innerHTML='UNCLE <span>PREDICTOR</span>'; if(h) h.style.display='none'; return; }
+  n.textContent=nome;
+  if(h) h.style.display='';
+}
 const COMP_DRAW={ucl2627:'2026-08-27T16:00:00Z'};
 function drawPending(id){
   const d=COMP_DRAW[id||S.competition]; if(!d) return false;
@@ -4824,8 +4847,14 @@ function refreshPremiumEntry(){
     if(p){
       p.style.display=show?'':'none';
       // Quem já tem passe vê o ⭐ cheio; quem não tem vê o convite.
-      p.textContent=S.premium?'⭐':'⭐ Premium';
-      p.title=S.premium?'Passe Premium activo':'Obter o Passe Premium';
+      // Na reta final do passe, a pastilha passa a contar os dias. Antes disso
+      // seria ansiedade desnecessária; nos últimos 14 dias é informação útil.
+      const _exp=S.premiumExpires?Date.parse(S.premiumExpires):NaN;
+      const _d=isFinite(_exp)?Math.ceil((_exp-Date.now())/86400000):null;
+      p.textContent=S.premium?((_d!=null&&_d<=14&&_d>0)?('⭐ '+_d+'d'):'⭐'):'⭐ Premium';
+      p.title=S.premium
+        ?('Passe Premium activo'+(_d!=null?' — acaba daqui a '+_d+' dia'+(_d===1?'':'s'):''))
+        :'Obter o Passe Premium';
     }
   }catch(e){}
 }
@@ -4840,7 +4869,7 @@ function showPremium(){
   document.body.style.overflow='hidden';       // não deixar o fundo rolar
   const compKey=S.competition;
   // Nome legível da competição. Fica junto ao COMP_DB_ID/COMP_EMBLEM (bloco 6).
-  const compName=({mundial2026:'Mundial 2026',ucl2627:'Champions League',pl2627:'Premier League'})[compKey]||'';
+  const compName=COMP_SHORT[compKey]||'';
   const deCompeticao = compName
     ? 'd'+(compName.startsWith('Premier')||compName.startsWith('Champions')?'a ':'o ')+compName
     : 'da competição';
@@ -4868,6 +4897,22 @@ function showPremium(){
   // está a ser oferecido), mas nenhum botão leva ao Stripe. O resgate de
   // vouchers fica DE FORA deste travão — usar um passe que já é teu não é compra.
   const vendas = (S.premiumSalesEnabled !== false);
+  /* Prazo do passe, à vista. Devolve '' se o passe não tiver fim (comprado).
+     A contagem em dias é o que faz a oferta trabalhar: "acaba em 104 dias" é
+     uma data, "faltam 6 dias" é um motivo para agir. */
+  const expMs = S.premiumExpires ? Date.parse(S.premiumExpires) : NaN;
+  const diasRestantes = isFinite(expMs) ? Math.ceil((expMs-Date.now())/86400000) : null;
+  const prazoHtml = !isFinite(expMs) ? '' : (()=>{
+    const dt = new Date(expMs).toLocaleDateString('pt-PT',{timeZone:'Europe/Lisbon',day:'numeric',month:'long',year:'numeric'});
+    const urgente = diasRestantes<=14;
+    const cor = urgente?'#f39c12':'var(--gold)';
+    return `<div style="border:1px solid ${cor};border-radius:12px;padding:12px 14px;margin-bottom:14px;text-align:center;line-height:1.5">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;color:${cor}">${diasRestantes>0?diasRestantes:0}</div>
+        <div style="font-size:.74rem;color:var(--text);font-weight:600">${diasRestantes===1?'dia de premium':'dias de premium'}</div>
+        <div style="font-size:.72rem;color:var(--sub);margin-top:4px">Acaba a ${dt}${urgente?' — depois disso o prazo de aposta volta a fechar 1h antes do apito.':'.'}</div>
+      </div>`;
+  })();
+
   const vendasFechadas = `
     <div style="margin-top:18px;border:1px solid var(--gold);border-radius:12px;padding:14px 15px;text-align:center;line-height:1.6">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.02rem">Oferecido a todos nesta fase</div>
@@ -4918,9 +4963,17 @@ function showPremium(){
            </div>
          </a>`
       : '';
+    // Quem TEM passe também tem de perceber por que não vê preços — senão
+    // parece que a app escondeu a compra. E tem de ver o prazo.
+    const ofertaNota = (!vendas && S.premiumSource==='welcome')
+      ? `<div style="border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;text-align:center;line-height:1.55">
+           <div style="font-size:.85rem;color:var(--text);font-weight:600">Oferecido no arranque da época</div>
+           <div style="font-size:.74rem;color:var(--sub);margin-top:4px">Não pagaste nem tens nada a cancelar. Quando terminar, poderás comprar se quiseres continuar.</div>
+         </div>`
+      : '';
     body.innerHTML=hero
       +`<div style="border:1px solid var(--gold);border-radius:12px;padding:10px 12px;margin-bottom:14px;text-align:center;color:var(--gold);font-weight:700;font-size:.85rem">⭐ Passe activo</div>`
-      +voucherBlockHtml()+outro+perks+comoFunciona;
+      +prazoHtml+ofertaNota+voucherBlockHtml()+outro+perks+comoFunciona;
     return;
   }
 
@@ -6151,6 +6204,11 @@ async function loadData() {
     // RLS têm de concordar, senão o utilizador vê o campo aberto e a gravação
     // é rejeitada pelo servidor.
     S.premium = !!(r.premium && r.premium.premium);
+    // Data de fim do passe (o my_premium já a devolve). Com a oferta de arranque
+    // (060) quase toda a gente tem passe COM prazo — e um prazo que ninguém vê
+    // não muda comportamento nenhum quando chegar ao fim.
+    S.premiumExpires = (r.premium && r.premium.expires_at) || null;
+    S.premiumSource  = (r.premium && r.premium.source) || null;
     S.premiumInfo = r.premium || null;
     // Conjunto de códigos com passe ativo (badge ⭐ na classificação). Vazio
     // enquanto o kill-switch estiver desligado.
@@ -6647,11 +6705,19 @@ function renderLB() {
     const cmsAll=social.comments.filter(c=>(c.kind&&c.kind!=='user')||blk.indexOf((c.code||'').toUpperCase())===-1);
     const cms=cmsAll.slice(-12);            // inline mostra os últimos; o resto vai no modal
     const muted=!!social.muted;
+    // Retraída por omissão (decisão de 9 Ago): ocupava meio ecrã acima da
+    // classificação, que é o que as pessoas vêm ver. A escolha fica guardada
+    // no dispositivo — quem a abre não tem de a abrir outra vez.
+    const aberta=bancadaAberta();
+    const naoLidas=cmsAll.length;
     html+=`<div class="card" style="margin-top:14px;padding:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem">🗣️ BANCADA · ${escapeHtml(S.curLeague.name).toUpperCase()}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${aberta?'8px':'0'}">
+        <div onclick="toggleBancada()" style="cursor:pointer;flex:1;min-width:0;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.88rem">
+          <span style="display:inline-block;width:12px">${aberta?'▾':'▸'}</span> 🗣️ BANCADA · ${escapeHtml(S.curLeague.name).toUpperCase()}${(!aberta&&naoLidas)?` <span style="font-size:.7rem;color:var(--sub);font-weight:400">(${naoLidas})</span>`:''}
+        </div>
         <span onclick="toggleMuteLeague()" title="${muted?'Reativar notificações desta liga':'Silenciar notificações desta liga'}" style="cursor:pointer;font-size:.95rem;opacity:${muted?'1':'.55'}">${muted?'🔕':'🔔'}</span>
       </div>
+      <div id="bancada-body" style="display:${aberta?'':'none'}">
       <div id="bancada-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
         ${cms.length?cms.map(c=>feedItemHtml(c,isLgAdmin)).join(''):`<div style="font-size:.75rem;color:var(--sub);text-align:center;padding:14px 6px;line-height:1.5">A bancada acorda quando a jornada começar.<br><span style="opacity:.75">Os resultados e a classificação aparecem aqui.</span></div>`}
       </div>
@@ -6663,11 +6729,28 @@ function renderLB() {
         <input class="form-input" id="bancada-input" maxlength="200" autocomplete="off" placeholder="Escreve na bancada… (@nome para mencionar)" style="flex:1" oninput="bancadaSuggest(this.value)" onkeydown="if(event.key==='Enter')sendBancada()">
         <button class="btn btn-primary" style="font-size:.78rem;padding:6px 12px;white-space:nowrap" onclick="sendBancada()">Enviar</button>
       </div>
+      </div>
     </div>`;
   }
   el.innerHTML=html;
   const bl=document.getElementById('bancada-list');
   if(bl)bl.scrollTop=bl.scrollHeight;
+}
+// Estado da Bancada (retraída/aberta), por dispositivo. Omissão: RETRAÍDA.
+function bancadaAberta(){
+  try{ return localStorage.getItem('up_bancada')==='1'; }catch(e){ return false; }
+}
+function toggleBancada(){
+  let novo=false;
+  try{ novo=!bancadaAberta(); localStorage.setItem('up_bancada', novo?'1':'0'); }catch(e){}
+  const b=document.getElementById('bancada-body');
+  if(b){
+    b.style.display=novo?'':'none';
+    const bl=document.getElementById('bancada-list');
+    if(novo&&bl) bl.scrollTop=bl.scrollHeight;
+  }
+  // Redesenha para o ▸/▾ e a contagem acompanharem.
+  try{ if(typeof renderLB==='function') renderLB(); }catch(e){}
 }
 
 
