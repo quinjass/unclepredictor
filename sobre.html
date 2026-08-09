@@ -20,6 +20,28 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
+  "@type": "ProfilePage",
+  "mainEntity": {
+    "@type": "Person",
+    "name": "Hugo Ribeiro",
+    "url": "https://unclepredictor.pt/sobre.html",
+    "description": "Engenheiro em Portugal. Criou e mantém o Uncle Predictor, um jogo de prognósticos de futebol entre amigos, desde 2014.",
+    "nationality": "PT",
+    "worksFor": {
+      "@type": "Organization",
+      "name": "Uncle Predictor",
+      "url": "https://unclepredictor.pt/"
+    }
+  },
+  "url": "https://unclepredictor.pt/sobre.html",
+  "inLanguage": "pt-PT",
+  "dateCreated": "2026-07-30",
+  "dateModified": "2026-08-09"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
   "@type": "AboutPage",
   "name": "Sobre o projeto",
   "url": "https://unclepredictor.pt/sobre.html",
@@ -98,16 +120,19 @@
   <span>Atualizado a <time datetime="2026-08-09">9 de agosto de 2026</time></span>
 </div>
 
-<p class="lead">O Uncle Predictor começou em 2014, no Mundial desse ano, como um jogo entre
-amigos gerido em folhas de cálculo. A versão atual mantém as regras que faziam sentido e
-automatiza o resto.</p>
+<p class="lead">Chamo-me Hugo Ribeiro, sou engenheiro e vivo em Portugal. O Uncle Predictor
+começou em 2014 como um jogo entre amigos que eu geria em folhas de cálculo, durante o Mundial
+desse ano. Doze anos depois é uma aplicação — mas as regras que o fizeram durar são as mesmas.</p>
 
 <h2>Como funcionava em 2014</h2>
 
 <p>Cada participante tinha uma folha de cálculo onde preenchia os resultados que previa para os
-jogos seguintes e enviava-a antes do arranque da jornada. Do outro lado, o administrador copiava
-essas apostas para uma folha central, onde a pontuação era calculada, e devolvia a classificação
-atualizada ao grupo.</p>
+jogos seguintes e enviava-ma antes do arranque da jornada. Do meu lado, eu copiava essas apostas
+para uma folha central, calculava a pontuação e devolvia a classificação atualizada ao grupo.
+Havia cartões de jogo impressos para quem preferia papel.</p>
+
+<p>Era rudimentar e dava um trabalho considerável — mas funcionou durante um Mundial inteiro,
+e ninguém quis parar no fim.</p>
 
 <p>Funcionava, e três coisas fizeram o jogo durar: apostava-se o <strong>resultado exato</strong>
 e não só o vencedor, havia uma <strong>classificação</strong> que se seguia com atenção, e havia
@@ -141,6 +166,32 @@ que calcula a pontuação assim que o resultado entra.</p>
 Apostar 1-0 em tudo é seguro e raramente ganha. Daí o bónus de raridade, o Joker e os critérios
 de desempate. Está tudo nas <a href="regras.html">regras</a>.</p>
 
+<h2>Como é feito</h2>
+
+<p>Construí o Uncle Predictor sozinho, ao fim do dia e aos fins de semana. Durante anos correu
+em Google Sheets com scripts colados por cima — o que já era um enorme avanço face às folhas
+enviadas por email, mas encostou-se ao limite quando o número de participantes cresceu e
+apareceu a classificação ao vivo.</p>
+
+<p>Em julho de 2026 mudei tudo para uma base de dados a sério. A pontuação, que antes era
+calculada no browser de cada pessoa, passou a ser feita no servidor — o que garante que toda a
+gente vê exatamente os mesmos pontos. Os resultados dos jogos entram automaticamente a partir de
+uma fonte oficial de dados de futebol, sem ninguém os escrever à mão. Em agosto de 2026 saiu a
+aplicação Android na Google Play, que carrega a mesma versão do jogo.</p>
+
+<p>O Mundial 2026 correu inteiro nesta versão: <strong>104 jogos e 4 305 apostas
+registadas</strong>, com classificação a atualizar durante os jogos e sem uma única folha de
+cálculo pelo meio. São esses os dados que uso nos <a href="guias/">guias de estratégia</a> —
+não estatísticas de terceiros, mas o que os participantes deste jogo realmente escreveram.</p>
+
+<h2>Porque é que continuo a fazer isto</h2>
+
+<p>Há muita aplicação de prognósticos por aí, quase toda ligada a casas de apostas ou desenhada
+para vender qualquer coisa. O que me interessava era outra coisa: a discussão no grupo de
+WhatsApp na segunda-feira de manhã, alguém a lembrar que tinha acertado o 3-2 que mais ninguém
+arriscou, e a tabela a decidir quem tinha razão. Isso não precisa de dinheiro à mistura para
+funcionar — precisa só de contas bem feitas e de um prazo que ninguém possa contornar.</p>
+
 <h2>O que o Uncle Predictor não é</h2>
 
 <div class="warn">
@@ -155,13 +206,19 @@ neste jogo, não sobre onde pôr dinheiro.</p>
 
 <h2>Quem está por trás</h2>
 
-<p>O Uncle Predictor é um projeto independente, desenvolvido e mantido em Portugal por uma
-pessoa - sem equipa, sem investidores e sem publicidade paga. Cresceu por passagem de
-palavra entre grupos de amigos, colegas de trabalho e famílias que quiseram uma classificação
-a sério para o campeonato ou para o Mundial.</p>
+<p>Sou eu. O Uncle Predictor é um projeto independente, desenvolvido e mantido por mim em
+Portugal — sem equipa, sem investidores e sem publicidade paga. Trabalho em engenharia, em
+projetos industriais, e isto é o que faço fora disso. Cresceu por passagem de palavra entre
+grupos de amigos, colegas de trabalho e famílias que quiseram uma classificação a sério para o
+campeonato ou para o Mundial.</p>
 
-<p>Se tiveres uma sugestão, encontrares um erro ou quiseres levar o jogo para o teu grupo,
-os <a href="contactos.html">contactos</a> estão abertos.</p>
+<p>Escrevo eu todo o conteúdo deste site, incluindo os <a href="guias/">guias</a>, e as análises
+saem dos dados do próprio jogo. Quando um número aparece numa página, está lá a data a que foi
+apurado.</p>
+
+<p>Se tiveres uma sugestão, encontrares um erro — nos textos ou nas contas — ou quiseres levar o
+jogo para o teu grupo, os <a href="contactos.html">contactos</a> estão abertos e respondo
+sempre.</p>
 
 </main>
 
