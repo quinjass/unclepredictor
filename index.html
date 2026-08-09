@@ -4829,11 +4829,11 @@ const PREMIUM_PERKS=[
    na app nativa. Cinto e suspensórios: o CSS já esconderia o botão na app. */
 function refreshPremiumEntry(){
   try{
-    // Competição ainda por sortear: não se vende acesso a uma competição sem um
-    // único jogo visível (decisão de 9 Ago). Esconde a entrada enquanto se está
-    // DENTRO dessa competição — o Passe Época continua à venda a partir da
-    // Premier, que essa já tem calendário. Reavaliar depois do sorteio.
-    const show=(S.premiumEnabled && !window.UP_IS_NATIVE && !drawPending());
+    // A pastilha aparece sempre que o premium está ligado. Já não se esconde nas
+    // competições por sortear: o painel explica-se sozinho e não mostra preços,
+    // e uma pastilha que desaparece de competição para competição confunde mais
+    // do que informa.
+    const show=(S.premiumEnabled && !window.UP_IS_NATIVE);
     const b=document.getElementById('btn-premium');            // menu de conta
     if(b) b.style.display=show?'':'none';
     // Estatísticas avançadas: só a quem TEM passe. Não leva o gating da app
@@ -4860,9 +4860,9 @@ function refreshPremiumEntry(){
 }
 function showPremium(){
   if(window.UP_IS_NATIVE) return;              // nunca na app
-  // Cinto e suspensórios do refreshPremiumEntry(): mesmo que alguém chegue aqui
-  // por um atalho antigo, não se abre a compra de uma competição por sortear.
-  if(drawPending()){ try{ showToast('O passe desta competição abre depois do sorteio de '+drawDateStr()+'.','info'); }catch(e){} return; }
+  // Competição por sortear: o painel ABRE na mesma e explica-se. A versão
+  // anterior fazia `return` com um toast — um clique que não abre nada parece
+  // avaria, e foi exactamente assim que pareceu (9 Ago).
   const body=document.getElementById('premium-body');
   const ov=document.getElementById('premium-overlay');
   if(ov){ ov.style.display='block'; ov.classList.add('open'); }
@@ -4996,7 +4996,12 @@ function showPremium(){
   /* Os dois produtos lado a lado. A comparação é o que faz o Passe Época
      funcionar: sozinho parece caro, ao lado do avulso é que se percebe. */
   const poupa = (PREMIUM_PRICE_CENTS*2)-PREMIUM_SEASON_CENTS;
-  const cta = !vendas
+  const cta = drawPending()
+    ? `<div style="margin-top:18px;border:1px solid rgba(59,130,246,.45);border-radius:12px;padding:14px 15px;text-align:center;line-height:1.6">
+         <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#60a5fa;font-size:1.02rem">🎲 À espera do sorteio</div>
+         <div style="font-size:.78rem;color:var(--sub);margin-top:6px">Estas vantagens entram em jogo nesta competição depois do sorteio de ${drawDateStr()}, quando houver calendário.</div>
+       </div>`
+    : !vendas
     ? vendasFechadas
     : link
     ? `<div style="margin-top:18px;display:flex;flex-direction:column;gap:10px">
