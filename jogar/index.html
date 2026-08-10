@@ -17,7 +17,10 @@
        Não pôr Disallow no robots.txt — se o Google não puder rastrear, não lê
        este noindex e a URL pode ficar indexada à mesma. -->
   <meta name="robots" content="noindex,follow">
-  <link rel="canonical" href="https://unclepredictor.pt/">
+  <!-- Sem canonical: com noindex, apontar o canonical para outra página é um
+       sinal contraditório para o Google (pede para não indexar E para atribuir
+       o conteúdo a /). O noindex sozinho resolve. -->
+
 
   <!-- Google AdSense - verificação de propriedade + loader (ca-pub-7065183055996289).
        As unidades de anúncio serão colocadas depois e só renderizam no browser (não na app). -->
