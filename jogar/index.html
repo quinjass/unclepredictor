@@ -1540,6 +1540,9 @@ document.addEventListener('keydown', function(e){
              // Preços vêm da BD (055): mudar de preço não obriga a publicar.
              premiumPriceCents: Number(db.config.premium_price_cents || 499),
              premiumSeasonCents: Number(db.config.premium_season_price_cents || 799),
+             // PASSES POR TEMPO (062). O premium deixou de ser por competição:
+             // compra-se tempo, e o tempo vale para todas as competições.
+             premiumTime3mCents: Number(db.config.premium_time3m_price_cents || 299),
              insightsEnabled: String(db.config.insights_enabled || 'false') === 'true',
              referralsEnabled: String(db.config.referrals_enabled || 'false') === 'true',
              liveRarity: db.liveRarity || {},
@@ -4826,20 +4829,25 @@ let PREMIUM_LINKS={
   pl2627 :'https://buy.stripe.com/test_aFacN555ldiW8o56RK5kk01',
 };
 /* Preços (cêntimos). Fonte de verdade = config na BD; isto é só rede de
-   segurança. Mudar de preço faz-se na BD, sem publicar o frontend. */
+   segurança. Mudar de preço faz-se na BD, sem publicar o frontend.
+   ⚠️ PASSES POR TEMPO (062, 10 Ago 2026): o PREMIUM_PRICE_CENTS era o passe por
+   competição e deixou de ser usado. Fica cá porque a config também fica. */
 let PREMIUM_PRICE_CENTS=499;
-let PREMIUM_SEASON_CENTS=799;
+let PREMIUM_TIME3M_CENTS=299;   // Passe 3 meses
+let PREMIUM_SEASON_CENTS=699;   // Passe Época, até premium_season_end
 function eur(cents){
   const v=(Number(cents)||0)/100;
   return v.toFixed(2).replace('.',',')+' €';
 }
-/* O link do Passe Época só conta se já for um link real do Stripe. Enquanto
-   estiver o marcador da migration 055, o cartão do passe de época nem aparece
-   — mais vale não existir do que existir e dar erro ao carregar. */
-function premiumSeasonLink(){
-  const l=PREMIUM_LINKS.season||'';
+/* Um link de compra só conta se já for um link REAL do Stripe. Enquanto
+   estiver o marcador da migration 055/062, o cartão nem aparece — mais vale
+   não existir do que existir e dar erro ao carregar. */
+function stripeLink(k){
+  const l=(PREMIUM_LINKS&&PREMIUM_LINKS[k])||'';
   return /^https:\/\/buy\.stripe\.com\//.test(l)?l:null;
 }
+function premiumSeasonLink(){ return stripeLink('season'); }
+function premiumTime3mLink(){ return stripeLink('time3m'); }
 /* Vantagens. `soon:true` mostra a etiqueta "Em breve" — pôr a false à medida
    que cada uma fica pronta. NÃO listar o badge ⭐ (decisão do Hugo, 2 Ago: não
    é uma vantagem real).
@@ -4951,6 +4959,47 @@ function showPremium(){
       </div>`;
   })();
 
+  /* ── OS DOIS PRODUTOS (062) ──────────────────────────────────────────────
+     Fonte única: o mesmo bloco serve quem ainda não tem passe e quem já tem e
+     quer prolongar — muda só o texto. Mostrar isto a quem JÁ TEM passe é
+     essencial no modelo por tempo: renovar cedo passou a ser o caso normal e
+     não custa um único dia, porque o tempo novo SOMA-SE ao que resta. Sem este
+     cartão, a mecânica existia mas ninguém lhe chegava. */
+  const _dtPT = ms => new Date(ms).toLocaleDateString('pt-PT',
+    {timeZone:'Europe/Lisbon',day:'numeric',month:'long',year:'numeric'});
+  function buyCards(prolongar){
+    const l3=premiumTime3mLink(), ls=premiumSeasonLink();
+    if(!l3&&!ls) return '';
+    // A data que a pessoa passa a ter. É o mesmo cálculo do _grant_time_pass:
+    // conta a partir do fim do passe actual, não de hoje.
+    const base = (isFinite(expMs) && expMs>Date.now()) ? expMs : Date.now();
+    const d3 = new Date(base); d3.setMonth(d3.getMonth()+3);
+    const poupa4 = (PREMIUM_TIME3M_CENTS*4)-PREMIUM_SEASON_CENTS;
+    const card=(href,titulo,sub,cents,destaque)=>`
+      <div class="up-premium-buy" style="position:relative">
+        ${destaque?`<span style="position:absolute;top:-8px;left:12px;z-index:1;background:var(--gold);color:var(--bg);font-size:.62rem;font-weight:700;letter-spacing:.05em;padding:2px 8px;border-radius:5px">MAIS POPULAR</span>`:''}
+        <a style="display:block;text-decoration:none;border:${destaque?'2px solid var(--gold)':'1px solid var(--border)'};border-radius:12px;padding:${destaque?'14px':'13px 14px'}" href="${href}?client_reference_id=${ref}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+            <div>
+              <div style="font-size:.88rem;color:var(--text);font-weight:600">${titulo}</div>
+              <div style="font-size:.72rem;color:var(--sub);margin-top:2px">${sub}</div>
+            </div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.25rem;color:var(--gold);white-space:nowrap">${eur(cents)}</div>
+          </div>
+        </a>
+      </div>`;
+    return `<div style="${prolongar?'margin-bottom:14px':'margin-top:18px'};display:flex;flex-direction:column;gap:10px">
+        ${l3?card(l3,'Passe 3 meses',
+            prolongar?('Passas a ter premium até '+_dtPT(d3.getTime()))
+                     :'Todas as competições, 3 meses',
+            PREMIUM_TIME3M_CENTS,false):''}
+        ${ls?card(ls,'Passe Época',
+            prolongar?'Passas a ter premium até ao fim da época'
+                     :'Todas as competições, até ao fim da época'+(poupa4>0?` · poupas ${eur(poupa4)}`:''),
+            PREMIUM_SEASON_CENTS,true):''}
+      </div>`;
+  }
+
   const vendasFechadas = `
     <div style="margin-top:18px;border:1px solid var(--gold);border-radius:12px;padding:14px 15px;text-align:center;line-height:1.6">
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.02rem">Oferecido a todos nesta fase</div>
@@ -4965,10 +5014,8 @@ function showPremium(){
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.6rem;margin-top:4px">Passe Premium</div>
       <div style="font-size:.82rem;color:var(--sub);line-height:1.55;margin-top:6px">
         ${S.premium
-          ? 'Tens o passe activo '+deCompeticao+'. Obrigado pelo apoio.'
-          : (linkAny
-              ? 'Um passe por competição, à tua escolha, válido até ao fim dela.<br>Pagamento único, sem renovação automática.'
-              : 'Um passe por competição, válido até ao fim '+deCompeticao+'.<br>Pagamento único, sem renovação automática.')}
+          ? 'Tens o passe activo. Obrigado pelo apoio.'
+          : 'Compras tempo, não competições: o passe vale em todas.<br>Pagamento único, sem renovação automática.'}
       </div>
     </div>`;
 
@@ -4976,10 +5023,9 @@ function showPremium(){
     <div style="margin-top:22px;border-top:1px solid var(--border);padding-top:16px">
       <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Como funciona</div>
       <div style="font-size:.76rem;color:var(--sub);line-height:1.65">
-        O passe é <b style="color:var(--text)">por competição</b>, não é uma subscrição — pagas uma vez e não há renovação nem nada a cancelar.<br><br>
-        ${linkAny
-          ? 'Depois do pagamento o passe fica na tua conta como <b style="color:var(--text)">por usar</b>. Escolhes aqui a competição onde o queres gastar, quando quiseres — não há prazo.'
-          : 'Fica <b style="color:var(--text)">activo automaticamente</b> mal o pagamento seja confirmado, na conta com que estás a jogar.'}<br><br>
+        O passe é <b style="color:var(--text)">por tempo</b> e vale em <b style="color:var(--text)">todas as competições</b>. Não é uma subscrição — pagas uma vez e não há renovação nem nada a cancelar.<br><br>
+        Fica <b style="color:var(--text)">activo automaticamente</b> mal o pagamento seja confirmado, na conta com que estás a jogar.<br><br>
+        Podes renovar <b style="color:var(--text)">antes de acabar</b>: o tempo novo soma-se ao que ainda tens, não o substitui. Não perdes um único dia por comprares mais cedo.<br><br>
         O premium <b style="color:var(--text)">nunca dá pontos nem vantagem na pontuação</b>. Dá conveniência, informação e personalização — a classificação continua a depender só dos teus palpites.
       </div>
     </div>`;
@@ -4989,17 +5035,14 @@ function showPremium(){
     // competições — por isso o bloco de resgate aparece nos dois ramos.
     // E com o link único faz sentido poder comprar outro sem sair daqui: o
     // passe não está preso a esta competição.
-    const outro = (vendas && linkAny)
-      ? `<a class="up-premium-buy" style="display:block;text-decoration:none;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px"
-            href="${linkAny}?client_reference_id=${ref}">
-           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-             <div>
-               <div style="font-size:.85rem;color:var(--text);font-weight:600">Comprar outro passe</div>
-               <div style="font-size:.72rem;color:var(--sub);margin-top:2px">Para outra competição, à tua escolha</div>
-             </div>
-             <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem;color:var(--gold);white-space:nowrap">${eur(PREMIUM_PRICE_CENTS)}</div>
-           </div>
-         </a>`
+    // PROLONGAR (062). Quem já tem passe também compra — e é aqui que se lhe
+    // diz que não perde nada por comprar cedo, com a data nova à frente.
+    const outro = vendas
+      ? (buyCards(true)
+          ? `<div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin-bottom:9px">Prolongar o passe</div>`
+            + buyCards(true)
+            + `<div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:-4px;margin-bottom:14px;line-height:1.5">O tempo novo soma-se ao que ainda tens. Não perdes um dia por comprares já.</div>`
+          : '')
       : '';
     // Quem TEM passe também tem de perceber por que não vê preços — senão
     // parece que a app escondeu a compra. E tem de ver o prazo.
@@ -5038,7 +5081,8 @@ function showPremium(){
 
   /* Os dois produtos lado a lado. A comparação é o que faz o Passe Época
      funcionar: sozinho parece caro, ao lado do avulso é que se percebe. */
-  const poupa = (PREMIUM_PRICE_CENTS*2)-PREMIUM_SEASON_CENTS;
+  // (o antigo `poupa` comparava dois passes por competição; a poupança do passe
+  //  de época passou para dentro do buyCards, contra 4× o passe de 3 meses)
   const cta = drawPending()
     ? `<div style="margin-top:18px;border:1px solid rgba(59,130,246,.45);border-radius:12px;padding:14px 15px;text-align:center;line-height:1.6">
          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#60a5fa;font-size:1.02rem">🎲 À espera do sorteio</div>
@@ -5046,38 +5090,12 @@ function showPremium(){
        </div>`
     : !vendas
     ? vendasFechadas
-    : link
-    ? `<div style="margin-top:18px;display:flex;flex-direction:column;gap:10px">
-         <a class="up-premium-buy" style="display:block;text-decoration:none;border:1px solid var(--border);border-radius:12px;padding:13px 14px"
-            href="${link}?client_reference_id=${ref}">
-           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-             <div>
-               <div style="font-size:.88rem;color:var(--text);font-weight:600">Passe de Competição</div>
-               <div style="font-size:.72rem;color:var(--sub);margin-top:2px">${linkAny?'Numa competição à tua escolha':'Só '+(compName||'esta competição')}</div>
-             </div>
-             <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.25rem;color:var(--gold);white-space:nowrap">${eur(PREMIUM_PRICE_CENTS)}</div>
-           </div>
-         </a>
-         ${seasonLink?`
-         <div class="up-premium-buy" style="position:relative">
-           <span style="position:absolute;top:-8px;left:12px;z-index:1;background:var(--gold);color:var(--bg);font-size:.62rem;font-weight:700;letter-spacing:.05em;padding:2px 8px;border-radius:5px">MAIS POPULAR</span>
-           <a style="display:block;text-decoration:none;border:2px solid var(--gold);border-radius:12px;padding:14px" href="${seasonLink}?client_reference_id=${ref}">
-             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
-               <div>
-                 <div style="font-size:.88rem;color:var(--text);font-weight:600">Passe Época</div>
-                 <div style="font-size:.72rem;color:var(--sub);margin-top:2px">Premier League + Champions${poupa>0?` · poupas ${eur(poupa)}`:''}</div>
-               </div>
-               <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.25rem;color:var(--gold);white-space:nowrap">${eur(PREMIUM_SEASON_CENTS)}</div>
-             </div>
-           </a>
-         </div>`:''}
-       </div>
+    : buyCards(false)
+    ? `${buyCards(false)}
        ${trialCta}
        <div class="up-premium-buy" style="font-size:.68rem;color:var(--sub);text-align:center;margin-top:11px;line-height:1.5">
-         Pagamento seguro através do Stripe.<br>${linkAny
-           ? 'Depois do pagamento escolhes aqui a competição onde queres usar o passe.'
-           : 'O passe fica activo assim que o pagamento for confirmado.'}</div>`
-    : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível nesta competição.</div>${trialCta}`;
+         Pagamento seguro através do Stripe.<br>O passe fica activo assim que o pagamento for confirmado.</div>`
+    : `<div style="font-size:.78rem;color:var(--sub);text-align:center;margin-top:18px">Ainda não disponível.</div>${trialCta}`;
 
   body.innerHTML=hero+voucherBlockHtml()+perks+cta+comoFunciona;
 }
@@ -5129,8 +5147,10 @@ function trialBannerHtml(){
    O resgate vive no ecrã "Convidar amigos" precisamente por causa disso: é o
    único sítio onde o jogador da app o consegue alcançar. */
 const VOUCHER_TXT={
-  competition:{t:'Passe de Competição',d:'Válido numa competição à tua escolha'},
-  season:{t:'Passe Época',d:'Premier League + Champions'},
+  // ⚠️ Os `kind` mantêm os nomes na base de dados (check da 058) mas mudaram de
+  // significado com a 062: agora valem TEMPO, não competições.
+  competition:{t:'Passe de 3 meses',d:'Todas as competições, durante 3 meses'},
+  season:{t:'Passe Época',d:'Todas as competições, até ao fim da época'},
   season_x2:{t:'Passe Época ×2',d:'Esta época e a seguinte'},
 };
 async function loadVouchers(){
@@ -5141,11 +5161,12 @@ function vouchersDisponiveis(){
   const v=S.vouchers&&Array.isArray(S.vouchers.vouchers)?S.vouchers.vouchers:[];
   return v;
 }
-/* Faixa no topo da classificação. Só aparece a quem tem passe por usar E ainda
-   não é premium nesta competição — a quem já é, não há nada a fazer aqui. */
+/* Faixa no topo da classificação. Aparece a quem tem passe por usar.
+   ⚠️ 062: deixou de se esconder a quem JÁ É premium. Com passes por tempo, usar
+   um voucher com passe activo não é recusado — o tempo soma-se ao que resta. */
 function voucherBannerHtml(){
   const n=vouchersDisponiveis().length;
-  if(!n||S.premium) return '';
+  if(!n) return '';
   return `<div style="background:var(--bg2);border:1px solid var(--gold);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.75rem;color:var(--text);line-height:1.5">
     🎁 Tens ${n===1?'um Passe Premium':n+' Passes Premium'} por usar.
     <span style="color:var(--gold);cursor:pointer;text-decoration:underline" onclick="showEmbaixadores()">Usar agora</span>
@@ -5172,17 +5193,10 @@ function voucherBlockHtml(){
   const cartoes=grupos.map(v=>{
     const meta=VOUCHER_TXT[v.kind]||{t:'Passe Premium',d:''};
     const id=escapeHtml(String(v.id));
-    // Só o passe de competição faz uma pergunta. Os de época dão tudo o que há
-    // para dar, e um selector com uma opção só é ruído.
-    const escolha = v.kind==='competition'
-      ? (comps.length
-          ? `<select id="vsel-${id}" class="form-input" style="font-size:.8rem;padding:8px;margin-top:9px">
-               ${comps.map(c=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome)}${c.estado==='draft'?' (em breve)':''}</option>`).join('')}
-             </select>
-             <button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:8px" onclick="usarVoucher('${id}','competition')">Usar este passe</button>`
-          : `<div style="font-size:.72rem;color:var(--sub);margin-top:9px;line-height:1.5">
-               Já tens passe activo em todas as competições disponíveis. Este fica guardado para a próxima.</div>`)
-      : `<button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:9px" onclick="usarVoucher('${id}','${escapeHtml(v.kind)}')">Usar ${v.n>1?'um passe':'este passe'}</button>`;
+    // 062: acabou a pergunta "onde queres usar?". Os passes valem tempo e o
+    // tempo vale em todas as competições — o selector deixou de fazer sentido.
+    // Se já houver passe activo, o tempo SOMA-SE em vez de ser recusado.
+    const escolha = `<button class="btn btn-primary btn-full" style="font-size:.82rem;padding:9px;margin-top:9px" onclick="usarVoucher('${id}','${escapeHtml(v.kind)}')">Usar ${v.n>1?'um passe':'este passe'}</button>`;
     return `<div style="border:1px solid var(--gold);border-radius:11px;padding:12px;margin-bottom:9px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <div>
@@ -5202,14 +5216,10 @@ function voucherBlockHtml(){
     </div>`;
 }
 async function usarVoucher(id,kind){
-  let comp=null;
-  if(kind==='competition'){
-    const sel=document.getElementById('vsel-'+id);
-    comp=sel?sel.value:null;
-    if(!comp){ showToast('Escolhe a competição.','error'); return; }
-  }
+  // 062: já não se escolhe competição. O parâmetro fica na chamada porque a
+  // RPC mantém a assinatura (compatibilidade), mas vai sempre a null.
   try{
-    const r=await api('redeemVoucher',{id:id,competition_id:comp});
+    const r=await api('redeemVoucher',{id:id,competition_id:null});
     if(r&&r.ok){
       showToast('Passe activado!','success');
       await loadVouchers();
@@ -6275,6 +6285,7 @@ async function loadData() {
     // Preços e kill-switches novos (3 Ago). Como os links, mandam da BD.
     if (r.premiumPriceCents) PREMIUM_PRICE_CENTS = Number(r.premiumPriceCents);
     if (r.premiumSeasonCents) PREMIUM_SEASON_CENTS = Number(r.premiumSeasonCents);
+    if (r.premiumTime3mCents) PREMIUM_TIME3M_CENTS = Number(r.premiumTime3mCents);
     S.insightsEnabled = !!r.insightsEnabled;
     S.referralsEnabled = !!r.referralsEnabled;
     // Estado do período de teste (não bloqueia o arranque: corre à parte).
