@@ -2201,7 +2201,11 @@ document.addEventListener('keydown', function(e){
     }
   }
 
-  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth, setComp, comp: () => COMP, scoring: scoringOf, pickBase: pickApiBase, apiBase: () => SB_URL };
+  window.UPSB = { dispatch, loadDB, session: () => SESSION, beginRecovery, beginRecoveryHash, invalidate: () => { DB = null; }, loginWithGoogle, completeOAuth, setComp, comp: () => COMP, scoring: scoringOf, pickBase: pickApiBase, apiBase: () => SB_URL,
+    /* Apaga a sessão Supabase do localStorage. O logout() antigo só limpava o
+       'up26_user' e deixava cá o 'upsb_session' — com o refresh token lá dentro
+       e a fazer a landing pensar que ainda havia sessão. */
+    signOut: () => saveSession(null) };
 })();
 
 </script>
@@ -3986,7 +3990,16 @@ function syncAppFooter(){
   const f=document.getElementById('app-foot');
   if(f) f.style.display = (S.user? '' : 'none');
 }
-function logout(){closeAccountMenu();if(!confirm('Sair?'))return;localStorage.removeItem('up26_user');location.reload();}
+function logout(){
+  closeAccountMenu();
+  if(!confirm('Sair?'))return;
+  localStorage.removeItem('up26_user');
+  // Limpar TAMBÉM a sessão Supabase — senão o refresh token fica no browser
+  // depois de sair (mau num computador partilhado) e a landing em / continua
+  // a achar que há sessão, reencaminhando sempre para /jogar/.
+  try{ if(window.UPSB && UPSB.signOut) UPSB.signOut(); else localStorage.removeItem('upsb_session'); }catch(e){}
+  location.replace('/');
+}
 
 // ── Gerir notificações (opt-in/out por tipo; mandatórias sempre ativas) ──
 const NOTIF_MANDATORY=[{key:'admin',label:'Mensagens da organização',desc:'Avisos importantes do Uncle Predictor'}];

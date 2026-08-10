@@ -93,10 +93,11 @@
 <style>
   /* Só o que a landing acrescenta ao up.css */
 
-  /* Fundo do hero — a mesma fotografia que a app usava na raiz antes de 9 Ago
-     2026, com o mesmo filtro e gradiente. Fica só no hero: o conteúdo abaixo
-     mantém o fundo liso para leitura. */
-  .hero-wrap{position:relative; overflow:hidden}
+  /* Fundo do hero — a mesma fotografia que a app usa, com o mesmo filtro e
+     gradiente. Passa POR TRÁS do cabeçalho e desvanece só no fim, para ficar
+     igual ao ecrã de entrada do jogo. O conteúdo abaixo fica em fundo liso,
+     senão as tabelas e os três passos perdem legibilidade. */
+  .hero-wrap{position:relative; overflow:hidden; margin-top:-55px; padding-top:55px}
   .hero-wrap::before{
     content:''; position:absolute; inset:0;
     background-image:url('https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1600&q=80');
@@ -107,13 +108,15 @@
   .hero-wrap::after{
     content:''; position:absolute; inset:0; z-index:1;
     background:linear-gradient(180deg,
-      rgba(13,27,42,.15) 0%,
-      rgba(13,27,42,.55) 45%,
-      rgba(13,27,42,.96) 100%);
+      rgba(13,27,42,.10) 0%,
+      rgba(13,27,42,.45) 50%,
+      rgba(13,27,42,1) 100%);
   }
   .hero-wrap > *{position:relative; z-index:2}
+  /* Cabeçalho transparente por cima da fotografia */
+  .site-header{background:transparent; backdrop-filter:none; border-bottom:0; position:relative}
 
-  .hero{text-align:center; padding:38px 18px 30px; max-width:var(--maxw); margin:0 auto}
+  .hero{text-align:center; padding:34px 18px 66px; max-width:var(--maxw); margin:0 auto}
   .hero img{width:86px; height:auto; border-radius:18px; margin-bottom:14px}
   .hero h1{font-size:2rem; line-height:1.15; margin:.1em 0 .45em}
   .hero .sub{font-size:1rem; color:var(--sub); line-height:1.7; max-width:600px; margin:0 auto 1.4em}
@@ -164,6 +167,8 @@
 </head>
 <body>
 
+<div class="hero-wrap">
+
 <header class="site-header">
   <div class="site-header-inner">
     <a class="site-logo" href="/"><img src="/logo-96.png" alt="Uncle Predictor" width="34" height="34"><span>Uncle Predictor</span></a>
@@ -171,12 +176,12 @@
       <a href="/como-funciona.html">Como funciona</a>
       <a href="/regras.html">Regras</a>
       <a href="/competicoes.html">Competições</a>
+      <a href="/premium.html">Premium</a>
       <a class="cta" href="/jogar/#entrar">Entrar</a>
     </nav>
   </div>
 </header>
 
-<div class="hero-wrap">
 <section class="hero">
   <img src="/logo-192.png" alt="Uncle Predictor" width="86" height="86">
   <h1>Prevê o resultado.<br>Ganha pontos. Sobe na classificação.</h1>
