@@ -7822,7 +7822,12 @@ function renderBetsKO() {
       colorClass='card-saved';                    // guardado sem resultado → cinza
     }
 
-    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||(locked&&knownTeams))?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
+    html += `<div class="game-card-ko ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${
+      (isFinished||(locked&&knownTeams))
+        ? `onclick="openGameModal('${g.id}')" style="cursor:pointer"`
+        // Aberto e com equipas já apuradas: abre o "quem já apostou".
+        : (knownTeams ? `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"` : '')
+    }>
       <div class="game-meta">
         <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</span>
         <span>${dlWarn}${ptsHtml}${insightsBtnHtml(g.id)}</span>
@@ -7834,12 +7839,12 @@ function renderBetsKO() {
           : lvKO
           ? `<div class="result-badge live-score">${lvKO.t1} - ${lvKO.t2}</div>`
           : knownTeams
-            ? `<div class="score-inputs">
+            ? `<div class="score-inputs" onclick="event.stopPropagation()">
                 <input class="score-input" type="number" min="0" max="20" value="${t1v}" placeholder="-"
-                  ${locked?'disabled':''} oninput="setPred('${g.id}','t1',this.value)">
+                  ${locked?'disabled':''} onclick="event.stopPropagation()" oninput="setPred('${g.id}','t1',this.value)">
                 <span class="score-sep">-</span>
                 <input class="score-input" type="number" min="0" max="20" value="${t2v}" placeholder="-"
-                  ${locked?'disabled':''} oninput="setPred('${g.id}','t2',this.value)">
+                  ${locked?'disabled':''} onclick="event.stopPropagation()" oninput="setPred('${g.id}','t2',this.value)">
               </div>`
             : `<div class="result-badge" style="color:var(--sub);font-size:.7rem;min-width:60px;text-align:center">A definir</div>`
         }
@@ -7857,7 +7862,7 @@ function renderBetsKO() {
         : !knownTeams
           ? `<div class="ko-pending">⏳ Equipas a apurar após fase de grupos</div>`
           : !locked && !g.noJoker
-            ? `<button class="joker-btn ${jokerOn?'active':''}" onclick="toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
+            ? `<button class="joker-btn ${jokerOn?'active':''}" onclick="event.stopPropagation();toggleJoker('${g.id}')" ${!canJoker?'disabled':''}>
                 <span class="joker-badge">J</span> ${jokerOn?'Remover JOKER':'Usar JOKER'}
               </button>`
             : `${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
@@ -7958,7 +7963,14 @@ function renderBets() {
         colorClass='card-saved';                           // guardado sem resultado → cinza
       }
 
-      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||locked)?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
+      html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${
+        (isFinished||locked)
+          ? `onclick="openGameModal('${g.id}')" style="cursor:pointer"`
+          // Jogo ABERTO: o cartão abre o "quem já apostou" + insights. Os
+          // controlos lá dentro (inputs, joker, limpar) levam stopPropagation,
+          // senão editar a aposta abria o modal a cada toque.
+          : `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"`
+      }>
         <div class="game-meta">
           <span>${g.g?`<span class="grp-badge">Gr.${g.g}</span>`:''}${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}${g.venue?' · '+g.venue:''}</span>
           <span>${dlWarn}${suggestedMark(g.id)}${ptsHtml}${insightsBtnHtml(g.id)}</span>
@@ -7969,12 +7981,12 @@ function renderBets() {
             ?`<div class="result-badge">${res.t1} - ${res.t2}</div>`
             :lv
             ?`<div class="result-badge live-score">${lv.t1} - ${lv.t2}</div>`
-            :`<div class="score-inputs">
+            :`<div class="score-inputs" onclick="event.stopPropagation()">
                <input class="score-input" type="number" min="0" max="20" value="${t1v}" placeholder="-"
-                 ${locked?'disabled':''} oninput="setPred('${g.id}','t1',this.value)">
+                 ${locked?'disabled':''} onclick="event.stopPropagation()" oninput="setPred('${g.id}','t1',this.value)">
                <span class="score-sep">-</span>
                <input class="score-input" type="number" min="0" max="20" value="${t2v}" placeholder="-"
-                 ${locked?'disabled':''} oninput="setPred('${g.id}','t2',this.value)">
+                 ${locked?'disabled':''} onclick="event.stopPropagation()" oninput="setPred('${g.id}','t2',this.value)">
              </div>`}
           <div class="team-name right">${flag(g.t2)}${g.t2}</div>
         </div>
@@ -9460,6 +9472,7 @@ function openBettorsModal(gameId) {
   }).join('');
 
   document.getElementById('modal-body').innerHTML = `
+    ${insightsSummaryHtml(gameId)}
     <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:12px">
       <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;color:var(--green)">${feitos}</div><div style="font-size:.66rem;color:var(--sub)">JÁ APOSTARAM</div></div>
       <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;color:var(--sub)">${orden.length-feitos}</div><div style="font-size:.66rem;color:var(--sub)">EM FALTA</div></div>
@@ -9467,6 +9480,48 @@ function openBettorsModal(gameId) {
     <div style="overflow-x:auto"><table class="modal-table"><tbody>${linhas}</tbody></table></div>
     <div style="font-size:.68rem;color:var(--sub);margin-top:8px;text-align:center">Os resultados apostados só aparecem depois do apito inicial.</div>`;
   openModal();
+}
+
+// Resumo dos insights no TOPO do modal do jogo aberto. Reaproveita o payload
+// que a build-insights (052) já produz e os mesmos helpers visuais da página
+// completa (_insBar/_insForma), para não haver duas linguagens diferentes.
+// Devolve '' quando os insights estão desligados ou não há dados - o modal
+// funciona na mesma, só com a lista de quem já apostou.
+function insightsSummaryHtml(gid){
+  try{
+    if(!S.insightsEnabled) return '';
+    const it=(S.insights||{})[gid];
+    if(!it) return '';
+    const te=it.teaser||{};
+
+    if(it.locked){
+      // Bloqueado: mostra que existe, não mostra o conteúdo (nem sequer chegou
+      // ao browser). Sem preços - este modal também abre na app nativa.
+      return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:170px">
+            <div style="font-size:.63rem;letter-spacing:.06em;color:var(--sub)">⚡ INSIGHTS</div>
+            <div style="font-size:.74rem;color:var(--sub);margin-top:3px;line-height:1.5">O mercado, a forma das equipas e onde está o valor. Disponível com passe ativo.</div>
+          </div>
+          <button class="btn btn-outline" style="font-size:.7rem;padding:4px 10px" onclick="showInsights('${gid}')">Ver</button>
+        </div>`;
+    }
+
+    const p=it.payload||{};
+    let h='';
+    if(p.mercado) h+=`<div style="margin-bottom:10px">
+        <div style="font-size:.63rem;letter-spacing:.06em;color:var(--sub);margin-bottom:6px">MERCADO · SEM A MARGEM DA CASA</div>
+        ${_insBar(p.mercado.casa,p.mercado.empate,p.mercado.fora)}</div>`;
+    if(p.forma) h+=`<div style="margin-bottom:10px">
+        <div style="font-size:.63rem;letter-spacing:.06em;color:var(--sub);margin-bottom:6px">FORMA · ÚLTIMOS 5</div>
+        <div style="display:flex;justify-content:space-between;font-size:.76rem"><span>${escapeHtml(te.t1||'')}</span><span style="letter-spacing:2px">${_insForma(p.forma.t1)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:.76rem"><span>${escapeHtml(te.t2||'')}</span><span style="letter-spacing:2px">${_insForma(p.forma.t2)}</span></div>
+      </div>`;
+    if(!h) return '';
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">
+        ${h}
+        <button class="btn btn-outline btn-full" style="font-size:.72rem;padding:5px 10px" onclick="showInsights('${gid}')">⚡ Ver insights completos</button>
+      </div>`;
+  }catch(e){ return ''; }
 }
 
 function openGameModal(gameId) {
