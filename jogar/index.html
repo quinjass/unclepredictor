@@ -1389,7 +1389,7 @@ document.addEventListener('keydown', function(e){
   }
   async function loadDBFetch(gen) {
     if (gen === undefined) gen = DB_GEN;
-    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows, badgeDefs, myBadges, badgeCountRows, sqlStandings] = await Promise.all([
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows, badgeDefs, myBadges, badgeCountRows, topBadgeRows, sqlStandings] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
       rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
       rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
@@ -1422,6 +1422,12 @@ document.addEventListener('keydown', function(e){
       rest('user_badges', 'badge_key,value,level,unlocked_at',
            'code=eq.' + enc((myCode() || '').toUpperCase()), true, 'badge_key').catch(() => []),
       rest('v_badge_counts', 'code,n', '', true, 'code').catch(() => []),
+      // BADGES (063): os TOP 5 badges de cada jogador, para o resumo no card
+      // que abre ao picar num nome na classificação. A view já corta em 5 por
+      // jogador, por isso o payload é pequeno e previsível. All-time, sem
+      // filtro de competição. .catch -> [] enquanto a 063 não estiver aplicada
+      // (sem isto o Promise.all rejeita e a app não carrega - lição da 028).
+      rest('v_user_badges_public', 'code,badge_key,icon,name,level,levels_n', '', true, 'code').catch(() => []),
       // MODO SOMBRA (045): classificação calculada pelo servidor. Leitura
       // simples de uma cache — não corre o motor. Serve para comparar com o que
       // o frontend calcula; só passa a ser a fonte quando `use_sql_standings`
@@ -1473,6 +1479,13 @@ document.addEventListener('keydown', function(e){
     const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes, liveRarity,
                   badgeDefs: badgeDefs || [], myBadges: myBadges || [],
                   badgeCounts: (badgeCountRows || []).reduce((a, r) => { a[(r.code||'').toUpperCase()] = +r.n || 0; return a; }, {}),
+                  // { CODE: [{badge_key,icon,name,level,levels_n}, ...] } - já
+                  // vem ordenado pela view (nível desc, ordem do catálogo).
+                  topBadges: (topBadgeRows || []).reduce((a, r) => {
+                    const c = (r.code || '').toUpperCase(); if (!c) return a;
+                    (a[c] = a[c] || []).push({ badge_key:r.badge_key, icon:r.icon, name:r.name, level:+r.level||0, levels_n:+r.levels_n||0 });
+                    return a;
+                  }, {}),
                   sqlStandings: sqlStandings || [] };
     // A competição mudou enquanto esta leitura decorria: este snapshot é de
     // OUTRA competição. Não contaminar a cache nem devolvê-lo - refazer com o
@@ -1548,6 +1561,7 @@ document.addEventListener('keydown', function(e){
              liveRarity: db.liveRarity || {},
              badgeDefs: db.badgeDefs || [], myBadges: db.myBadges || [],
              badgeCounts: db.badgeCounts || {},
+             topBadges: db.topBadges || {},
              sqlStandings: db.sqlStandings || [],
              useSqlStandings: String(db.config.use_sql_standings || 'false') === 'true',
              payLinks: (() => { const v = db.config.stripe_pay_links; if (v == null) return null;
@@ -2271,14 +2285,16 @@ document.addEventListener('keydown', function(e){
     <!-- Estatísticas avançadas: funcionalidade premium, mas SEM preço nem link
          de compra -> pode aparecer na app. Só se mostra a quem tem passe, por
          isso a app nunca chega sequer a mencionar o premium. -->
-    <button id="btn-stats" class="btn btn-outline btn-full" style="display:none;margin-bottom:8px" onclick="closeAccountMenu();showStats()">📊 Estatísticas avançadas</button>
+    <!-- Stats: aberto a TODOS desde 11 Ago. O resumo pessoal é grátis; as
+         secções de análise avançada continuam a exigir passe (ver showStats). -->
+    <button id="btn-stats" class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showStats()">📊 Stats</button>
     <!-- Embaixadores: convidar dá passes. NÃO leva .up-premium — não menciona
          preço nem link de compra, só marcos e o link de convite. Pode aparecer
          na app. O JS só o mostra se referrals_enabled='true'. -->
     <button id="btn-embaixadores" class="btn btn-outline btn-full" style="display:none;margin-bottom:8px" onclick="closeAccountMenu();showEmbaixadores()">🤝 Convidar amigos</button>
-    <!-- Badges: para TODOS, não é premium. -->
-    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showBadges()">🏅 Badges</button>
-    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showPalmares()">🏅 Palmarés</button>
+    <!-- Palmarés + Badges: para TODOS, não é premium. Uma só página desde
+         11 Ago (pedido do Hugo) - palmarés em cima, badges por baixo. -->
+    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showBadges()">🏅 Palmarés e Badges</button>
     <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
     <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
     <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showChangePw()">🔑 Alterar password</button>
@@ -2295,11 +2311,21 @@ document.addEventListener('keydown', function(e){
 <!-- Estatísticas avançadas (premium). Reaproveita o CSS .up-page da página do
      Premium, mas NÃO leva .up-premium: pode aparecer na app, porque só se abre
      a quem já tem passe e não menciona preços. -->
-<!-- Badges / Conquistas. Para todos; reaproveita o CSS .up-page. -->
+<!-- Palmarés + Badges / Conquistas. Para todos; reaproveita o CSS .up-page.
+     ⚠️ O #palmares-list vive FORA do #badges-body de propósito: o
+     showBadges(true) reescreve o body a cada toque numa medalha, e o palmarés
+     é assíncrono (vai buscar o standing de cada competição). Se estivesse lá
+     dentro, cada toque apagava-o e obrigava a refetch. -->
 <div id="badges-overlay" style="display:none">
   <div class="up-page">
     <div class="up-page-inner">
       <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closeBadges()">✕ Fechar</button></div>
+      <div style="text-align:center;margin-bottom:18px">
+        <div style="font-size:2rem;line-height:1">🏆</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.5rem;margin-top:4px">Palmarés</div>
+        <div style="font-size:.82rem;color:var(--sub);margin-top:5px">O teu percurso nas competições em que participaste.</div>
+      </div>
+      <div id="palmares-list"></div>
       <div id="badges-body"></div>
     </div>
   </div>
@@ -2356,15 +2382,9 @@ document.addEventListener('keydown', function(e){
     <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeNotifPrefs()">Fechar</button>
   </div>
 </div>
-<!-- ── Palmarés / Histórico ── -->
-<div class="switcher-overlay" id="palmares-overlay" onclick="closePalmares()">
-  <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
-    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">🏅 Palmarés</div>
-    <div style="font-size:.78rem;color:var(--sub);margin-bottom:16px;line-height:1.5">O teu percurso nas competições em que participaste.</div>
-    <div id="palmares-list"></div>
-    <button class="btn btn-outline btn-full" style="margin-top:12px;font-size:.78rem" onclick="closePalmares()">Fechar</button>
-  </div>
-</div>
+<!-- ── Palmarés / Histórico ──
+     O overlay próprio foi eliminado a 11 Ago: o palmarés passou a viver no topo
+     da página de Badges (#badges-overlay). Ver fillPalmares(). -->
 <!-- League switcher sheet -->
 <div class="switcher-overlay" id="league-switcher-overlay" onclick="closeLeagueSwitcher()">
   <div class="switcher-box" onclick="event.stopPropagation()">
@@ -4107,7 +4127,12 @@ function palmStatBody(st){
     ${stat(st.rank+'º','de '+st.total)}${stat(st.points,'pontos')}${stat(st.games,'jogos')}
   </div>${medals}`;
 }
-async function showPalmares(){
+// Preenche o bloco do Palmarés no topo da página de Badges.
+// NÃO abre nada - quem abre a página é o showBadges(). Chamado só com
+// _manter falsy, para não repetir as leituras a cada toque numa medalha.
+async function fillPalmares(){
+  const alvo=document.getElementById('palmares-list');
+  if(!alvo) return;
   const list=(S.competitions||[]).filter(c=>c.registered);
   const curId=S.competition;                 // competição atualmente carregada (se houver)
   const curStats=buildPalmaresStats();        // stats da atual (com medalhas de jornada)
@@ -4125,8 +4150,7 @@ async function showPalmares(){
   });
   if(!list.length) html=`<div class="alert alert-info" style="font-size:.82rem">Ainda não estás inscrito em nenhuma competição.</div>`;
   html+=`<div style="font-size:.72rem;color:var(--sub);margin-top:4px">As novas competições em que participares aparecem aqui.</div>`;
-  document.getElementById('palmares-list').innerHTML=html;
-  document.getElementById('palmares-overlay').classList.add('open');
+  alvo.innerHTML=html;
   // Carrega o standing das competições já iniciadas (a atual já está feita acima).
   for(const c of list){
     if(c.id===curId&&curStats) continue;
@@ -4139,7 +4163,6 @@ async function showPalmares(){
     else { el.innerHTML=`<div style="margin-top:10px;font-size:.78rem;color:var(--sub)">Entra na competição para veres o teu histórico aqui.</div>`; }
   }
 }
-function closePalmares(){document.getElementById('palmares-overlay').classList.remove('open');}
 async function saveNotifPrefs(){
   const prefs={...(S.notifPrefs||{})};
   NOTIF_OPTS.forEach(o=>{
@@ -4890,10 +4913,12 @@ function refreshPremiumEntry(){
     const show=(S.premiumEnabled && !window.UP_IS_NATIVE);
     const b=document.getElementById('btn-premium');            // menu de conta
     if(b) b.style.display=show?'':'none';
-    // Estatísticas avançadas: só a quem TEM passe. Não leva o gating da app
-    // porque não menciona preço nem compra.
+    // Stats: visível para TODOS desde 11 Ago. O gating por passe passou para
+    // dentro da própria página (só as secções de análise avançada), para que
+    // quem não tem passe veja o que lhe falta. Nada aqui menciona preço, por
+    // isso não leva o gating da app.
     const st=document.getElementById('btn-stats');
-    if(st) st.style.display=(S.premiumEnabled && S.premium)?'':'none';
+    if(st) st.style.display='';
     // Embaixadores: não menciona preços, por isso aparece também na app.
     const em=document.getElementById('btn-embaixadores');
     if(em) em.style.display=S.referralsEnabled?'':'none';
@@ -5294,11 +5319,16 @@ function showBadges(_manter){
   const body=document.getElementById('badges-body');
   const ov=document.getElementById('badges-overlay');
   if(!body||!ov) return;
-  if(!_manter){ _badgeSel=null; ov.style.display='block'; document.body.style.overflow='hidden'; }
+  if(!_manter){
+    _badgeSel=null; ov.style.display='block'; document.body.style.overflow='hidden';
+    // Palmarés no topo da mesma página. Assíncrono e fora do #badges-body, por
+    // isso só corre na abertura - o re-render das medalhas não lhe toca.
+    try{ fillPalmares(); }catch(e){}
+  }
 
   const defs=(S.badgeDefs||[]).slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
   if(!defs.length){
-    body.innerHTML='<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:30px 0">Os badges ainda não estão disponíveis.</div>';
+    body.innerHTML='<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:30px 0;margin-top:24px;border-top:1px solid var(--border)">Os badges ainda não estão disponíveis.</div>';
     return;
   }
   const mine=S.myBadges||{};
@@ -5353,7 +5383,7 @@ function showBadges(_manter){
       </div>`;
   };
 
-  let html=`<div style="text-align:center;margin-bottom:18px">
+  let html=`<div style="text-align:center;margin:26px 0 18px;padding-top:22px;border-top:1px solid var(--border)">
       <div style="font-size:2rem;line-height:1">🏅</div>
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.5rem;margin-top:4px">Badges</div>
       <div style="font-size:.82rem;color:var(--sub);margin-top:5px"><b style="color:var(--text)">${conquistados}</b> de ${totalNiveis} conquistados</div>
@@ -5633,6 +5663,141 @@ function _svgPosicao(serie,total){
     </svg>`;
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  STATS - bloco pessoal, GRÁTIS (11 Ago)
+// ══════════════════════════════════════════════════════════════════════════
+// Inspirado na tab Stats do Liga do Bitaite: o que faz voltar não é a análise
+// profunda, é ver de relance onde estou, quem tenho à frente e como correu a
+// última jornada. Não precisa de migration nenhuma - sai tudo do S.lb, que o
+// buildLeaderboard já preenche com a decomposição toda (approx_pts, joker_pts,
+// rarity_pts, prebets_pts, jp por jornada).
+
+// Melhor sequência de jogos seguidos a pontuar + sequência atual.
+function _minhaSequencia(){
+  const me=(S.user&&S.user.code)||'';
+  let melhor=0, atual=0;
+  _finishedGames().forEach(g=>{
+    const p=_predOf(me,g.id);
+    if(!p||p.t1===undefined||p.t1===null||p.t1===''){ atual=0; return; }
+    const pts=calcPts({t1:+p.t1,t2:+p.t2,joker:!!p.joker},S.results[g.id],!!g.ko);
+    if(pts>0){ atual++; if(atual>melhor) melhor=atual; } else atual=0;
+  });
+  return {melhor,atual};
+}
+// Placar que mais aposto e quantas vezes acertei com ele.
+function _resultadoPreferido(){
+  const me=(S.user&&S.user.code)||'';
+  const tally={}, acertos={};
+  _finishedGames().forEach(g=>{
+    const p=_predOf(me,g.id);
+    if(!p||p.t1===undefined||p.t1===null||p.t1==='') return;
+    const k=(+p.t1)+'-'+(+p.t2);
+    tally[k]=(tally[k]||0)+1;
+    const r=S.results[g.id];
+    if(r&&+p.t1===+r.t1&&+p.t2===+r.t2) acertos[k]=(acertos[k]||0)+1;
+  });
+  let best=null,bestN=0;
+  Object.entries(tally).forEach(([k,n])=>{ if(n>bestN||(n===bestN&&best&&k<best)){best=k;bestN=n;} });
+  return best?{placar:best,vezes:bestN,acertos:acertos[best]||0}:null;
+}
+// Bloco pessoal. Devolve '' se ainda não houver classificação carregada.
+function buildMyStatsHtml(){
+  const me=(S.user&&S.user.code)||'';
+  const lb=(S.lb||[]).filter(p=>p.code&&p.code!=='BOT_IA');
+  if(!me||!lb.length) return '';
+  const sorted=lb.slice().sort(lbCompare);
+  const idx=sorted.findIndex(p=>p.code===me);
+  if(idx<0) return '';
+  const eu=sorted[idx];
+
+  const jogos=_finishedGames();
+  const cont={exato:0,tend:0,aprox:0,erro:0,sem:0};
+  jogos.forEach(g=>{ cont[_tipoAcerto(_predOf(me,g.id),S.results[g.id],!!g.ko)]++; });
+  const comAposta=cont.exato+cont.tend+cont.aprox+cont.erro;
+  const acerto=comAposta?Math.round((cont.exato+cont.tend)*100/comAposta):0;
+
+  const grande=(v,l,cor)=>`<div style="flex:1;text-align:center;min-width:70px">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;color:${cor||'var(--gold)'}">${v}</div>
+      <div style="font-size:.66rem;color:var(--sub);letter-spacing:.04em">${l}</div></div>`;
+  const cel=(v,l,cor)=>`<div style="background:var(--bg2);border-radius:10px;padding:9px 6px;text-align:center">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem;color:${cor||'var(--text)'}">${v}</div>
+      <div style="font-size:.6rem;color:var(--sub);letter-spacing:.04em">${l}</div></div>`;
+
+  let html=`<div class="card" style="padding:14px;margin-bottom:12px">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${grande(eu.total||0,'PONTOS')}
+        ${grande((idx+1)+'º','DE '+sorted.length)}
+        ${grande(eu.games!==undefined?eu.games:comAposta,'APOSTADOS')}
+        ${grande(acerto+'%','ACERTO','var(--green)')}
+      </div>
+    </div>`;
+
+  html+=`<div class="card" style="padding:14px;margin-bottom:12px">
+      <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Como fiz os pontos</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px">
+        ${cel(cont.exato,'EXATOS','var(--green)')}
+        ${cel(cont.tend,'TENDÊNCIA','var(--gold)')}
+        ${cel(cont.aprox,'APROX.','#7986cb')}
+        ${cel(cont.erro,'FALHADOS','var(--red)')}
+        ${cel('+'+(eu.rarity_pts||0),'RARIDADE','#f39c12')}
+        ${cel('+'+(eu.joker_pts||0),'JOKER','#00bcd4')}
+        ${cel('+'+(eu.approx_pts||0),'APROX. PTS','#1abc9c')}
+        ${cel('+'+(eu.prebets_pts||0),'PRÉ-APOSTAS','var(--gold)')}
+      </div>
+      ${cont.sem?`<div style="font-size:.68rem;color:var(--sub);margin-top:9px">Ficaste sem apostar em <b style="color:var(--text)">${cont.sem}</b> ${cont.sem===1?'jogo':'jogos'}.</div>`:''}
+    </div>`;
+
+  // ── A tua jornada ──────────────────────────────────────────────────────
+  try{
+    const compJs=(typeof completeJornadas==='function')?completeJornadas():[];
+    const ultima=compJs.length?compJs[compJs.length-1]:null;
+    if(ultima){
+      const ranked=sorted.map(p=>({name:p.name,code:p.code,pts:(p.jp&&p.jp[ultima])||0}))
+                         .sort((a,b)=>b.pts-a.pts);
+      const meuPos=ranked.findIndex(p=>p.code===me)+1;
+      const meusPts=(eu.jp&&eu.jp[ultima])||0;
+      const melhor=ranked[0], pior=ranked[ranked.length-1];
+      html+=`<div class="card" style="padding:14px;margin-bottom:12px">
+          <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">A tua jornada · ${ultima}</div>
+          <div style="display:flex;gap:8px">
+            ${grande(meusPts,'PONTOS')}
+            ${grande(meuPos+'º','POSIÇÃO NA JORNADA')}
+          </div>
+          <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:9px;font-size:.72rem;color:var(--sub);line-height:1.7">
+            <span style="color:var(--green)">▲</span> <b style="color:var(--text)">${escapeHtml(melhor.name)}</b> foi o melhor com ${melhor.pts} pts<br>
+            <span style="color:var(--red)">▼</span> <b style="color:var(--text)">${escapeHtml(pior.name)}</b> foi o pior com ${pior.pts} pts
+          </div>
+        </div>`;
+    }
+  }catch(e){}
+
+  // ── Rivais ─────────────────────────────────────────────────────────────
+  const acima=idx>0?sorted[idx-1]:null;
+  const abaixo=idx<sorted.length-1?sorted[idx+1]:null;
+  if(acima||abaixo){
+    html+=`<div class="card" style="padding:14px;margin-bottom:12px">
+        <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Rivais</div>
+        <div style="font-size:.76rem;line-height:1.9">
+          ${acima?`<div><span style="color:var(--green)">▲</span> <b style="color:var(--text)">${escapeHtml(acima.name)}</b> está <b style="color:var(--gold)">${Math.max(0,(acima.total||0)-(eu.total||0))} pts</b> à tua frente</div>`:''}
+          ${abaixo?`<div><span style="color:var(--red)">▼</span> <b style="color:var(--text)">${escapeHtml(abaixo.name)}</b> está <b style="color:var(--gold)">${Math.max(0,(eu.total||0)-(abaixo.total||0))} pts</b> atrás de ti</div>`:''}
+        </div>
+      </div>`;
+  }
+
+  // ── Sequência + resultado preferido ────────────────────────────────────
+  const seq=_minhaSequencia(), pref=_resultadoPreferido();
+  if(seq.melhor||pref){
+    html+=`<div class="card" style="padding:14px;margin-bottom:12px">
+        <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Hábitos</div>
+        <div style="font-size:.76rem;line-height:1.9">
+          ${seq.melhor?`<div>🔥 Melhor série a pontuar: <b style="color:var(--gold)">${seq.melhor} jogos</b> <span style="color:var(--sub)">· atual ${seq.atual}</span></div>`:''}
+          ${pref?`<div>🎯 O teu placar preferido: <b style="color:var(--gold)">${pref.placar}</b> <span style="color:var(--sub)">· apostado ${pref.vezes}× · certo ${pref.acertos}×</span></div>`:''}
+        </div>
+      </div>`;
+  }
+  return html;
+}
+
 function showStats(){
   const body=document.getElementById('stats-body');
   const ov=document.getElementById('stats-overlay');
@@ -5664,13 +5829,32 @@ function showStats(){
   const opcoes=(S.lb||[]).filter(p=>p.code&&p.code!==me&&p.code!=='BOT_IA')
     .map(p=>`<option value="${p.code}">${p.name}</option>`).join('');
 
+  // A página passou a ter DOIS níveis (11 Ago): o resumo pessoal é para todos
+  // — é o que traz o jogador de volta —, e as análises profundas continuam a
+  // ser do passe. Quem não tem passe vê o cabeçalho das secções bloqueadas,
+  // que é o melhor argumento de venda que há: ver o que falta.
+  // ⚠️ O aviso de bloqueio NÃO menciona preço nem link de compra, por isso
+  // pode aparecer na app nativa (não leva .up-premium).
+  const temPasse = !!(S.premiumEnabled && S.premium);
+
+  const bloqueado = (titulo, desc) => `
+    <div class="card" style="padding:14px;margin-bottom:12px;opacity:.75">
+      <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:6px">🔒 ${titulo}</div>
+      <div style="font-size:.73rem;color:var(--sub);line-height:1.6">${desc}<br>Disponível com passe ativo.</div>
+    </div>`;
+
   body.innerHTML=`
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:2rem;line-height:1">📊</div>
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.5rem;margin-top:4px">Estatísticas avançadas</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.5rem;margin-top:4px">Stats</div>
       <div style="font-size:.78rem;color:var(--sub);margin-top:5px">Com base em ${jogos.length} jogos já terminados.</div>
     </div>
 
+    ${buildMyStatsHtml()}
+
+    <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px">Análise avançada</div>
+
+    ${temPasse ? `
     <div class="card" style="padding:14px;margin-bottom:12px">
       <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:10px">Evolução da posição</div>
       ${_svgPosicao(serie,totalJog)}
@@ -5691,7 +5875,10 @@ function showStats(){
         <option value="">Escolhe um jogador…</option>${opcoes}
       </select>
       <div id="stats-h2h-out"></div>
-    </div>`;
+    </div>` : `
+    ${bloqueado('Evolução da posição','O teu percurso na classificação, jogo a jogo.')}
+    ${bloqueado('Taxa de acerto','A repartição das tuas apostas por exato, tendência, aproximação e erro.')}
+    ${bloqueado('Confronto direto','Compara-te com qualquer jogador, só nos jogos em que ambos apostaram.')}`}`;
 }
 
 // Confronto direto: só conta jogos em que AMBOS apostaram, senão o resultado
@@ -6328,6 +6515,8 @@ async function loadData() {
     S.badgeDefs = r.badgeDefs || [];
     S.myBadges = (r.myBadges || []).reduce((a, b) => { a[b.badge_key] = b; return a; }, {});
     S.badgeCounts = r.badgeCounts || {};
+    // Top 5 badges por jogador (063) -> resumo no card do jogador.
+    S.topBadges = r.topBadges || {};
     // Recalcular os meus badges UMA VEZ por sessão. É aqui que se detecta um
     // nível novo e sai a notificação no sino. Não bloqueia o carregamento.
     if (!S._badgesRefreshed) {
@@ -9225,7 +9414,10 @@ function buildPlayerBetsHtml(playerName) {
   ).sort((a,b) => new Date(a.date) - new Date(b.date));
 
   if (!shownGames.length) {
-    return '<div class="alert alert-info">Ainda não há jogos terminados nem apostas fechadas.</div>';
+    // Mesmo sem jogos fechados vale a pena mostrar os badges: são all-time e
+    // podem vir de outras competições.
+    return '<div class="alert alert-info">Ainda não há jogos terminados nem apostas fechadas.</div>'
+         + buildBadgesModalSection(playerName);
   }
   let finishedCount=0;
 
@@ -9311,6 +9503,9 @@ function buildPlayerBetsHtml(playerName) {
   // ══ SECÇÃO 1b: medalhas (troféus de jornada) - perfil do jogador (13 Jul) ══
   out += buildMedalsModalSection(playerName);
 
+  // ══ SECÇÃO 1c: badges all-time (11 Ago) ══
+  out += buildBadgesModalSection(playerName);
+
   // ══ SECÇÃO 2: pré-apostas - escondidas por defeito (expandir para ver) ══
   const pb = buildPrebetModalSection(playerName, preds);
   out += `<details style="margin-top:16px;border-top:1px solid var(--border);padding-top:6px">
@@ -9336,6 +9531,48 @@ function buildPlayerBetsHtml(playerName) {
   </div></div>`;
 
   return out;
+}
+
+// ── Resumo de badges no card do jogador (11 Ago) ──
+// Os badges são ALL-TIME e vêm da v_user_badges_public (migration 063), que já
+// devolve os 5 melhores de cada jogador. O total continua a vir da
+// v_badge_counts, que é a soma de TODOS os níveis - por isso o "+N" pode ser
+// maior do que os 5 mostrados.
+// Degrada em silêncio: sem a 063 aplicada, S.topBadges vem vazio e a secção
+// desaparece em vez de rebentar.
+function buildBadgesModalSection(playerName) {
+  const lb = S.lb && S.lb.length ? S.lb : [];
+  const p = lb.find(x => x.name && x.name.toLowerCase() === String(playerName).toLowerCase());
+  if (!p || !p.code || p.code === 'BOT_IA') return '';
+  const lista = (S.topBadges || {})[String(p.code).toUpperCase()] || [];
+  const totalNiveis = (S.badgeCounts || {})[String(p.code).toUpperCase()] || 0;
+  if (!lista.length) return '';
+  const restantes = Math.max(0, totalNiveis - lista.length);
+
+  const medalha = b => `<div title="${b.name} · nível ${b.level} de ${b.levels_n}"
+      style="display:flex;flex-direction:column;align-items:center;gap:3px;width:58px">
+      <div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+           font-size:1.2rem;box-sizing:border-box;
+           background:radial-gradient(circle at 35% 30%, rgba(245,197,24,.30), rgba(245,197,24,.08));
+           border:2px solid var(--gold)">${b.icon || '🏅'}</div>
+      <div style="font-size:.58rem;color:var(--gold);font-weight:700;text-align:center;line-height:1.15">${b.level}/${b.levels_n}</div>
+    </div>`;
+
+  const mais = restantes
+    ? `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:58px">
+         <div style="width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+              font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;color:var(--sub);
+              background:var(--bg2);border:2px dashed var(--border)">+${restantes}</div>
+       </div>`
+    : '';
+
+  return `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">
+        🏅 Badges <span style="font-size:.72rem;color:var(--sub);font-weight:400">(${totalNiveis} conquistado${totalNiveis===1?'':'s'})</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${lista.map(medalha).join('')}${mais}</div>
+      <div style="font-size:.66rem;color:var(--sub);margin-top:7px">${lista.map(b=>b.name).join(' · ')}</div>
+    </div>`;
 }
 
 // Sparkline da evolução de posição na classificação (dados de S.rankHist, calculados no renderLB)
