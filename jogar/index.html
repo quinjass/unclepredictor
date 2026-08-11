@@ -82,6 +82,12 @@
     .nav-btn{flex:1;padding:9px 2px 6px;background:none;border:none;color:var(--sub);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.58rem;transition:color .2s;font-family:'Inter',sans-serif;line-height:1}
     .nav-btn svg{width:19px;height:19px}
     .nav-btn.active{color:var(--gold)}
+    /* Com a tab Stats (11 Ago) a barra passou a ter 7 botões. Em ecrãs muito
+       estreitos encolhe-se o rótulo em vez de deixar rebentar a linha. */
+    @media (max-width:360px){
+      .nav-btn{font-size:.52rem;padding:8px 1px 5px}
+      .nav-btn svg{width:17px;height:17px}
+    }
 
     /* ── BANNER ADMOB (só na app nativa) ──
        O banner é uma vista NATIVA desenhada por cima da WebView, no fundo do
@@ -1213,13 +1219,48 @@ document.addEventListener('keydown', function(e){
     }
     return pred.joker ? pts * 2 : pts;
   }
+  // ── DECAIMENTO DAS PRÉ-APOSTAS (065) ──────────────────────────────────────
+  // ⚠️ ESPELHO EXACTO de fn_prebet_factor / fn_prebet_apply. Se um lado mudar,
+  // o outro TEM de mudar - o modo sombra da 045 compara as duas contas.
+  // A janela vem da BD (v_prebet_window); sem ela o fator é 1 e tudo pontua
+  // como antes, que é o comportamento certo enquanto a 065 não estiver
+  // aplicada.
+  let PREBET_WIN = null;     // { o, c } em ms
+  let PREBET_FLOOR = 0.40;   // sobreposto pela config prebet_decay
+  function setPrebetWindow(w) {
+    if (!w || !w.t_open || !w.t_close) { PREBET_WIN = null; return; }
+    const o = Date.parse(w.t_open), c = Date.parse(w.t_close);
+    PREBET_WIN = (isFinite(o) && isFinite(c) && c > o) ? { o, c } : null;
+  }
+  function prebetFactor(savedAt) {
+    if (!PREBET_WIN || !savedAt) return 1;
+    const t = Date.parse(savedAt); if (!isFinite(t)) return 1;
+    if (t <= PREBET_WIN.o) return 1;
+    const floor = PREBET_FLOOR;
+    if (t >= PREBET_WIN.c) return floor;
+    return 1 - (1 - floor) * ((t - PREBET_WIN.o) / (PREBET_WIN.c - PREBET_WIN.o));
+  }
+  // Math.round do JS e round() do Postgres divergem em .5 para negativos; aqui
+  // os valores são sempre positivos, por isso coincidem.
+  function prebetApply(base, factor) {
+    base = +base || 0;
+    if (base <= 0) return 0;
+    return Math.max(1, Math.round(base * factor));
+  }
+
   function calcPrebetPoints(userPrebets, specials, gs) {
-    let pts = 0; const pb = {}; userPrebets.forEach(r => { pb[r.key] = r.value; });
-    if (specials.champion && pb.champion === specials.champion) pts += 8;
-    if (specials.runner_up && pb.runner_up === specials.runner_up) pts += 5;
-    if (specials.third && pb.third === specials.third) pts += 3;
-    if (specials.top_scorer && pb.top_scorer === specials.top_scorer) pts += 5;
-    ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(g => { const s = gs[g]; if (!s) return; if (s.first && pb['g'+g+'_1'] === s.first) pts += 2; if (s.second && pb['g'+g+'_2'] === s.second) pts += 2; });
+    let pts = 0; const pb = {}, at = {};
+    userPrebets.forEach(r => { pb[r.key] = r.value; at[r.key] = r.saved_at; });
+    const f = k => prebetFactor(at[k]);
+    if (specials.champion  && pb.champion  === specials.champion)  pts += prebetApply(8, f('champion'));
+    if (specials.runner_up && pb.runner_up === specials.runner_up) pts += prebetApply(5, f('runner_up'));
+    if (specials.third     && pb.third     === specials.third)     pts += prebetApply(3, f('third'));
+    if (specials.top_scorer&& pb.top_scorer=== specials.top_scorer)pts += prebetApply(5, f('top_scorer'));
+    ['A','B','C','D','E','F','G','H','I','J','K','L'].forEach(g => {
+      const s = gs[g]; if (!s) return;
+      if (s.first  && pb['g'+g+'_1'] === s.first)  pts += prebetApply(2, f('g'+g+'_1'));
+      if (s.second && pb['g'+g+'_2'] === s.second) pts += prebetApply(2, f('g'+g+'_2'));
+    });
     return pts;
   }
   // LIGAS (Incr.3): pontuação de pré-apostas de época, guiada pela config
@@ -1228,15 +1269,19 @@ document.addEventListener('keydown', function(e){
   // que o admin/resolve-specials preenche no fim da época. Sem specials → 0 pts.
   function _prebetArr(v){ if(v==null)return[]; if(Array.isArray(v))return v; if(typeof v==='string'){ const s=v.trim(); if(s.startsWith('[')){ try{ return JSON.parse(s); }catch(e){ return []; } } return s?[s]:[]; } return []; }
   function calcLeaguePrebetPoints(userPrebets, specials, cfg) {
-    let pts = 0; const pb = {}; userPrebets.forEach(r => { pb[r.key] = r.value; });
+    let pts = 0; const pb = {}, at = {};
+    userPrebets.forEach(r => { pb[r.key] = r.value; at[r.key] = r.saved_at; });
     (cfg || []).forEach(item => {
       const sp = specials[item.key];
+      const f = prebetFactor(at[item.key]);
       if (item.type === 'multi') {
         const actual = new Set(_prebetArr(sp).map(x => String(x)));
         if (!actual.size) return;
-        _prebetArr(pb[item.key]).forEach(p => { if (actual.has(String(p))) pts += (item.pts_each || 0); });
+        // Nas multi o fator aplica-se a CADA acerto (igual ao fn_prebet_points).
+        const val = prebetApply(item.pts_each || 0, f);
+        _prebetArr(pb[item.key]).forEach(p => { if (actual.has(String(p))) pts += val; });
       } else { // single | player
-        if (sp && pb[item.key] && String(pb[item.key]) === String(sp)) pts += (item.pts || 0);
+        if (sp && pb[item.key] && String(pb[item.key]) === String(sp)) pts += prebetApply(item.pts || 0, f);
       }
     });
     return pts;
@@ -1389,10 +1434,14 @@ document.addEventListener('keydown', function(e){
   }
   async function loadDBFetch(gen) {
     if (gen === undefined) gen = DB_GEN;
-    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows, badgeDefs, myBadges, badgeCountRows, topBadgeRows, sqlStandings] = await Promise.all([
+    const [participants, predsRaw, prebets, resultsRaw, specialsRaw, games, leagues, members, reactions, comments, notifs, blocks, prefs, configRows, compMembers, premiumRows, rarityRows, badgeDefs, myBadges, badgeCountRows, topBadgeRows, bettorRows, prebetWinRows, sqlStandings] = await Promise.all([
       rest('v_participants', 'code,name,is_bot,nickname,avatar', ''),
-      rest('predictions', 'code,game_id,t1,t2,joker', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
-      rest('prebets', 'code,key,value', CF, true, 'code,key'),                // useAuth: RLS revela as próprias + pós-A1
+      // `suggested` (066): marca as apostas que vieram do motor de sugestão,
+      // para o frontend as assinalar com 💡 e não passarem por palpite próprio.
+      rest('predictions', 'code,game_id,t1,t2,joker,suggested', CF, true, 'code,game_id'),  // useAuth: RLS revela as próprias + jogos fechados
+      // saved_at é preciso para o DECAIMENTO das pré-apostas (065): o valor
+      // de cada palpite depende de quando foi feito.
+      rest('prebets', 'code,key,value,saved_at', CF, true, 'code,key'),       // useAuth: RLS revela as próprias + pós-A1
       rest('results', 'game_id,t1,t2,pen', CF),
       rest('specials', 'key,value', CF),
       rest('games', 'game_id,stage,md,group_label,t1_team,t2_team,kickoff_utc', CF),
@@ -1428,6 +1477,13 @@ document.addEventListener('keydown', function(e){
       // filtro de competição. .catch -> [] enquanto a 063 não estiver aplicada
       // (sem isto o Promise.all rejeita e a app não carrega - lição da 028).
       rest('v_user_badges_public', 'code,badge_key,icon,name,level,levels_n', '', true, 'code').catch(() => []),
+      // QUEM JÁ APOSTOU (064): só jogos POR COMEÇAR, só códigos - nunca
+      // placares. Alimenta o modal antes do fecho. Poucas dezenas de linhas.
+      // .catch -> [] enquanto a migration não estiver aplicada.
+      rest('v_game_bettors', 'game_id,codes,n', CF, true, 'game_id').catch(() => []),
+      // JANELA DAS PRÉ-APOSTAS (065): abertura, fecho (meio da época) e o
+      // fator que vale agora. Uma linha só - a da competição ativa.
+      rest('v_prebet_window', 'competition_id,t_open,t_close,factor_now', CF, true).catch(() => []),
       // MODO SOMBRA (045): classificação calculada pelo servidor. Leitura
       // simples de uma cache — não corre o motor. Serve para comparar com o que
       // o frontend calcula; só passa a ser a fonte quando `use_sql_standings`
@@ -1451,6 +1507,16 @@ document.addEventListener('keydown', function(e){
     // buildLeaderboard, senão a primeira classificação sairia com os valores
     // locais.
     if (config.scoring_profiles) applyScoringProfiles(config.scoring_profiles);
+    // DECAIMENTO DAS PRÉ-APOSTAS (065). Também antes do buildLeaderboard, pela
+    // mesma razão: sem isto a primeira classificação sairia sem o desconto.
+    try {
+      const _pd = typeof config.prebet_decay === 'string' ? JSON.parse(config.prebet_decay) : (config.prebet_decay || null);
+      const _skip = _pd && Array.isArray(_pd.skip) && _pd.skip.indexOf(COMP) >= 0;
+      if (_pd && _pd.enabled === true && !_skip) {
+        if (_pd.floor_pct != null) PREBET_FLOOR = +_pd.floor_pct;
+        setPrebetWindow(prebetWinRows && prebetWinRows[0]);
+      } else { setPrebetWindow(null); }
+    } catch (e) { setPrebetWindow(null); }
     const prefsMap = {}; prefs.forEach(r => { try { prefsMap[(r.code || '').toUpperCase()] = JSON.parse(r.prefs || '{}'); } catch (e) { prefsMap[(r.code || '').toUpperCase()] = {}; } });
     // leagues desta competição -> restringe membros/social a essas ligas
     const lset = new Set(leagues.map(l => l.id));
@@ -1486,6 +1552,17 @@ document.addEventListener('keydown', function(e){
                     (a[c] = a[c] || []).push({ badge_key:r.badge_key, icon:r.icon, name:r.name, level:+r.level||0, levels_n:+r.levels_n||0 });
                     return a;
                   }, {}),
+                  // { game_id: { codes:[CODE,...], n } } - jogos por começar.
+                  bettors: (bettorRows || []).reduce((a, r) => {
+                    if (!r.game_id) return a;
+                    a[r.game_id] = { codes: (r.codes || []).map(c => String(c).toUpperCase()), n: +r.n || 0 };
+                    return a;
+                  }, {}),
+                  // { t_open, t_close, factor_now } ou null (065).
+                  prebetWindow: (prebetWinRows && prebetWinRows[0]) ? {
+                    t_open: prebetWinRows[0].t_open, t_close: prebetWinRows[0].t_close,
+                    factor_now: prebetWinRows[0].factor_now != null ? +prebetWinRows[0].factor_now : 1
+                  } : null,
                   sqlStandings: sqlStandings || [] };
     // A competição mudou enquanto esta leitura decorria: este snapshot é de
     // OUTRA competição. Não contaminar a cache nem devolvê-lo - refazer com o
@@ -1504,7 +1581,7 @@ document.addEventListener('keydown', function(e){
     const code = (data.code || myCode() || '').toUpperCase();
     const deadlineH = Number(db.config.deadline_hours || 1);
     const preds = {};
-    db.allPreds.filter(r => (r.code || '').toUpperCase() === code).forEach(r => { preds[r.game_id] = { t1: r.t1 != null ? +r.t1 : undefined, t2: r.t2 != null ? +r.t2 : undefined, joker: r.joker === true }; });
+    db.allPreds.filter(r => (r.code || '').toUpperCase() === code).forEach(r => { preds[r.game_id] = { t1: r.t1 != null ? +r.t1 : undefined, t2: r.t2 != null ? +r.t2 : undefined, joker: r.joker === true, suggested: r.suggested === true }; });
     const prebets = {}; db.prebets.filter(r => (r.code || '').toUpperCase() === code).forEach(r => { prebets[r.key] = r.value; });
     const built = buildLeaderboard(db.results, db);
     const lbPrev = buildPrevLeaderboard(db.results, db);
@@ -1562,6 +1639,8 @@ document.addEventListener('keydown', function(e){
              badgeDefs: db.badgeDefs || [], myBadges: db.myBadges || [],
              badgeCounts: db.badgeCounts || {},
              topBadges: db.topBadges || {},
+             bettors: db.bettors || {},
+             prebetWindow: db.prebetWindow || null,
              sqlStandings: db.sqlStandings || [],
              useSqlStandings: String(db.config.use_sql_standings || 'false') === 'true',
              payLinks: (() => { const v = db.config.stripe_pay_links; if (v == null) return null;
@@ -1788,8 +1867,10 @@ document.addEventListener('keydown', function(e){
     const g = data.gameId, p = data.pred || {};
     if (p.t1 == null || p.t1 === '' || p.t2 == null || p.t2 === '') return { success: false, error: 'Aposta incompleta' };
     const joker = p.joker === true || p.joker === 'TRUE';
+    // suggested:false - uma aposta gravada pelo jogador deixa de ser sugestão
+    // (066). Isto também é o que devolve a quota grátis da jornada.
     await writeRest('POST', 'predictions?on_conflict=competition_id,code,game_id',
-      [{ competition_id: COMP, code, game_id: g, t1: +p.t1, t2: +p.t2, joker }], 'resolution=merge-duplicates,return=minimal');
+      [{ competition_id: COMP, code, game_id: g, t1: +p.t1, t2: +p.t2, joker, suggested: false }], 'resolution=merge-duplicates,return=minimal');
     if (joker && Array.isArray(data.jokerScope)) {
       const sibs = data.jokerScope.filter(x => x !== g);
       if (sibs.length) {
@@ -1936,6 +2017,32 @@ document.addEventListener('keydown', function(e){
       if (action === 'refreshBadges') {
         try { const n = await rpc('rpc_refresh_badges', {}, true); DB = null; return { success: true, novos: n || 0 }; }
         catch (e) { return { success: false, error: e.message }; }
+      }
+      // MOTOR DE SUGESTÃO (066). O preview não escreve nada - serve para
+      // mostrar quantos jogos há por apostar e com que estimativa. O apply
+      // grava, e nunca por cima de uma aposta existente (garantido na RPC).
+      if (action === 'suggestState') {
+        try { const st = await rpc('rpc_suggest_state', { p_comp: COMP }, true); return { success: true, state: st || null }; }
+        catch (e) { return { success: false, error: e.message, state: null }; }
+      }
+      if (action === 'suggestApply') {
+        try {
+          const r = await rpc('rpc_suggest_apply', { p_comp: COMP, p_md: (data && data.md) || null }, true);
+          DB = null;
+          return { success: true, ...(r || {}) };
+        } catch (e) { return { success: false, error: e.message }; }
+      }
+      // BADGES (11 Ago): lista COMPLETA de um jogador, a pedido. O card do
+      // jogador mostra por defeito só o resumo (v_user_badges_public, top 5);
+      // ao expandir vem tudo. Leitura sob pedido em vez de carregar N×15 linhas
+      // no getData de toda a gente. A `user_badges` já é de leitura pública
+      // para autenticados desde a 039.
+      if (action === 'getUserBadges') {
+        try {
+          const rows = await rest('user_badges', 'badge_key,value,level,unlocked_at',
+                                  'code=eq.' + enc(String(data.code || '').toUpperCase()), true, 'badge_key');
+          return { success: true, badges: rows || [] };
+        } catch (e) { return { success: false, error: e.message, badges: [] }; }
       }
       if (action === 'saveAvatar') { const av = await rpc('rpc_set_avatar', { p_avatar: data.avatar || '' }, true); DB = null; if (SESSION) { SESSION.avatar = av || null; saveSession(SESSION); } return { success: true, avatar: av || null }; }
       if (action === 'saveNickname') { const nick = await rpc('rpc_set_nickname', { p_nick: data.nickname || '' }, true); DB = null; if (SESSION) { SESSION.nickname = nick || null; SESSION.name = dispName({ name: SESSION.realName || SESSION.name, nickname: nick || null }); saveSession(SESSION); } return { success: true, nickname: nick || null }; }
@@ -2285,9 +2392,9 @@ document.addEventListener('keydown', function(e){
     <!-- Estatísticas avançadas: funcionalidade premium, mas SEM preço nem link
          de compra -> pode aparecer na app. Só se mostra a quem tem passe, por
          isso a app nunca chega sequer a mencionar o premium. -->
-    <!-- Stats: aberto a TODOS desde 11 Ago. O resumo pessoal é grátis; as
-         secções de análise avançada continuam a exigir passe (ver showStats). -->
-    <button id="btn-stats" class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showStats()">📊 Stats</button>
+    <!-- Stats saiu do menu de conta a 11 Ago: é agora uma tab da barra
+         inferior (#nav-stats). -->
+
     <!-- Embaixadores: convidar dá passes. NÃO leva .up-premium — não menciona
          preço nem link de compra, só marcos e o link de convite. Pode aparecer
          na app. O JS só o mostra se referrals_enabled='true'. -->
@@ -2331,14 +2438,8 @@ document.addEventListener('keydown', function(e){
   </div>
 </div>
 
-<div id="stats-overlay" style="display:none">
-  <div class="up-page">
-    <div class="up-page-inner">
-      <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closeStats()">✕ Fechar</button></div>
-      <div id="stats-body"></div>
-    </div>
-  </div>
-</div>
+<!-- O #stats-overlay foi eliminado a 11 Ago: o Stats passou a ser uma tab da
+     barra inferior (#view-stats), com o mesmo #stats-body. -->
 
 <!-- Embaixadores. Reaproveita o CSS .up-page. Sem .up-premium: não fala de
      preços, só de marcos e do link de convite — pode aparecer na app. -->
@@ -2517,6 +2618,9 @@ document.addEventListener('keydown', function(e){
   </button>
   <button class="nav-btn" onclick="showView('sim')" id="nav-sim">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Simul.
+  </button>
+  <button class="nav-btn" onclick="showView('stats')" id="nav-stats">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Stats
   </button>
   <button class="nav-btn" onclick="showView('rules')" id="nav-rules">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Regras
@@ -2905,6 +3009,9 @@ document.addEventListener('keydown', function(e){
         <button class="btn" style="font-size:.78rem;padding:6px 12px;background:var(--bg2);border:1px solid var(--border);color:var(--text)" onclick="jumpToCurrentGame()" title="Ir para o jogo em curso ou próximo">🔴 Jogo atual</button>
       </div>
     </div>
+    <!-- Motor de sugestão (066). Preenchido por renderSuggestBar(); fica
+         escondido quando não há jogos por apostar ou o motor está desligado. -->
+    <div id="suggest-bar" style="display:none;margin-bottom:12px"></div>
     <div id="bets-content"><div class="loading-center"><div class="spinner"></div></div></div>
   </div>
 
@@ -2935,6 +3042,18 @@ document.addEventListener('keydown', function(e){
   <!-- ═══════════════ SIMULADOR ═══════════════ -->
   <div class="view" id="view-sim">
     <div id="sim-content"></div>
+  </div>
+
+  <!-- ═══════════════ STATS ═══════════════
+       Passou de página escondida no menu de conta a tab da barra inferior
+       (11 Ago). O corpo é gerado por renderStats(); o resumo pessoal é grátis
+       e as secções de análise avançada continuam a pedir passe. -->
+  <div class="view" id="view-stats">
+    <div class="section-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      Stats
+    </div>
+    <div id="stats-body"></div>
   </div>
 
   <!-- ═══════════════ REGRAS ═══════════════ -->
@@ -3608,6 +3727,20 @@ const S = {
 //  PRÉ-APOSTAS DEADLINE TEXT
 // ════════════════════════════════════════════════
 function updatePrebetDeadlineText() {
+  // ── Competições normais (065): fecham a MEIO DA ÉPOCA e o valor decai ──
+  // O texto sai da janela real (v_prebet_window). O ramo do Mundial abaixo
+  // fica só para o WC2026, que está congelado com a regra antiga.
+  if (S.competition !== 'mundial2026' && S.prebetWindow && S.prebetWindow.t_close) {
+    const dl = new Date(Date.parse(S.prebetWindow.t_close));
+    const dstr = dl.toLocaleDateString('pt-PT', {day:'numeric',month:'long',year:'numeric'});
+    const pct = (typeof prebetValorHojePct==='function') ? prebetValorHojePct() : null;
+    const lbl = 'até meio da época';
+    const nota = `As pré-apostas ficam abertas até <strong style="color:var(--gold)">${dstr}</strong> (meio da época), mas <strong style="color:var(--text)">perdem valor com o tempo</strong>: quanto mais cedo fizeres o palpite, mais vale.`
+      + (pct!=null ? ` Uma pré-aposta feita hoje vale <strong style="color:var(--gold)">${pct}%</strong> do valor cheio.` : '');
+    ['prebet-deadline-login','prebet-deadline-rules'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=lbl; });
+    ['prebet-note-login','prebet-note-rules'].forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=nota; });
+    return;
+  }
   // 1º jogo: A1 México vs África do Sul - 11 Jun às 20:00 hora de Portugal (UTC+1 verão)
   const firstGame = new Date('2026-06-11T20:00:00+01:00');
   const dh = S.deadlineH || 1;
@@ -4913,12 +5046,10 @@ function refreshPremiumEntry(){
     const show=(S.premiumEnabled && !window.UP_IS_NATIVE);
     const b=document.getElementById('btn-premium');            // menu de conta
     if(b) b.style.display=show?'':'none';
-    // Stats: visível para TODOS desde 11 Ago. O gating por passe passou para
-    // dentro da própria página (só as secções de análise avançada), para que
-    // quem não tem passe veja o que lhe falta. Nada aqui menciona preço, por
-    // isso não leva o gating da app.
-    const st=document.getElementById('btn-stats');
-    if(st) st.style.display='';
+    // Stats: passou a tab da barra inferior (#nav-stats), visível para TODOS.
+    // O gating por passe vive dentro do renderStats() - só as secções de
+    // análise avançada. Nada ali menciona preço, por isso não leva o gating
+    // da app nativa.
     // Embaixadores: não menciona preços, por isso aparece também na app.
     const em=document.getElementById('btn-embaixadores');
     if(em) em.style.display=S.referralsEnabled?'':'none';
@@ -5798,11 +5929,10 @@ function buildMyStatsHtml(){
   return html;
 }
 
-function showStats(){
+// Corpo da tab Stats. Chamado pelo showView('stats').
+function renderStats(){
   const body=document.getElementById('stats-body');
-  const ov=document.getElementById('stats-overlay');
-  if(!body||!ov) return;
-  ov.style.display='block'; document.body.style.overflow='hidden';
+  if(!body) return;
 
   const me=(S.user&&S.user.code)||'';
   const jogos=_finishedGames();
@@ -5844,11 +5974,7 @@ function showStats(){
     </div>`;
 
   body.innerHTML=`
-    <div style="text-align:center;margin-bottom:20px">
-      <div style="font-size:2rem;line-height:1">📊</div>
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.5rem;margin-top:4px">Stats</div>
-      <div style="font-size:.78rem;color:var(--sub);margin-top:5px">Com base em ${jogos.length} jogos já terminados.</div>
-    </div>
+    <div style="font-size:.75rem;color:var(--sub);margin-bottom:14px">Com base em ${jogos.length} jogos já terminados.</div>
 
     ${buildMyStatsHtml()}
 
@@ -5911,11 +6037,6 @@ function renderH2H(code){
       Em <b style="color:var(--text)">${n}</b> jogos que ambos apostaram:<br>
       ganhaste <b style="color:var(--green)">${ganhos}</b> · empataste <b style="color:var(--gold)">${iguais}</b> · perdeste <b style="color:var(--red)">${perdidos}</b>
     </div>`;
-}
-function closeStats(){
-  const el=document.getElementById('stats-overlay');
-  if(el) el.style.display='none';
-  document.body.style.overflow='';
 }
 
 /* Raridade em tempo real (premium, migration 035). Mostra a distribuição da
@@ -6337,9 +6458,12 @@ function showView(v) {
     }
     if(S.leagueMode) setupMDNav(); else syncMDButtons(S.curMD);
     renderBets();
+    // Assíncrono e sem bloquear: a barra aparece quando o preview responder.
+    try{ renderSuggestBar(); }catch(e){}
   }
   if(v==='prebets')renderPrebets();
   if(v==='rules')renderRules();
+  if(v==='stats')renderStats();
   if(v==='mundial')renderMundial();
   if(v==='sim'){renderSim();showSimToast();}
   renderLiveBanner();
@@ -6517,6 +6641,13 @@ async function loadData() {
     S.badgeCounts = r.badgeCounts || {};
     // Top 5 badges por jogador (063) -> resumo no card do jogador.
     S.topBadges = r.topBadges || {};
+    // Quem já apostou em cada jogo por começar (064) -> modal antes do fecho.
+    S.bettors = r.bettors || {};
+    // Janela e fator das pré-apostas (065) -> deadline + aviso de decaimento.
+    S.prebetWindow = r.prebetWindow || null;
+    // O texto das regras depende da janela, por isso refaz-se aqui (no load
+    // inicial ainda não havia janela e saiu o texto antigo).
+    try{ updatePrebetDeadlineText(); }catch(e){}
     // Recalcular os meus badges UMA VEZ por sessão. É aqui que se detecta um
     // nível novo e sai a notificação no sino. Não bloqueia o carregamento.
     if (!S._badgesRefreshed) {
@@ -7829,7 +7960,7 @@ function renderBets() {
       html+=`<div class="game-card ${isFinished?'finished':''}${locked&&!isFinished?' locked':''} ${colorClass}" data-game-id="${g.id}" ${(isFinished||locked)?`onclick="openGameModal('${g.id}')" style="cursor:pointer"`:''}>
         <div class="game-meta">
           <span>${g.g?`<span class="grp-badge">Gr.${g.g}</span>`:''}${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}${g.venue?' · '+g.venue:''}</span>
-          <span>${dlWarn}${ptsHtml}${insightsBtnHtml(g.id)}</span>
+          <span>${dlWarn}${suggestedMark(g.id)}${ptsHtml}${insightsBtnHtml(g.id)}</span>
         </div>
         <div class="game-teams">
           <div class="team-name">${flag(g.t1)}${g.t1}</div>
@@ -7880,6 +8011,9 @@ function setPred(id,field,val){
   // apagar no backend caso o user esvazie os dois campos.
   if(S.savedCards[id])(S.hadSaved=S.hadSaved||{})[id]=1;
   S.preds[id][field]=val===''?undefined:parseInt(val);
+  // Deixou de ser sugestão a partir do momento em que o jogador lhe mexe.
+  // O backend recebe suggested=false no savePred (ver adapter).
+  S.preds[id].suggested=false;
   // Se o user edita após guardar, o cartão volta a não-guardado
   delete S.savedCards[id];
   scheduleCardAutoSave(id);
@@ -8107,6 +8241,105 @@ window.addEventListener('beforeunload',function(e){
   flushAutoSaves();
   if(S.pending){e.preventDefault();e.returnValue='';}
 });
+// ══════════════════════════════════════════════════════════════════════════
+//  MOTOR DE SUGESTÃO (066)
+// ══════════════════════════════════════════════════════════════════════════
+// A estimativa é feita no servidor (fn_match_estimate): forma recente das duas
+// equipas -> golos esperados -> Poisson -> placar mais provável. Aqui só se
+// mostra e se aplica. NUNCA sobrescreve apostas - a RPC garante-o.
+// Degrada em silêncio: sem a 066 aplicada, o preview falha e a barra não
+// chega a aparecer.
+// 💡 no cartão: esta aposta veio do motor, não fui eu que a fiz. Some assim
+// que o jogador mexer no resultado (o setPred limpa a marca).
+function suggestedMark(gid){
+  const p=S.preds&&S.preds[gid];
+  return (p&&p.suggested)
+    ? ` <span title="Aposta preenchida pela sugestão - podes alterá-la" style="font-size:.72rem">💡</span>`
+    : '';
+}
+
+// Um toque = uma JORNADA inteira preenchida = uma utilização. O jogador tem
+// um número fixo de utilizações grátis por competição (config `free_uses`,
+// 10 de origem); com passe são ilimitadas.
+async function renderSuggestBar(){
+  const bar=document.getElementById('suggest-bar');
+  if(!bar) return;
+  bar.style.display='none';
+  if(S.demoMode||!S.user) return;
+  // Throttle: entrar e sair da tab não deve disparar a RPC de cada vez.
+  let st=null;
+  const agora=Date.now();
+  if(S._suggestAt && (agora-S._suggestAt)<30000 && S._suggestState){
+    st=S._suggestState;
+  }else{
+    try{
+      const r=await api('suggestState',{});
+      if(!r||r.success===false||!r.state) return;
+      st=r.state; S._suggestState=st; S._suggestAt=agora;
+    }catch(e){ return; }
+  }
+  if(!st.enabled) return;
+
+  const md=String(S.curMD);
+  const pend=(st.pending||{})[md]||0;
+  if(!pend) return;                       // nada por apostar nesta jornada
+
+  const ilimitado = st.remaining===-1;
+  const jaPaga    = (st.paid_mds||[]).map(String).indexOf(md)>=0;
+  const restam    = ilimitado ? null : Math.max(0, +st.remaining||0);
+  const semQuota  = !ilimitado && !jaPaga && restam===0;
+
+  const contador = ilimitado
+    ? `<span style="color:var(--gold)">Sugestões ilimitadas</span>`
+    : jaPaga
+      ? `Esta jornada já foi preenchida - completar não gasta utilizações.`
+      : `Restam-te <strong style="color:var(--gold)">${restam}</strong> de ${st.free_uses} utilizações nesta competição.`;
+
+  bar.innerHTML=`<div class="card" style="padding:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:190px">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem">💡 Tens ${pend} jogo${pend===1?'':'s'} por apostar nesta jornada</div>
+        <div style="font-size:.7rem;color:var(--sub);margin-top:2px">Preenchemos a jornada toda com o resultado mais provável pela forma recente. Podes alterar tudo a seguir.</div>
+        <div style="font-size:.7rem;color:var(--sub);margin-top:4px">${contador}</div>
+      </div>
+      <button class="btn ${semQuota?'btn-outline':'btn-primary'}" id="suggest-btn" ${semQuota?'disabled':''}
+        style="font-size:.78rem;padding:7px 13px;white-space:nowrap${semQuota?';opacity:.5;cursor:not-allowed':''}"
+        onclick="applySuggestions('${md.replace(/'/g,'')}')">💡 Apostar a jornada</button>
+    </div>
+    <div id="suggest-msg" style="display:none;font-size:.75rem;margin-top:6px;padding:7px 10px;border-radius:6px">${
+      semQuota?'Esgotaste as utilizações grátis nesta competição. Com passe ativo não há limite.':''
+    }</div>`;
+  if(semQuota){ const m=document.getElementById('suggest-msg'); if(m){ m.className='alert alert-info'; m.style.display=''; } }
+  bar.style.display='';
+}
+async function applySuggestions(md){
+  const btn=document.getElementById('suggest-btn');
+  const msg=document.getElementById('suggest-msg');
+  if(btn){ btn.disabled=true; btn.textContent='A calcular…'; }
+  try{
+    const r=await api('suggestApply',{md:md||null});
+    if(!r||r.success===false) throw new Error((r&&r.error)||'falha');
+    if(msg){
+      msg.style.display='';
+      if(r.applied){
+        msg.className='alert alert-success';
+        const rest=(r.remaining===-1||r.remaining==null)?'':` Restam-te <b>${r.remaining}</b> utilizações.`;
+        msg.innerHTML=`✓ Jornada preenchida com ${r.applied} aposta${r.applied===1?'':'s'}.${r.charged?rest:''}`;
+      }else if(r.reason==='quota'){
+        msg.className='alert alert-info';
+        msg.innerHTML='Esgotaste as utilizações grátis nesta competição. Com passe ativo não há limite.';
+      }else{
+        msg.className='alert alert-info';
+        msg.innerHTML='Não há sugestões disponíveis para esta jornada - pode faltar histórico das equipas.';
+      }
+    }
+    if(r.applied){ S._suggestAt=0; S._suggestState=null; await loadData(); if(S.curView==='bets'){ renderBets(); renderSuggestBar(); } }
+  }catch(e){
+    if(msg){ msg.style.display=''; msg.className='alert alert-error'; msg.textContent='Não foi possível sugerir agora.'; }
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='💡 Apostar a jornada'; }
+  }
+}
+
 function scheduleAutoSave(){S.pending=true;updateUnsavedBadge();} // legado (pré-autosave)
 function updateUnsavedBadge(){
   const badge=document.getElementById('unsaved-badge');
@@ -8482,10 +8715,35 @@ async function savePrebets(){
 // Campeão (single) / Melhor marcador (player=texto) / Despromovidos & Top 4 (multi).
 // Fecha antes da 1.ª jornada (kickoff mais cedo − deadlineH). Quando os 'specials'
 // estiverem resolvidos, mostra a correção (acerto/erro + pontos).
+// Fecho das pré-apostas. Desde a 065 é o MEIO DA ÉPOCA (v_prebet_window), não
+// 1h antes do primeiro jogo: quem entra a meio deixou de perder as pré-apostas
+// para sempre, mas quem arrisca cedo continua a valer mais (ver prebetFactor).
+// Sem a 065 aplicada mantém-se o comportamento antigo.
 function leaguePrebetDeadlineMs(){
+  const w=S.prebetWindow;
+  if(w&&w.t_close){ const t=Date.parse(w.t_close); if(isFinite(t)) return t; }
   const ks=(GAMES||[]).map(g=>g.date?new Date(g.date).getTime():NaN).filter(t=>!isNaN(t));
   if(!ks.length) return null;
   return Math.min(...ks)-((S.deadlineH||1)*3600000);
+}
+// Quanto vale HOJE uma pré-aposta nova, em percentagem do valor cheio.
+// Mostrar isto é o que faz a regra funcionar - ninguém se apressa por uma
+// regra que não vê.
+function prebetValorHojePct(){
+  const w=S.prebetWindow;
+  if(!w||w.factor_now==null) return null;
+  const p=Math.round((+w.factor_now)*100);
+  return (p>=100||!isFinite(p))?null:p;
+}
+function prebetDecayNoteHtml(){
+  const pct=prebetValorHojePct();
+  const dl=leaguePrebetDeadlineMs();
+  if(pct==null&&!dl) return '';
+  const dstr=dl?new Date(dl).toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'}):'';
+  return `<div class="alert alert-info" style="font-size:.76rem;line-height:1.6;margin-bottom:12px">
+      ⏳ <strong>Quem arrisca cedo ganha mais.</strong> As pré-apostas ficam abertas até meio da época${dstr?` (<strong style="color:var(--gold)">${dstr}</strong>)`:''},
+      mas vão perdendo valor com o tempo.${pct!=null?` Uma pré-aposta feita <strong style="color:var(--gold)">hoje</strong> vale <strong style="color:var(--gold)">${pct}%</strong> do valor cheio.`:''}
+    </div>`;
 }
 function leaguePrebetGet(item){
   const raw=S.prebets[item.key];
@@ -8531,7 +8789,9 @@ function renderLeaguePrebets(){
   </div>`;
   html+=`<div class="pb-info">${closed
     ? 'As pré-apostas de época estão <b>fechadas</b>. A pontuação aparece quando os resultados finais da época forem lançados.'
-    : (dlStr?`Fecham <b style="color:var(--gold)">${dlStr}</b> (hora de Portugal), antes da 1.ª jornada. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`:`Fecham antes da 1.ª jornada. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`)}</div>`;
+    : (dlStr?`Fecham <b style="color:var(--gold)">${dlStr}</b> (hora de Portugal), a meio da época. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`:`Fecham a meio da época. Máximo <b style="color:var(--gold)">${maxPts} pts</b>.`)}</div>`;
+  // Aviso do decaimento (065). Só aparece quando já há desconto a aplicar.
+  if(!closed) html+=prebetDecayNoteHtml();
 
   cfg.forEach(item=>{
     const PB_ICONS={champion:'🏆',top_scorer:'⚽',relegated:'🔻',europe:'⭐',cup_winner:'🏅',cup_finalist:'🥈',best_attack:'💥',best_defence:'🛡️'};
@@ -9138,6 +9398,55 @@ function onScorerTeamChange(team) {
 // ════════════════════════════════════════════════
 //  MODAL - JOGO (apostas de todos num jogo terminado)
 // ════════════════════════════════════════════════
+// ── Quem já apostou (antes do apito) ──────────────────────────────────────
+// Mostra a lista de jogadores com "apostado" ou "—", SEM revelar placares.
+// Os dados vêm da v_game_bettors (064), que devolve só códigos.
+// Se a migration ainda não estiver aplicada, S.bettors vem vazio e a função
+// não abre nada - fica exatamente o comportamento antigo.
+function openBettorsModal(gameId) {
+  const game = GAMES.find(g=>g.id===gameId);
+  if (!game) return;
+  const info = (S.bettors||{})[gameId];
+  if (!info) return;
+  const setCodes = new Set(info.codes||[]);
+  // Eu conto sempre pelo que tenho em mão: a view pode estar a uns segundos
+  // de distância da aposta que acabei de guardar.
+  const meu = S.user && S.preds && S.preds[gameId];
+  if (S.user && meu && meu.t1!==undefined && meu.t1!==null && meu.t1!=='') setCodes.add(String(S.user.code).toUpperCase());
+
+  const t1 = game.ko ? getKOTeamName(gameId,'t1') : game.t1;
+  const t2 = game.ko ? getKOTeamName(gameId,'t2') : game.t2;
+  const users = (S.lb && S.lb.length ? S.lb : S.participants).filter(u=>u.code && u.code!=='BOT_IA');
+  // Quem ainda não apostou primeiro: é essa a lista que interessa ver.
+  const orden = users.slice().sort((a,b)=>{
+    const fa=setCodes.has(String(a.code).toUpperCase())?1:0, fb=setCodes.has(String(b.code).toUpperCase())?1:0;
+    return fa-fb || String(a.name||'').localeCompare(String(b.name||''),'pt');
+  });
+  const feitos = orden.filter(u=>setCodes.has(String(u.code).toUpperCase())).length;
+
+  document.getElementById('modal-title').textContent = `${t1} vs ${t2}`;
+  document.getElementById('modal-subtitle').textContent =
+    `${game.g?`Grupo ${game.g}`:jornadaName(game.md)} · 🔒 Apostas ainda abertas - só se vê quem já apostou`;
+
+  const linhas = orden.map(u=>{
+    const fez = setCodes.has(String(u.code).toUpperCase());
+    const eu = S.user && u.code===S.user.code;
+    return `<tr${eu?' style="background:rgba(245,197,24,.07)"':''}>
+        <td class="th-left" style="font-size:.78rem;color:${eu?'var(--gold)':'var(--text)'}">${escapeHtml(u.name)}${eu?' <span style="font-size:.66rem;color:var(--sub)">(tu)</span>':''}</td>
+        <td style="text-align:right;font-size:.74rem;color:${fez?'var(--green)':'var(--sub)'}">${fez?'✓ apostado':'—'}</td>
+      </tr>`;
+  }).join('');
+
+  document.getElementById('modal-body').innerHTML = `
+    <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:12px">
+      <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;color:var(--green)">${feitos}</div><div style="font-size:.66rem;color:var(--sub)">JÁ APOSTARAM</div></div>
+      <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;color:var(--sub)">${orden.length-feitos}</div><div style="font-size:.66rem;color:var(--sub)">EM FALTA</div></div>
+    </div>
+    <div style="overflow-x:auto"><table class="modal-table"><tbody>${linhas}</tbody></table></div>
+    <div style="font-size:.68rem;color:var(--sub);margin-top:8px;text-align:center">Os resultados apostados só aparecem depois do apito inicial.</div>`;
+  openModal();
+}
+
 function openGameModal(gameId) {
   const game = GAMES.find(g=>g.id===gameId);
   if (!game) return;
@@ -9147,7 +9456,9 @@ function openGameModal(gameId) {
   // Só é "terminado" com FINISHED confirmado (sem live ativo) - cf. cards
   const isFinished = !!(res&&res.t1!==undefined)&&!lv;
   const locked = revealedAt(game.date);   // REVELAÇÃO (apito), não fecho de edição
-  if (!isFinished && !locked) return; // antes do apito ninguém vê as apostas
+  // Antes do apito ninguém vê O QUE os outros apostaram - mas passa a ver QUEM
+  // já apostou (11 Ago, migration 064). Zero spoiler, muita pressão social.
+  if (!isFinished && !locked) { openBettorsModal(gameId); return; }
 
   const resEff = isFinished ? res : (lv ? {t1:lv.t1, t2:lv.t2} : null); // resultado efetivo p/ cálculo
   const showPts = !!resEff;
@@ -9566,13 +9877,72 @@ function buildBadgesModalSection(playerName) {
        </div>`
     : '';
 
-  return `<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;margin-bottom:8px">
-        🏅 Badges <span style="font-size:.72rem;color:var(--sub);font-weight:400">(${totalNiveis} conquistado${totalNiveis===1?'':'s'})</span>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px">${lista.map(medalha).join('')}${mais}</div>
+  // Retraído mostra o resumo; ao abrir vai buscar a lista COMPLETA (ver
+  // loadPlayerBadges). O ontoggle só dispara a leitura uma vez - o próprio
+  // contentor guarda o estado em dataset.loaded.
+  const cid = 'pbadges-' + String(p.code).toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return `<details style="margin-top:16px;border-top:1px solid var(--border);padding-top:6px"
+        ontoggle="if(this.open)loadPlayerBadges('${String(p.code).toUpperCase()}','${cid}')">
+      <summary style="cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem;padding:8px 0">
+        🏅 Badges <span style="font-size:.72rem;color:var(--sub);font-weight:400">(${totalNiveis} conquistado${totalNiveis===1?'':'s'} · toca para expandir)</span>
+      </summary>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:6px">${lista.map(medalha).join('')}${mais}</div>
       <div style="font-size:.66rem;color:var(--sub);margin-top:7px">${lista.map(b=>b.name).join(' · ')}</div>
-    </div>`;
+      <div id="${cid}" style="margin-top:12px;font-size:.72rem;color:var(--sub)">A carregar a coleção completa…</div>
+    </details>`;
+}
+
+// Lista COMPLETA de badges de um jogador, carregada a pedido quando o
+// separador abre. Reaproveita o catálogo que já está em S.badgeDefs, por isso
+// só precisa das linhas do jogador (no máximo uma por série).
+async function loadPlayerBadges(code, elId){
+  const el=document.getElementById(elId);
+  if(!el || el.dataset.loaded==='1') return;
+  el.dataset.loaded='1';
+  let mine={};
+  try{
+    const r=await api('getUserBadges',{code});
+    (r&&r.badges||[]).forEach(b=>{ mine[b.badge_key]={value:+b.value||0, level:+b.level||0}; });
+  }catch(e){
+    el.innerHTML='<div style="font-size:.72rem;color:var(--sub)">Não foi possível carregar a coleção completa.</div>';
+    return;
+  }
+  const defs=(S.badgeDefs||[]).slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
+  if(!defs.length){ el.innerHTML=''; return; }
+
+  // Mesma linguagem visual da página de Badges: uma medalha por nível, as que
+  // faltam a cinzento. Ver as casas por preencher é o que dá contexto ao que
+  // o jogador já conquistou.
+  const medalha=(d,i)=>{
+    const m=mine[d.badge_key]||{level:0};
+    const ganho=(m.level||0)>i;
+    return `<div title="${escapeHtml(d.name)} · ${d.levels[i]}"
+        style="display:flex;flex-direction:column;align-items:center;gap:3px;width:52px">
+        <div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+             font-size:1.05rem;box-sizing:border-box;
+             background:${ganho?'radial-gradient(circle at 35% 30%, rgba(245,197,24,.30), rgba(245,197,24,.08))':'var(--bg2)'};
+             border:2px ${ganho?'solid var(--gold)':'dashed var(--border)'};
+             filter:${ganho?'none':'grayscale(1)'};opacity:${ganho?1:.4}">${d.icon}</div>
+        <div style="font-size:.56rem;color:${ganho?'var(--gold)':'var(--sub)'};font-weight:${ganho?700:400}">${d.levels[i]}</div>
+      </div>`;
+  };
+
+  let html=`<div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin-bottom:8px;border-top:1px solid var(--border);padding-top:10px">Coleção completa</div>`;
+  BADGE_FAMILIES.forEach(([fam,rot])=>{
+    const grupo=defs.filter(d=>d.family===fam);
+    if(!grupo.length) return;
+    html+=`<div style="font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sub);margin:12px 0 6px">${rot}</div>`;
+    grupo.forEach(d=>{
+      const m=mine[d.badge_key]||{level:0};
+      html+=`<div style="margin-bottom:10px">
+          <div style="font-size:.72rem;color:var(--text);margin-bottom:5px">
+            ${escapeHtml(d.name)} <span style="color:var(--sub)">· ${m.level||0}/${d.levels.length}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${d.levels.map((_,i)=>medalha(d,i)).join('')}</div>
+        </div>`;
+    });
+  });
+  el.innerHTML=html;
 }
 
 // Sparkline da evolução de posição na classificação (dados de S.rankHist, calculados no renderLB)
