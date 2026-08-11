@@ -1480,7 +1480,11 @@ document.addEventListener('keydown', function(e){
       // QUEM JÁ APOSTOU (064): só jogos POR COMEÇAR, só códigos - nunca
       // placares. Alimenta o modal antes do fecho. Poucas dezenas de linhas.
       // .catch -> [] enquanto a migration não estiver aplicada.
-      rest('v_game_bettors', 'game_id,codes,n', CF, true, 'game_id').catch(() => []),
+      // ⚠️ .catch -> null (e NÃO []): [] significa "a view respondeu e ainda
+      // ninguém apostou em jogo nenhum", null significa "a 064 não está
+      // aplicada". Confundir as duas fazia o modal não abrir nos jogos sem
+      // apostas - que são precisamente aqueles em que ele é mais útil.
+      rest('v_game_bettors', 'game_id,codes,n', CF, true, 'game_id').catch(() => null),
       // JANELA DAS PRÉ-APOSTAS (065): abertura, fecho (meio da época) e o
       // fator que vale agora. Uma linha só - a da competição ativa.
       rest('v_prebet_window', 'competition_id,t_open,t_close,factor_now', CF, true).catch(() => []),
@@ -1552,7 +1556,10 @@ document.addEventListener('keydown', function(e){
                     (a[c] = a[c] || []).push({ badge_key:r.badge_key, icon:r.icon, name:r.name, level:+r.level||0, levels_n:+r.levels_n||0 });
                     return a;
                   }, {}),
+                  // A funcionalidade está disponível? (ver o .catch acima)
+                  bettorsOk: bettorRows !== null,
                   // { game_id: { codes:[CODE,...], n } } - jogos por começar.
+                  // Um jogo SEM apostas simplesmente não tem chave aqui.
                   bettors: (bettorRows || []).reduce((a, r) => {
                     if (!r.game_id) return a;
                     a[r.game_id] = { codes: (r.codes || []).map(c => String(c).toUpperCase()), n: +r.n || 0 };
@@ -1640,6 +1647,7 @@ document.addEventListener('keydown', function(e){
              badgeCounts: db.badgeCounts || {},
              topBadges: db.topBadges || {},
              bettors: db.bettors || {},
+             bettorsOk: db.bettorsOk === true,
              prebetWindow: db.prebetWindow || null,
              sqlStandings: db.sqlStandings || [],
              useSqlStandings: String(db.config.use_sql_standings || 'false') === 'true',
@@ -6643,6 +6651,7 @@ async function loadData() {
     S.topBadges = r.topBadges || {};
     // Quem já apostou em cada jogo por começar (064) -> modal antes do fecho.
     S.bettors = r.bettors || {};
+    S.bettorsOk = r.bettorsOk === true;
     // Janela e fator das pré-apostas (065) -> deadline + aviso de decaimento.
     S.prebetWindow = r.prebetWindow || null;
     // O texto das regras depende da janela, por isso refaz-se aqui (no load
@@ -7826,7 +7835,7 @@ function renderBetsKO() {
       (isFinished||(locked&&knownTeams))
         ? `onclick="openGameModal('${g.id}')" style="cursor:pointer"`
         // Aberto e com equipas já apuradas: abre o "quem já apostou".
-        : (knownTeams ? `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"` : '')
+        : ((knownTeams && S.bettorsOk) ? `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"` : '')
     }>
       <div class="game-meta">
         <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</span>
@@ -7969,7 +7978,9 @@ function renderBets() {
           // Jogo ABERTO: o cartão abre o "quem já apostou" + insights. Os
           // controlos lá dentro (inputs, joker, limpar) levam stopPropagation,
           // senão editar a aposta abria o modal a cada toque.
-          : `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"`
+          // Só clicável se a 064 estiver aplicada - um cartão com cursor de
+          // mão que não faz nada é pior do que um cartão sem clique.
+          : (S.bettorsOk ? `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"` : '')
       }>
         <div class="game-meta">
           <span>${g.g?`<span class="grp-badge">Gr.${g.g}</span>`:''}${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}${g.venue?' · '+g.venue:''}</span>
@@ -9417,8 +9428,10 @@ function onScorerTeamChange(team) {
 // fechado, e enquanto se edita não se deve abrir um modal a cada toque.
 // Sem a migration 064 aplicada, S.bettors vem vazio e isto não aparece.
 function bettorsLinkHtml(gid){
-  const info=(S.bettors||{})[gid];
-  if(!info) return '';
+  if(!S.bettorsOk) return '';
+  // Sem chave = ninguém apostou neste jogo ainda. Mostra-se na mesma "0 de N",
+  // que é a informação mais útil que há.
+  const info=(S.bettors||{})[gid]||{codes:[],n:0};
   const total=((S.lb&&S.lb.length?S.lb:S.participants)||[]).filter(u=>u.code&&u.code!=='BOT_IA').length;
   if(!total) return '';
   const set=new Set(info.codes||[]);
@@ -9440,8 +9453,9 @@ function bettorsLinkHtml(gid){
 function openBettorsModal(gameId) {
   const game = GAMES.find(g=>g.id===gameId);
   if (!game) return;
-  const info = (S.bettors||{})[gameId];
-  if (!info) return;
+  // Sem chave na S.bettors = ninguém apostou ainda. O modal abre na mesma -
+  // ver "0 de 4 já apostaram" é exatamente o que se quer saber.
+  const info = (S.bettors||{})[gameId] || { codes:[], n:0 };
   const setCodes = new Set(info.codes||[]);
   // Eu conto sempre pelo que tenho em mão: a view pode estar a uns segundos
   // de distância da aposta que acabei de guardar.
