@@ -2824,7 +2824,15 @@ document.addEventListener('keydown', function(e){
         <div style="display:flex;align-items:center;gap:9px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem">
           <img src="https://unclepredictor.pt/logo.png" alt="" style="width:30px;height:30px;border-radius:8px;object-fit:contain;display:block"> Uncle Predictor
         </div>
-        <span id="comp-user-pill" onclick="showAccountMenu()" style="cursor:pointer;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-size:.78rem;color:var(--sub)">👤</span>
+        <div style="display:flex;align-items:center;gap:7px">
+          <!-- PREMIUM na seleção de competição (10 Ago 2026). Este ecrã é onde
+               se aterra depois do login e depois de pagar, e não tinha entrada
+               nenhuma para o premium: quem tinha passe não via o prazo e quem
+               não tinha não via que existia. Mesmo gating do pill da barra
+               superior — .up-premium some por completo na app Android. -->
+          <span class="up-premium" id="comp-premium-pill" onclick="showPremium()" title="Passe Premium" style="display:none;cursor:pointer;background:var(--bg2);border:1px solid var(--gold);border-radius:20px;padding:6px 11px;font-size:.78rem;color:var(--gold);white-space:nowrap">⭐</span>
+          <span id="comp-user-pill" onclick="showAccountMenu()" style="cursor:pointer;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:6px 13px;font-size:.78rem;color:var(--sub)">👤</span>
+        </div>
       </div>
       <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.5rem;margin:14px 2px 2px">Olá, <span id="comp-hello" style="color:var(--gold)">-</span> 👋</div>
       <div style="color:var(--sub);font-size:.9rem;margin:0 2px 18px;line-height:1.5">Escolhe a competição em que queres jogar. Cada uma tem a sua própria classificação, ligas e apostas.</div>
@@ -4425,6 +4433,10 @@ function showCompetitions(){
     }).catch(()=>{});
   }
   window.scrollTo(0,0);
+  // Pastilha do premium deste ecrã. No login o loadData() que corre a seguir já
+  // a preenche; isto garante o caso de se VOLTAR aqui (trocar de competição),
+  // em que não há loadData nenhum a correr.
+  try{ if(typeof refreshPremiumEntry==='function') refreshPremiumEntry(); }catch(e){}
   // Convite pendente vindo de /j/ (ver consumePendingInvite). Não bloqueia
   // nada: se falhar, o utilizador fica na página de competições como sempre.
   try{ consumePendingInvite(); }catch(e){}
@@ -4885,15 +4897,18 @@ function refreshPremiumEntry(){
     // Embaixadores: não menciona preços, por isso aparece também na app.
     const em=document.getElementById('btn-embaixadores');
     if(em) em.style.display=S.referralsEnabled?'':'none';
-    const p=document.getElementById('premium-pill');           // barra superior
-    if(p){
+    // Quem já tem passe vê o ⭐ com os dias que lhe restam; quem não tem vê o
+    // convite. A contagem aparece SEMPRE que houver prazo (decisão de 9 Ago):
+    // um passe que se sabe temporário desde o primeiro dia não apanha ninguém
+    // de surpresa no último.
+    const _exp=S.premiumExpires?Date.parse(S.premiumExpires):NaN;
+    const _d=isFinite(_exp)?Math.ceil((_exp-Date.now())/86400000):null;
+    // DOIS pills com o mesmo estado: o da barra superior (dentro da competição)
+    // e o da seleção de competição. Ponto único para não divergirem.
+    ['premium-pill','comp-premium-pill'].forEach(function(pid){
+      const p=document.getElementById(pid);
+      if(!p) return;
       p.style.display=show?'':'none';
-      // Quem já tem passe vê o ⭐ com os dias que lhe restam; quem não tem vê o
-      // convite. A contagem aparece SEMPRE que houver prazo (decisão de 9 Ago):
-      // um passe que se sabe temporário desde o primeiro dia não apanha ninguém
-      // de surpresa no último.
-      const _exp=S.premiumExpires?Date.parse(S.premiumExpires):NaN;
-      const _d=isFinite(_exp)?Math.ceil((_exp-Date.now())/86400000):null;
       p.textContent=S.premium?((_d!=null&&_d>0)?('⭐ '+_d+'d'):'⭐'):'⭐ Premium';
       // Últimos 14 dias: passa a laranja, para se distinguir do resto do topo.
       p.style.borderColor=(_d!=null&&_d<=14)?'#f39c12':'var(--gold)';
@@ -4901,7 +4916,7 @@ function refreshPremiumEntry(){
       p.title=S.premium
         ?('Passe Premium activo'+(_d!=null?' — acaba daqui a '+_d+' dia'+(_d===1?'':'s'):''))
         :'Obter o Passe Premium';
-    }
+    });
   }catch(e){}
 }
 function showPremium(){

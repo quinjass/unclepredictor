@@ -48,7 +48,7 @@
     <h1>Pagamento recebido</h1>
     <p id="msg">Obrigado pelo apoio. O teu Passe Premium está a ser ativado na conta com que estás a jogar.</p>
     <div class="status" id="status"><span class="dots">A ativar o passe</span></div>
-    <a class="btn" id="ir" href="https://unclepredictor.pt/jogar/">Voltar ao Uncle Predictor</a>
+    <a class="btn" id="ir" href="https://unclepredictor.pt/jogar/?premium=ok">Voltar ao Uncle Predictor</a>
   </div>
   <div class="foot">
     Se o passe não aparecer dentro de alguns minutos,<br>
@@ -90,7 +90,11 @@
     clearInterval(t);
     el.textContent = voucher ? 'Pronto. A abrir a app para escolheres…' : 'Pronto. A abrir a app…';
     // /jogar/ desde 9 Ago 2026 — a raiz é a landing estática.
-    setTimeout(function () { location.href = 'https://unclepredictor.pt/jogar/'; }, 700);
+    // ⚠️ `?premium=ok` (062): é este parâmetro que acorda o `premiumJustPaid` no
+    // jogo — invalida a cache e volta a perguntar pelo passe até ele aparecer,
+    // em vez de mostrar um ecrã sem premium a quem acabou de pagar. Sem ele, a
+    // pessoa aterrava numa app que ainda não sabia da compra.
+    setTimeout(function () { location.href = 'https://unclepredictor.pt/jogar/?premium=ok'; }, 700);
   }, 1000);
 })();
 </script>
