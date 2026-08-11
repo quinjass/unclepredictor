@@ -7867,6 +7867,7 @@ function renderBetsKO() {
       }
       <div class="as-status" style="display:none" onclick="event.stopPropagation()"></div>
       <button class="card-clear-btn" style="${(isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
+      ${(!isFinished&&!locked&&knownTeams)?bettorsLinkHtml(g.id):''}
     </div>`;
     });
     html += `</div>`;
@@ -7991,6 +7992,7 @@ function renderBets() {
             </button>
             <div class="as-status" style="display:none" onclick="event.stopPropagation()"></div>
             <button class="card-clear-btn" style="${(isSaved&&!locked)?'':'display:none'}" onclick="event.stopPropagation();clearCard('${g.id}')">✕ Limpar aposta</button>
+            ${bettorsLinkHtml(g.id)}
             ${rarityBarHtml(g.id)}
             `:`${jokerOn?`<div style="text-align:center;font-size:.73rem;color:var(--gold);margin-top:6px"><span class="joker-badge">JOKER</span> usado neste jogo</div>`:''}
             ${lv
@@ -9398,6 +9400,26 @@ function onScorerTeamChange(team) {
 // ════════════════════════════════════════════════
 //  MODAL - JOGO (apostas de todos num jogo terminado)
 // ════════════════════════════════════════════════
+// Link "quem já apostou" no cartão de um jogo AINDA ABERTO. É o único ponto
+// de entrada para o openBettorsModal: o cartão só ganha onclick depois de
+// fechado, e enquanto se edita não se deve abrir um modal a cada toque.
+// Sem a migration 064 aplicada, S.bettors vem vazio e isto não aparece.
+function bettorsLinkHtml(gid){
+  const info=(S.bettors||{})[gid];
+  if(!info) return '';
+  const total=((S.lb&&S.lb.length?S.lb:S.participants)||[]).filter(u=>u.code&&u.code!=='BOT_IA').length;
+  if(!total) return '';
+  const set=new Set(info.codes||[]);
+  const meu=S.user&&S.preds&&S.preds[gid];
+  if(S.user&&meu&&meu.t1!==undefined&&meu.t1!==null&&meu.t1!=='') set.add(String(S.user.code).toUpperCase());
+  const n=Math.min(set.size,total);
+  return `<div style="text-align:center;margin-top:6px">
+      <button class="btn btn-outline" style="font-size:.68rem;padding:3px 10px"
+        onclick="event.stopPropagation();openBettorsModal('${gid}')"
+        title="Ver quem já apostou (sem revelar os resultados)">👥 ${n} de ${total} já apostaram</button>
+    </div>`;
+}
+
 // ── Quem já apostou (antes do apito) ──────────────────────────────────────
 // Mostra a lista de jogadores com "apostado" ou "—", SEM revelar placares.
 // Os dados vêm da v_game_bettors (064), que devolve só códigos.
