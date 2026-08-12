@@ -593,6 +593,16 @@
     .switcher-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;align-items:flex-end;justify-content:center}
     .switcher-overlay.open{display:flex}
     .switcher-box{background:var(--bg2);border-radius:16px 16px 0 0;width:100%;max-width:660px;padding:20px;border-top:2px solid var(--gold);margin-bottom:calc(var(--up-ad-h) + var(--up-ad-off,0px))}
+    /* ── Menu de conta agrupado (12 Ago 2026) ────────────────────────────────
+       O menu passou de lista corrida a 3 grupos. O separador é um rótulo
+       pequeno + uma linha que ocupa o resto da largura. A caixa ganha scroll
+       próprio: com 10 entradas + cabeçalho já não cabe num ecrã de telemóvel. */
+    .acct-sheet{max-height:86vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    .acct-sep{display:flex;align-items:center;gap:8px;margin:16px 0 8px 2px;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sub)}
+    .acct-sep::after{content:'';flex:1;height:1px;background:var(--border)}
+    .acct-sheet .btn-full{margin-bottom:8px}
+    .acct-foot{text-align:center;margin-top:10px;font-size:.72rem;color:var(--sub)}
+    .acct-foot a{color:var(--sub);text-decoration:underline}
     /* ── FASE A ELIMINAR - tabs apostas ── */
     .ko-divider{display:flex;align-items:center;gap:8px;margin:6px 0 10px;font-size:.72rem;color:#7986cb;font-weight:600;letter-spacing:.3px;text-transform:uppercase}
     .ko-divider::before,.ko-divider::after{content:'';flex:1;height:1px;background:rgba(99,102,241,.2)}
@@ -910,8 +920,387 @@
       color: var(--sub); border: 1px solid var(--border);
       border-radius: 5px; padding: 1px 5px; margin-left: 6px; white-space: nowrap;
     }
+    /* ── 🎫 PASSAPORTE (lote 069) ─────────────────────────────────────────────
+       Tutorial jogável: 16 carimbos em 4 capítulos. Carimbos ≠ medalhas dos
+       Badges, de propósito (grelha de carimbos vs vitrine de medalhas).
+       A pastilha #quests-pill só existe enquanto estiver por acabar. */
+    .pp-hero{text-align:center;padding:6px 0 14px}
+    .pp-hero .em{font-size:2.1rem;line-height:1}
+    .pp-hero h2{font-family:'Rajdhani',sans-serif;color:var(--gold);font-size:1.4rem;margin:4px 0}
+    .pp-hero p{color:var(--sub);font-size:.78rem;margin:0;line-height:1.5}
+    .pp-bar{height:8px;background:var(--bg2);border-radius:5px;overflow:hidden;margin:12px 0 6px}
+    .pp-bar>div{height:100%;background:linear-gradient(90deg,var(--gold),#ffdf5e);border-radius:5px;transition:width .4s}
+    .pp-meta{display:flex;justify-content:space-between;font-size:.7rem;color:var(--sub);margin-bottom:14px}
+    .pp-meta b{color:var(--gold)}
+    .pp-chapter{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);margin:16px 0 8px;display:flex;align-items:center;gap:7px}
+    .pp-chapter i{flex:1;height:1px;background:var(--border);font-style:normal}
+    .pp-chapter em{font-style:normal;color:var(--gold);font-size:.7rem}
+    .pp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+    .pp-st{border:1px solid var(--border);border-radius:11px;padding:9px 4px 8px;text-align:center;background:var(--card);position:relative;cursor:default}
+    .pp-st .ic{font-size:1.32rem;line-height:1;filter:grayscale(1);opacity:.32}
+    .pp-st .nm{font-size:.57rem;color:var(--sub);margin-top:5px;line-height:1.25;min-height:2.1em}
+    .pp-st.on{border-color:var(--gold);background:rgba(245,197,24,.07)}
+    .pp-st.on .ic{filter:none;opacity:1}
+    .pp-st.on .nm{color:var(--text)}
+    .pp-st.on::after{content:"✓";position:absolute;top:-6px;right:-6px;width:17px;height:17px;border-radius:50%;background:var(--green);color:#fff;font-size:.62rem;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg)}
+    .pp-st.next{border-color:var(--gold);border-style:dashed}
+    .pp-st.next .ic{filter:grayscale(.3);opacity:.75}
+    .pp-next{border:1px dashed var(--gold);border-radius:11px;padding:11px;margin:16px 0 4px;display:flex;gap:10px;align-items:center;background:rgba(245,197,24,.05)}
+    .pp-next .ic{font-size:1.5rem}
+    .pp-next .t{font-size:.79rem;font-weight:600}
+    .pp-next .d{font-size:.7rem;color:var(--sub);margin-top:2px;line-height:1.4}
+    .pp-reward{border:1px solid var(--border);border-radius:11px;padding:12px;margin-top:14px;font-size:.75rem;color:var(--sub);line-height:1.5;text-align:center}
+    .pp-reward b{color:var(--gold)}
+    .pp-cel{text-align:center;padding:26px 6px}
+    .pp-cel .pp-stamp{width:132px;height:132px;margin:0 auto 16px;border:3px solid var(--gold);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-11deg);color:var(--gold);background:rgba(245,197,24,.07)}
+    .pp-cel .pp-stamp .e{font-size:2.4rem;line-height:1}
+    .pp-cel .pp-stamp .t{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem;letter-spacing:.13em;margin-top:4px}
+    .pp-cel h2{font-family:'Rajdhani',sans-serif;color:var(--gold);font-size:1.45rem;margin:6px 0}
+    .pp-cel p{color:var(--sub);font-size:.8rem;line-height:1.6;margin:0 0 4px}
+    .pp-cel .pp-prize{border:1px solid var(--gold);border-radius:11px;padding:13px;margin:16px 0 4px;background:rgba(245,197,24,.07)}
+    .pp-cel .pp-prize .b{font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1rem}
+    .pp-cel .pp-prize .s{font-size:.72rem;color:var(--sub);margin-top:3px}
   </style>
 
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   MOTOR MULTI-IDIOMA (i18n) — LOTE 070
+   ──────────────────────────────────────────────────────────────────────────
+   PORQUÊ ASSIM (decisão de 12 Ago 2026):
+   A chave de tradução É A PRÓPRIA FRASE EM PORTUGUÊS. Não há chaves abstratas
+   ('lb.title'). Consequência que vale ouro num ficheiro de 800 KB com 6 blocos
+   <script>: se uma frase ainda não estiver no dicionário, t() devolve-a em
+   português e a página CONTINUA A FUNCIONAR. Traduz-se por ecrã, publica-se
+   quando se quiser, e nunca há um "big bang" que parta tudo.
+
+   ⚠️ ESTE BLOCO TEM DE FICAR ANTES DE TODOS OS OUTROS <script> DA APP.
+   Tudo aqui é exposto em window.* de propósito — os outros blocos têm âmbitos
+   separados (ver memória: o COMP do adapter não existe no bloco da UI).
+
+   O QUE EXPÕE:
+     t(txt, vars)   -> tradução com fallback PT. vars: {n:3} substitui {n}
+     UP_LOCALE()    -> 'pt-PT' | 'en-GB'  (para toLocale* e localeCompare)
+     UP_DATE(v)     -> Date correta a partir de string com OU sem fuso
+     UP_LANG        -> 'pt' | 'en'  (leitura)
+     upSetLang(l)   -> muda idioma, persiste e recarrega
+   ══════════════════════════════════════════════════════════════════════════ */
+(function(){
+  'use strict';
+
+  var SUPPORTED = ['pt','en'];
+  var LS_KEY    = 'up_lang';
+
+  /* ── 1. Que idioma? Ordem: ?lang= > escolha guardada > browser > pt ────── */
+  function detect(){
+    try{
+      var q = new URLSearchParams(location.search).get('lang');
+      if (q && SUPPORTED.indexOf(q.toLowerCase()) >= 0) return q.toLowerCase();
+    }catch(e){}
+    try{
+      var sv = localStorage.getItem(LS_KEY);
+      if (sv && SUPPORTED.indexOf(sv) >= 0) return sv;
+    }catch(e){}
+    try{
+      var nav = (navigator.language || navigator.userLanguage || 'pt').toLowerCase();
+      /* Só assumimos inglês para quem NÃO fala português. Um br/pt fica em PT. */
+      if (nav.indexOf('pt') === 0) return 'pt';
+      return 'en';
+    }catch(e){}
+    return 'pt';
+  }
+
+  window.UP_LANG = detect();
+
+  /* ── 2. Locale para datas, horas e ordenação alfabética ────────────────── */
+  var LOCALES = { pt:'pt-PT', en:'en-GB' };
+  window.UP_LOCALE = function(){ return LOCALES[window.UP_LANG] || 'pt-PT'; };
+
+  /* ── 3. t() — o coração ─────────────────────────────────────────────────
+     Fallback total: sem dicionário, sem entrada, entrada vazia -> devolve PT.
+     NUNCA devolve undefined; nunca lança. É esta garantia que permite traduzir
+     aos poucos sem risco de partir um ecrã. */
+  window.t = function(txt, vars){
+    var out = txt;
+    try{
+      if (window.UP_LANG !== 'pt'){
+        var dict = window.UP_DICT && window.UP_DICT[window.UP_LANG];
+        var hit  = dict && dict[txt];
+        if (hit) out = hit;
+      }
+    }catch(e){ out = txt; }
+    if (vars){
+      try{
+        out = String(out).replace(/\{(\w+)\}/g, function(m, k){
+          return (vars[k] !== undefined && vars[k] !== null) ? vars[k] : m;
+        });
+      }catch(e){}
+    }
+    return out;
+  };
+
+  /* ── 4. Datas à prova de fuso ───────────────────────────────────────────
+     PROBLEMA REAL que isto resolve: no calendário nem todas as datas vêm com
+     fuso. Uma string "2026-06-11T20:00:00" é interpretada pelo JS como hora
+     LOCAL do dispositivo — em Lisboa dá certo por acaso, em Londres dá 1h de
+     erro e no Brasil 4h. A regra do jogo é: uma data sem fuso é HORA DE PAREDE
+     DE PORTUGAL. Aqui converte-se essa hora de parede no instante absoluto
+     certo, descobrindo o offset REAL de Lisboa nessa data (+01:00 no verão,
+     +00:00 no inverno — importante nas ligas, que atravessam a mudança de
+     hora; o Mundial de Jun/Jul está sempre em +01:00).
+     Depois disto, mostrar sem `timeZone` dá a hora local de cada utilizador,
+     que é o que um estrangeiro precisa de ver. */
+  function lisbonOffsetMin(d){
+    try{
+      var f = new Intl.DateTimeFormat('en-GB', {
+        timeZone:'Europe/Lisbon', hour12:false,
+        year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', second:'2-digit'
+      });
+      var p = {};
+      f.formatToParts(d).forEach(function(x){ p[x.type] = x.value; });
+      var h = (p.hour === '24') ? '00' : p.hour;
+      var asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +h, +p.minute, +p.second);
+      return Math.round((asUTC - d.getTime()) / 60000);
+    }catch(e){ return 60; }
+  }
+
+  window.UP_DATE = function(v){
+    if (v == null || v === '') return new Date(NaN);
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') return new Date(v);
+    var s = String(v).trim();
+    if (/[Zz]$|[+\-]\d\d:?\d\d$/.test(s)) return new Date(s);   // já traz fuso
+    if (/^\d{4}-\d\d-\d\dT\d\d:\d\d$/.test(s)) s += ':00';      // garante segundos
+    if (!/^\d{4}-\d\d-\d\dT/.test(s)) return new Date(s);       // formato estranho: não mexer
+    var base = new Date(s + 'Z');                               // instante provisório
+    if (isNaN(base.getTime())) return new Date(s);
+    return new Date(base.getTime() - lisbonOffsetMin(base) * 60000);
+  };
+
+  /* ── 5. Mudar de idioma ─────────────────────────────────────────────────
+     Recarrega a página de propósito. Alternativa seria re-renderizar tudo, mas
+     há ~400 template literals com texto embutido espalhados por 6 blocos: o
+     reload é 100% fiável e custa menos do que uma re-renderização parcial que
+     deixasse metade do ecrã na língua anterior. */
+  window.upSetLang = function(l){
+    if (SUPPORTED.indexOf(l) < 0) return;
+    if (l === window.UP_LANG) return;
+    try{ localStorage.setItem(LS_KEY, l); }catch(e){}
+    /* Guarda no perfil para os EMAILS e as PUSH saberem a língua da pessoa.
+       Fire-and-forget: se falhar, o idioma local funciona na mesma. */
+    try{ if (typeof api === 'function') api('setLang', { lang: l }); }catch(e){}
+    try{ location.reload(); }catch(e){}
+  };
+
+  /* Chamado pelo adaptador depois do login, quando a pessoa entra num
+     dispositivo novo e o perfil no servidor já tem idioma escolhido. */
+  window.upAdoptServerLang = function(l){
+    try{
+      if (SUPPORTED.indexOf(l) < 0) return;
+      if (localStorage.getItem(LS_KEY)) return;   // escolha local manda
+      if (l === window.UP_LANG) { localStorage.setItem(LS_KEY, l); return; }
+      localStorage.setItem(LS_KEY, l);
+      location.reload();
+    }catch(e){}
+  };
+
+  /* ── 6. <html lang> — leitores de ecrã, corretor ortográfico e o Google ── */
+  try{ document.documentElement.setAttribute('lang', window.UP_LANG); }catch(e){}
+
+  /* ── 7. Tradução do HTML estático ───────────────────────────────────────
+     Marcação: <span data-i18n>Classificação</span> ou data-i18n-attr="placeholder".
+     Corre no DOMContentLoaded e é reentrante (guarda o original em data-i18n-src),
+     por isso pode ser chamado outra vez depois de injetar HTML novo. */
+  window.upTranslateDom = function(root){
+    if (window.UP_LANG === 'pt') return;
+    try{
+      (root || document).querySelectorAll('[data-i18n]').forEach(function(el){
+        if (el.dataset.i18nSrc === undefined) el.dataset.i18nSrc = el.textContent;
+        el.textContent = t(el.dataset.i18nSrc);
+      });
+      (root || document).querySelectorAll('[data-i18n-attr]').forEach(function(el){
+        el.dataset.i18nAttr.split(',').forEach(function(a){
+          a = a.trim(); if (!a) return;
+          var k = 'i18nSrc' + a.charAt(0).toUpperCase() + a.slice(1).replace(/-/g,'');
+          if (el.dataset[k] === undefined) el.dataset[k] = el.getAttribute(a) || '';
+          el.setAttribute(a, t(el.dataset[k]));
+        });
+      });
+    }catch(e){}
+  };
+
+  /* ── 8. Seletor de idioma ───────────────────────────────────────────────
+     Pílula fixa no canto. Escolha deliberada: position:fixed não interfere com
+     nenhum layout existente, logo não pode partir ecrã nenhum. */
+  function mountSwitcher(){
+    if (document.getElementById('up-lang-switch')) return;
+    var box = document.createElement('div');
+    box.id = 'up-lang-switch';
+    box.setAttribute('role','group');
+    box.setAttribute('aria-label','Idioma / Language');
+    box.style.cssText =
+      'position:fixed;top:8px;right:8px;z-index:9998;display:flex;gap:2px;' +
+      'background:rgba(0,0,0,.55);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.18);' +
+      'border-radius:999px;padding:2px;font-family:system-ui,sans-serif;font-size:11px;line-height:1';
+    ['pt','en'].forEach(function(l){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = (l === 'pt' ? 'PT' : 'EN');
+      b.title = (l === 'pt' ? 'Português' : 'English');
+      var on = (window.UP_LANG === l);
+      b.style.cssText =
+        'border:0;cursor:pointer;border-radius:999px;padding:4px 9px;font-weight:700;letter-spacing:.5px;' +
+        (on ? 'background:#c9a227;color:#12121a;' : 'background:transparent;color:#e8e8ee;');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.onclick = function(){ upSetLang(l); };
+      box.appendChild(b);
+    });
+    document.body.appendChild(box);
+  }
+
+  /* ── 9. Sincronizar com o perfil, uma vez por sessão ────────────────────
+     Duas direções, e a ordem importa:
+       (a) já escolheu idioma neste dispositivo -> essa escolha manda, empurra
+           para o servidor (é o que faz os EMAILS saírem na língua certa);
+       (b) nunca escolheu -> pergunta ao servidor. Quem trocou para inglês no
+           telemóvel não volta a encontrar a app em português no portátil.
+     Corre em atraso e em silêncio: sem sessão iniciada as RPC devolvem null e
+     não acontece nada. Nunca bloqueia nem incomoda a app. */
+  function syncLangOnce(){
+    try{
+      if (sessionStorage.getItem('up_lang_synced')) return;
+      if (typeof api !== 'function') return;
+      sessionStorage.setItem('up_lang_synced', '1');
+      var chosen = null;
+      try{ chosen = localStorage.getItem(LS_KEY); }catch(e){}
+      if (chosen){
+        Promise.resolve(api('setLang', { lang: chosen })).catch(function(){});
+      } else {
+        Promise.resolve(api('getLang', {})).then(function(r){
+          var l = r && r.lang;
+          if (l && SUPPORTED.indexOf(l) >= 0) upAdoptServerLang(l);
+        }).catch(function(){});
+      }
+    }catch(e){}
+  }
+
+  function boot(){ mountSwitcher(); upTranslateDom(); setTimeout(syncLangOnce, 6000); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  } else { boot(); }
+})();
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   DICIONÁRIO EN — LOTE 070
+   ──────────────────────────────────────────────────────────────────────────
+   Chave = frase EXATA em português (incluindo acentos, emojis e pontuação).
+   Falta uma entrada? A app mostra o português. Não parte nada.
+
+   COMO CRESCER ISTO: correr `node extrair_strings.mjs` na pasta supabase — o
+   script varre o index_producao.html e escreve `i18n_por_traduzir.json` só com
+   as frases que ainda não estão aqui. Traduz-se o ficheiro e cola-se em baixo.
+
+   ⚠️ Acentos: ao copiar isto no PowerShell usar
+      [System.IO.File]::ReadAllText($p,[Text.Encoding]::UTF8)
+      NUNCA Get-Content — corrompe os acentos (já aconteceu duas vezes).
+   ══════════════════════════════════════════════════════════════════════════ */
+window.UP_DICT = {
+  en: {
+    /* ── Navegação e ações ───────────────────────────────────────────── */
+    "Classificação": "Leaderboard",
+    "Como funciona": "How it works",
+    "Guias": "Guides",
+    "Contactos": "Contact",
+    "Termos": "Terms",
+    "Privacidade e cookies": "Privacy & cookies",
+    "Eliminar conta": "Delete account",
+    "Jogos": "Fixtures",
+    "Apostas": "Predictions",
+    "Aposta": "Prediction",
+    "Regras": "Rules",
+    "Perfil": "Profile",
+    "Conta": "Account",
+    "Definições": "Settings",
+    "Guardar": "Save",
+    "💾 Guardar": "💾 Save",
+    "Cancelar": "Cancel",
+    "Fechar": "Close",
+    "Voltar": "Back",
+    "Continuar": "Continue",
+    "Confirmar": "Confirm",
+    "Entrar": "Log in",
+    "Sair": "Log out",
+    "Registar": "Sign up",
+    "Enviar 📤": "Send 📤",
+    "A enviar…": "Sending…",
+    "A carregar…": "Loading…",
+    "Atualizar": "Refresh",
+    "Ver mais": "See more",
+    "Ver menos": "See less",
+    "Pesquisar": "Search",
+    "Convidar": "Invite",
+    "Partilhar": "Share",
+    "Copiar": "Copy",
+    "Copiado!": "Copied!",
+
+    /* ── Conceitos do jogo ───────────────────────────────────────────── */
+    "Pontos": "Points",
+    "pts": "pts",
+    "Jornada": "Matchday",
+    "Grupo": "Group",
+    "Equipa": "Team",
+    "Equipas": "Teams",
+    "Golos": "Goals",
+    "Resultado": "Result",
+    "Resultados": "Results",
+    "Competição": "Competition",
+    "Competições": "Competitions",
+    "Época": "Season",
+    "Palmarés": "Hall of fame",
+    "Distintivos": "Badges",
+    "Pré-apostas": "Season picks",
+    "Pré-apostas de época": "Season picks",
+    "Taxa de acerto": "Accuracy",
+    "Sem aposta": "No prediction",
+    "sem aposta": "no prediction",
+    "Ainda não há pré-apostas definidas para esta competição.":
+      "There are no season picks set for this competition yet.",
+    "data por confirmar": "date to be confirmed",
+    "Prazo": "Deadline",
+    "Fechado": "Closed",
+    "🔒 fechado": "🔒 closed",
+    "🔒 FECHADAS": "🔒 CLOSED",
+    "Aberto": "Open",
+    "Ao vivo": "Live",
+    "Terminado": "Finished",
+    "Campeão": "Champion",
+    "Classificação geral": "Overall standings",
+
+    /* ── Mensagens de estado ─────────────────────────────────────────── */
+    "Erro de ligação": "Connection error",
+    "Erro de ligação.": "Connection error.",
+    "Erro ao enviar": "Failed to send",
+    "✗ Erro": "✗ Error",
+    "Mensagem enviada!": "Message sent!",
+    "Mensagem vazia": "Empty message",
+    "Escreve a mensagem primeiro": "Write the message first",
+    "Não guardado": "Not saved",
+    "⚠ Não guardado": "⚠ Not saved",
+    "Guardado": "Saved",
+    "Guardado ✓": "Saved ✓",
+    "Nada a mostrar": "Nothing to show",
+    "Sem dados": "No data",
+    "Mensagens da organização": "Messages from the organisers",
+
+    /* ── Admin ───────────────────────────────────────────────────────── */
+    "📣 Mensagem a todos os jogadores": "📣 Message to all players",
+    "Enviar via:": "Send via:",
+    "✉️ Só email": "✉️ Email only",
+    "Password de admin incorreta": "Incorrect admin password"
+  }
+};
+</script>
 <script>
 /* Deteta a app nativa (Capacitor) e esconde as secções de marketing do
    pré-login - na app o utilizador só quer a caixa de login. No browser não
@@ -1818,6 +2207,136 @@ document.addEventListener('keydown', function(e){
     return { success: true };
   }
 
+  // ── ALTERAR EMAIL DA CONTA (migração 071) ──────────────────────────────────
+  // Fluxo NATIVO do Supabase, com dupla confirmação: o PUT /auth/v1/user {email}
+  // manda um link para o email ANTIGO e outro para o NOVO. Só quando os DOIS
+  // são confirmados é que o auth.users.email muda — e aí o trigger da 071
+  // espelha em participants.email (o rpc_sync_my_email() é a rede por baixo).
+  //
+  // ⚠️ NUNCA escrever só em participants.email: o login por nickname (024), o
+  //    forgot-ensure e o migrate-login resolvem tudo por esse campo e ficariam
+  //    a apontar para um endereço que já não é o da conta — em SILÊNCIO.
+  // ⚠️ NUNCA trocar o email com a service_role sem confirmação: um typo deixava
+  //    a pessoa sem forma de recuperar a password.
+  // ⚠️ Nos tokens usar `tok`, nunca `const t` — `t()` é a função de tradução
+  //    global (lote 070) e o shadow dava ReferenceError (TDZ) nas mensagens.
+
+  async function authUser() {
+    const tok = await ensureToken();
+    if (!tok) return null;
+    try {
+      const r = await fetch(`${SB_URL}/auth/v1/user`, {
+        cache: 'no-store', headers: { apikey: SB_KEY, Authorization: 'Bearer ' + tok },
+      });
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
+  }
+
+  // A conta tem identidade de password própria? (identities[].provider==='email')
+  // É o mesmo critério que o link-oauth usa do outro lado.
+  async function emailIdentity() {
+    const u = await authUser();
+    if (!u) return { ok: false, error: t('Sessão expirada - entra de novo.') };
+    const ids = Array.isArray(u.identities) ? u.identities : [];
+    return {
+      ok: true,
+      email: String(u.email || '').toLowerCase(),
+      pending: String(u.new_email || '').toLowerCase(),   // troca a meio, por confirmar
+      hasPassword: ids.some(i => i && i.provider === 'email'),
+      providers: ids.map(i => (i && i.provider) || '').filter(Boolean),
+    };
+  }
+
+  async function changeEmail(data) {
+    const cur = String((SESSION && SESSION.email) || '').toLowerCase();
+    const nw  = String(data.newEmail || '').trim().toLowerCase();
+    const pw  = data.password || '';
+    if (!cur) return { success: false, error: t('Sessão expirada - entra de novo.') };
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nw)) return { success: false, error: t('Email inválido.') };
+    if (nw === cur) return { success: false, error: t('Esse já é o teu email atual.') };
+
+    const id = await emailIdentity();
+    if (!id.ok) return { success: false, error: id.error };
+    if (!id.hasPassword) return { success: false, error: t('A tua conta entra com Google - o email é o da conta Google e não pode ser alterado aqui.') };
+
+    // Reautenticação: mesma regra do changePassword. Ter a sessão aberta não
+    // chega para mexer no endereço que dá acesso à conta.
+    const ok = await passwordGrant(cur, pw);
+    if (!ok) return { success: false, error: t('Password incorreta.') };
+
+    // Pré-validação contra o participants (a UNIQUE citext só rebentaria no fim,
+    // já depois de terem saído os dois emails). Se a RPC ainda não existir,
+    // segue - o GoTrue também recusa emails já registados.
+    try {
+      const free = await rpc('rpc_email_available', { p_email: nw }, true);
+      if (free === false) return { success: false, error: t('Já existe uma conta com esse email.') };
+    } catch (e) { /* 071 ainda não corrida - segue */ }
+
+    const tok = await ensureToken();
+    const redir = enc(location.origin + location.pathname);
+    const r = await fetch(`${SB_URL}/auth/v1/user?redirect_to=${redir}`, {
+      method: 'PUT',
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + (tok || SB_KEY), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: nw }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const m = String(j.msg || j.error_description || j.message || j.error || '').toLowerCase();
+      if (/already|registered|exists|taken/.test(m)) return { success: false, error: t('Já existe uma conta com esse email.') };
+      if (/rate|limit|seconds|too many/.test(m))     return { success: false, error: t('Pedidos a mais. Espera um minuto e tenta outra vez.') };
+      return { success: false, error: t('Não foi possível pedir a alteração. Tenta mais tarde.') };
+    }
+    return { success: true, pending: nw };
+  }
+
+  // Confirmação de um dos dois links (?token_hash=..&type=email_change).
+  // ANTI-PREFETCH: tal como no recovery, o token só é consumido AQUI, no clique
+  // real - não no scan do Outlook/SafeLinks (ver comentário do beginRecoveryHash).
+  // O GoTrue só devolve sessão (access_token) quando os DOIS links já foram
+  // confirmados; sem access_token = falta ainda o outro.
+  async function confirmEmailChange(token_hash) {
+    if (!token_hash) return { success: false, error: t('Link inválido.') };
+    let j = {};
+    try {
+      const r = await fetch(`${SB_URL}/auth/v1/verify`, {
+        method: 'POST', headers: { apikey: SB_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'email_change', token_hash }),
+      });
+      j = await r.json().catch(() => ({}));
+      if (!r.ok) return { success: false, error: t('Link inválido ou já usado. Pede a alteração outra vez.') };
+    } catch (e) { return { success: false, error: t('Erro de ligação.') }; }
+
+    if (!j.access_token) {
+      // 1.º dos dois cliques.
+      return { success: true, pending: true };
+    }
+
+    // 2.º clique: a troca ficou feita e vem sessão nova. Adotá-la, senão o
+    // access_token em memória ficava com o email antigo no claim.
+    const s = Object.assign({}, SESSION || {}, {
+      access_token: j.access_token,
+      refresh_token: j.refresh_token || (SESSION && SESSION.refresh_token) || '',
+      expires_at: Math.floor(realNowMs() / 1000) + (j.expires_in || 3600),
+    });
+    if (j.user && j.user.email) s.email = String(j.user.email).toLowerCase();
+    saveSession(s);
+
+    let sync = null;
+    try { sync = await rpc('rpc_sync_my_email', {}, true); } catch (e) { /* trigger da 071 já terá feito */ }
+    return { success: true, pending: false, email: s.email || '', conflict: !!(sync && sync.conflict) };
+  }
+
+  // Auto-cura: chamada em cada login. Barata (uma RPC) e apanha qualquer conta
+  // que tenha ficado dessincronizada (trigger em falta, conflito resolvido à mão).
+  async function syncMyEmail() {
+    try {
+      const s = await rpc('rpc_sync_my_email', {}, true);
+      if (s && s.synced && SESSION) { SESSION.email = s.email; saveSession(SESSION); }
+      return Object.assign({ success: true }, s || {});
+    } catch (e) { return { success: false }; }
+  }
+
   // ---- GOOGLE OAUTH (Sessão C) ---------------------------------------------
   // loginWithGoogle(): redireciona para o Supabase Auth (provider google); o
   // Supabase volta a esta página com #access_token&refresh_token no fragmento.
@@ -1943,6 +2462,19 @@ document.addEventListener('keydown', function(e){
     try {
       if (action === 'login') return await login(data);
       if (action === 'logout') { saveSession(null); DB = null; return { success: true }; }
+      // TERMOS (068, 12 Ago 2026). `needed` fica true enquanto o utilizador
+      // nunca tiver aceitado OU tiver aceitado uma versão diferente da que
+      // está em vigor no config. A versão NUNCA é enviada daqui — quem a
+      // decide é a base de dados, senão a prova de consentimento não valia.
+      if (action === 'termsStatus') {
+        const s = await rpc('rpc_terms_status', {}, true);
+        return { success: true, needed: !!(s && s.needed), version: (s && s.version) || null, marketing: (s && s.marketing) };
+      }
+      if (action === 'acceptTerms') {
+        const m = (data.marketing === true || data.marketing === false) ? data.marketing : null;
+        const s = await rpc('rpc_accept_terms', { p_marketing: m }, true);
+        return { success: !!(s && s.ok), version: (s && s.version) || null };
+      }
       if (action === 'adminLogin') { const ok = await rpc('rpc_admin_login', { p_password: data.password || '' }, true); DB = null; return { success: ok === true }; }
       if (action === 'getData') return await getData(data);
       if (action === 'savePred') return await savePred(data);
@@ -2053,7 +2585,40 @@ document.addEventListener('keydown', function(e){
         } catch (e) { return { success: false, error: e.message, badges: [] }; }
       }
       if (action === 'saveAvatar') { const av = await rpc('rpc_set_avatar', { p_avatar: data.avatar || '' }, true); DB = null; if (SESSION) { SESSION.avatar = av || null; saveSession(SESSION); } return { success: true, avatar: av || null }; }
-      if (action === 'saveNickname') { const nick = await rpc('rpc_set_nickname', { p_nick: data.nickname || '' }, true); DB = null; if (SESSION) { SESSION.nickname = nick || null; SESSION.name = dispName({ name: SESSION.realName || SESSION.name, nickname: nick || null }); saveSession(SESSION); } return { success: true, nickname: nick || null }; }
+      if (action === 'saveNickname') {
+        // Lote 067: com try/catch e extrator de JSON — sem isto o jogador via o
+        // JSON cru do PostgREST ({"code":"P0001",...}) em vez da mensagem.
+        try {
+          const nick = await rpc('rpc_set_nickname', { p_nick: data.nickname || '' }, true);
+          DB = null;
+          if (SESSION) {
+            SESSION.nickname = nick || null;
+            SESSION.name = dispName({ name: SESSION.realName || SESSION.name, nickname: nick || null });
+            saveSession(SESSION);
+          }
+          return { success: true, nickname: nick || null };
+        } catch (e) {
+          let msg = e.message || 'Não foi possível guardar o nickname.';
+          const m = msg.match(/\{[\s\S]*\}/);
+          if (m) { try { const j = JSON.parse(m[0]); if (j && j.message) msg = j.message; } catch (_) {} }
+          return { success: false, error: msg };
+        }
+      }
+      // 🎫 PASSAPORTE (069). `quests: null` = migração por aplicar ou RPC em
+      // erro → o frontend esconde tudo. NUNCA devolver [] no lugar de null
+      // (lição da 064: null = "não existe", [] = "existe e está vazio").
+      if (action === 'myQuests') {
+        try {
+          const q = await rpc('rpc_my_quests', { p_platform: data.platform || 'web' }, true);
+          return { success: true, quests: q || null };
+        } catch (e) { return { success: false, error: e.message, quests: null }; }
+      }
+      if (action === 'questTouch') {
+        try {
+          const q = await rpc('rpc_quest_touch', { p_keys: data.keys || [] }, true);
+          return { success: true, result: q || null };
+        } catch (e) { return { success: false, error: e.message, result: null }; }
+      }
       if (action === 'getLive') {
         // Lê o store escrito pela Edge Function live-fetch (migration 009).
         // Falha silenciosa → app segue sem live (igual ao comportamento antigo).
@@ -2191,19 +2756,37 @@ document.addEventListener('keydown', function(e){
       if (action === 'adminSetPrediction') { await rpc('rpc_admin_set_prediction', { p_comp: COMP, p_code: (data.code || '').toUpperCase(), p_game: data.gameId, p_t1: data.clear ? null : Number(data.t1), p_t2: data.clear ? null : Number(data.t2), p_joker: !!data.joker, p_clear: !!data.clear }, true); DB = null; return { success: true }; }
       if (action === 'saveSpecials') { await rpc('rpc_save_specials', { p_comp: COMP, p_specials: data.specials || {} }, true); DB = null; return { success: true }; }
       if (action === 'saveConfig') { await rpc('rpc_save_config', { p_deadline: data.deadlineH != null ? String(data.deadlineH) : '', p_new_password: data.newPassword || '', p_api_key: data.apiKey || '', p_odds_key: data.oddsApiKey || '' }, true); DB = null; return { success: true }; }
+      // 070: idioma do jogador. Guardado no perfil para que os EMAILS e as
+      // PUSH (que correm no servidor, sem browser) saibam em que lingua falar.
+      if (action === 'setLang') {
+        try { await rpc('rpc_set_lang', { p_lang: String(data.lang || 'pt') }, true); } catch (e) {}
+        return { success: true };
+      }
+      if (action === 'getLang') {
+        try { return { success: true, lang: await rpc('rpc_my_lang', {}, true) }; }
+        catch (e) { return { success: true, lang: null }; }
+      }
       if (action === 'broadcast') {
         const bText = data.text || data.message || '';
         const bChannel = data.channel || 'notif';   // 'notif' | 'email' | 'both'
+        // 070: audiencia por idioma. 'pt' | 'en' | 'both'.
+        //  - 'pt'/'en' -> so quem tem esse idioma no perfil (sem idioma = pt).
+        //  - 'both'    -> toda a gente, cada um na SUA lingua (bTextEn para os EN;
+        //                 se bTextEn vier vazio, os EN recebem o texto PT).
+        const bAud = data.audience || 'pt';
+        const bTextEn = data.textEn || '';
+        const bSubjEn = data.subjectEn || '';
         let emailed = 0, emailError = '', pushed = 0;
         // Notificação no sino + push FCM: só em 'notif' e 'both' (NÃO em 'só email').
         if (bChannel !== 'email') {
-          await rpc('rpc_broadcast', { p_text: bText }, true);   // sino (BD)
+          // sino (BD) - agora segmentado por idioma (migracao 070)
+          await rpc('rpc_broadcast', { p_text: bText, p_lang: bAud, p_text_en: bTextEn }, true);
           // O sino é só um INSERT; a push do telemóvel precisa da edge function.
           try {
             const pr = await fetch(`${SB_URL}/functions/v1/broadcast-push`, {
               method: 'POST',
               headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ password: data.password || '', text: bText }),
+              body: JSON.stringify({ password: data.password || '', text: bText, audience: bAud, textEn: bTextEn }),
             });
             const pj = await pr.json().catch(() => ({}));
             if (pj && pj.ok) pushed = pj.pushed || 0;
@@ -2215,7 +2798,8 @@ document.addEventListener('keydown', function(e){
             const er = await fetch(`${SB_URL}/functions/v1/broadcast-email`, {
               method: 'POST',
               headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ password: data.password || '', subject: data.subject || '', text: bText }),
+              body: JSON.stringify({ password: data.password || '', subject: data.subject || '', text: bText,
+                                    audience: bAud, textEn: bTextEn, subjectEn: bSubjEn }),
             });
             const ej = await er.json().catch(() => ({}));
             if (ej && ej.ok) emailed = ej.emailed || 0;
@@ -2306,6 +2890,10 @@ document.addEventListener('keydown', function(e){
             nickname: String(data.nickname || '').trim(),
             comp: COMP,
             ref,
+            // Aceitação dos termos (068). A edge function RECUSA o registo se
+            // isto não vier a true — a checkbox do ecrã é só a interface.
+            accepted_terms: data.acceptedTerms === true,
+            marketing_opt_in: data.marketing === true,
             redirect: location.origin + location.pathname,
           }),
         });
@@ -2318,6 +2906,11 @@ document.addEventListener('keydown', function(e){
       if (action === 'forgotPassword') return await forgotPassword(data);
       if (action === 'resetPassword') return await resetPassword(data);
       if (action === 'changePassword') return await changePassword(data);
+      // Email da conta (071) — ver o comentário grande em changeEmail()
+      if (action === 'emailIdentity') return await emailIdentity();
+      if (action === 'changeEmail') return await changeEmail(data);
+      if (action === 'confirmEmailChange') return await confirmEmailChange(data && data.token_hash);
+      if (action === 'syncMyEmail') return await syncMyEmail();
 
       // ---- AÇÃO DESCONHECIDA -------------------------------------------------
       // ⚠ NUNCA devolver { success:true } aqui. Até 19 Jul 2026 este fallback
@@ -2366,6 +2959,10 @@ document.addEventListener('keydown', function(e){
       <!-- PREMIUM na barra superior: fica à vista, não enterrado no menu de
            conta. .up-premium -> some por completo na app Android (D5). O JS
            (refreshPremiumEntry) só o mostra se premium_enabled='true'. -->
+      <!-- 🎫 PASSAPORTE (069): só aparece enquanto estiver por completar — aos
+           100% some sozinho e o Passaporte passa a viver no menu de conta.
+           SEM .up-premium: não fala de preços, pode aparecer na app Android. -->
+      <div class="user-pill" id="quests-pill" style="display:none;padding:4px 9px;border-color:var(--gold);color:var(--gold);background:rgba(245,197,24,.1);font-weight:700" onclick="showQuests()" title="Passaporte">🎫 <b id="quests-pill-n" style="font-size:.68rem;font-weight:700"></b></div>
       <div class="up-premium user-pill" id="premium-pill" style="display:none;padding:4px 9px;border-color:var(--gold);color:var(--gold)" onclick="showPremium()" title="Passe Premium">⭐</div>
       <div class="user-pill" id="notif-bell" style="position:relative;padding:4px 9px" onclick="showNotifs()" title="Notificações">🔔<span id="notif-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:9px;min-width:16px;height:16px;font-size:.6rem;line-height:16px;text-align:center;font-weight:700;padding:0 3px"></span></div>
       <div class="user-pill" onclick="showAccountMenu()" id="user-pill" title="Minha conta">👤 -</div>
@@ -2383,39 +2980,61 @@ document.addEventListener('keydown', function(e){
     <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:.78rem" onclick="closeNotifs()">Fechar</button>
   </div>
 </div>
-<!-- Account menu sheet -->
+<!-- Account menu sheet ────────────────────────────────────────────────────────
+     REORGANIZADO (12 Ago 2026): era uma lista corrida de 8 botões sem
+     hierarquia. Passa a ter duas ações rápidas no topo + 3 grupos:
+       (topo)      Trocar de competição · Passe Premium
+       PERFIL      Avatar · Nickname · Passaporte · Palmarés e Badges · Convidar amigos
+       CONTA       Alterar email · Alterar password
+       DEFINIÇÕES  Gerir notificações
+       (rodapé)    Terminar sessão · Eliminar conta · Fechar
+     ⚠️ NÃO mudar os ids #btn-premium / #btn-embaixadores: o
+        refreshPremiumEntry() liga-os e desliga-os por id.
+     ⚠️ A .up-premium no botão do passe é o que o esconde na app Android
+        (secção 6-A do PREMIUM_PLANO.md). Nenhum dos outros botões a leva. -->
 <div class="switcher-overlay" id="account-menu-overlay" onclick="closeAccountMenu()">
-  <div class="switcher-box" onclick="event.stopPropagation()">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+  <div class="switcher-box acct-sheet" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
       <div id="account-avatar" onclick="closeAccountMenu();showAvatarPicker()" title="Mudar avatar"
            style="width:48px;height:48px;border-radius:50%;background:rgba(245,197,24,.1);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;cursor:pointer;position:relative">👤<span style="position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;background:var(--gold);color:#12202f;font-size:.62rem;display:flex;align-items:center;justify-content:center;font-weight:700">✎</span></div>
-      <div>
+      <div style="min-width:0">
         <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.2rem" id="account-name">-</div>
-        <div style="font-size:.75rem;color:var(--sub);margin-top:2px" id="account-info">-</div>
+        <div style="font-size:.75rem;color:var(--sub);margin-top:2px;word-break:break-word" id="account-info">-</div>
       </div>
     </div>
+
+    <!-- Ações rápidas (sem rótulo de grupo): é o que se usa todos os dias. -->
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showCompetitions()" data-i18n>🔄 Trocar de competição</button>
     <!-- PREMIUM: .up-premium -> nunca aparece na app Android (ver secção 6-A do
          PREMIUM_PLANO.md). Além disso o JS só o revela se premiumEnabled. -->
-    <button id="btn-premium" class="up-premium btn btn-outline btn-full" style="display:none;margin-bottom:8px;border-color:var(--gold);color:var(--gold)" onclick="closeAccountMenu();showPremium()">⭐ Passe Premium</button>
-    <!-- Estatísticas avançadas: funcionalidade premium, mas SEM preço nem link
-         de compra -> pode aparecer na app. Só se mostra a quem tem passe, por
-         isso a app nunca chega sequer a mencionar o premium. -->
-    <!-- Stats saiu do menu de conta a 11 Ago: é agora uma tab da barra
-         inferior (#nav-stats). -->
+    <button id="btn-premium" class="up-premium btn btn-outline btn-full" style="display:none;border-color:var(--gold);color:var(--gold)" onclick="closeAccountMenu();showPremium()" data-i18n>⭐ Passe Premium</button>
 
+    <div class="acct-sep" data-i18n>Perfil</div>
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showAvatarPicker()" data-i18n>😀 Avatar</button>
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showNickEditor()" data-i18n>🏷️ Alterar nickname</button>
+    <!-- 🎫 PASSAPORTE (069): entrada permanente — é por aqui que se chega
+         depois de completo, quando a pastilha da barra de cima desaparece. -->
+    <button id="btn-passaporte" class="btn btn-outline btn-full" onclick="closeAccountMenu();showQuests()" data-i18n>🎫 Passaporte</button>
+    <!-- Palmarés + Badges: para TODOS, não é premium. Uma só página desde
+         11 Ago (pedido do Hugo) - palmarés em cima, badges por baixo. -->
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showBadges()" data-i18n>🏅 Palmarés e Badges</button>
     <!-- Embaixadores: convidar dá passes. NÃO leva .up-premium — não menciona
          preço nem link de compra, só marcos e o link de convite. Pode aparecer
          na app. O JS só o mostra se referrals_enabled='true'. -->
-    <button id="btn-embaixadores" class="btn btn-outline btn-full" style="display:none;margin-bottom:8px" onclick="closeAccountMenu();showEmbaixadores()">🤝 Convidar amigos</button>
-    <!-- Palmarés + Badges: para TODOS, não é premium. Uma só página desde
-         11 Ago (pedido do Hugo) - palmarés em cima, badges por baixo. -->
-    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showBadges()">🏅 Palmarés e Badges</button>
-    <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showCompetitions()">🔄 Trocar de competição</button>
-    <div style="font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);margin:0 0 8px 2px">⚙️ Definições</div>
-    <button class="btn btn-outline btn-full" style="margin-bottom:8px" onclick="closeAccountMenu();showChangePw()">🔑 Alterar password</button>
-    <button class="btn btn-outline btn-full" style="margin-bottom:14px" onclick="closeAccountMenu();showNotifPrefs()">🔔 Gerir notificações</button>
-    <button class="btn btn-danger btn-full" onclick="logout()">↩ Terminar sessão</button>
-    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeAccountMenu()">Fechar</button>
+    <button id="btn-embaixadores" class="btn btn-outline btn-full" style="display:none" onclick="closeAccountMenu();showEmbaixadores()" data-i18n>🤝 Convidar amigos</button>
+
+    <div class="acct-sep" data-i18n>Conta</div>
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showChangeEmail()" data-i18n>✉️ Alterar email</button>
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showChangePw()" data-i18n>🔑 Alterar password</button>
+
+    <div class="acct-sep" data-i18n>Definições</div>
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showNotifPrefs()" data-i18n>🔔 Gerir notificações</button>
+
+    <button class="btn btn-danger btn-full" style="margin-top:14px" onclick="logout()" data-i18n>↩ Terminar sessão</button>
+    <!-- Eliminar conta: link discreto e não botão, de propósito. Continua a ser
+         exigido pela Play Store e já existia no rodapé da app. -->
+    <div class="acct-foot"><a href="https://unclepredictor.pt/eliminar-conta.html" target="_blank" rel="noopener" data-i18n>Eliminar conta</a></div>
+    <button class="btn btn-outline btn-full" style="margin-top:10px;font-size:.78rem" onclick="closeAccountMenu()" data-i18n>Fechar</button>
   </div>
 </div>
 <!-- ── Passe Premium ──────────────────────────────────────────────────────────
@@ -2442,6 +3061,28 @@ document.addEventListener('keydown', function(e){
       </div>
       <div id="palmares-list"></div>
       <div id="badges-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 🎫 PASSAPORTE (069) — tutorial jogável. Reaproveita .up-page como o
+     Premium e os Embaixadores. Sem .up-premium: pode aparecer na app. -->
+<div id="quests-overlay" style="display:none">
+  <div class="up-page">
+    <div class="up-page-inner">
+      <div class="up-close"><button class="btn btn-outline" style="font-size:.78rem;padding:5px 12px" onclick="closeQuests()" data-i18n>✕ Fechar</button></div>
+      <div id="quests-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Celebração dos 100% do Passaporte. O texto do prémio é montado no JS
+     conforme o que REALMENTE saiu (lição da 049/058: nunca anunciar prémio
+     que não saiu). -->
+<div id="quests-done-overlay" style="display:none">
+  <div class="up-page">
+    <div class="up-page-inner">
+      <div id="quests-done-body"></div>
     </div>
   </div>
 </div>
@@ -2524,19 +3165,43 @@ document.addEventListener('keydown', function(e){
          primeiro login, numa janela que aparecia por trás da caixa de login e
          parecia que o login tinha bloqueado. A janela do nickname fica a
          existir só para os jogadores antigos do Mundial, que ainda não têm. -->
-    <div class="form-group"><label class="form-label">Nickname <span style="color:var(--sub);font-weight:400">(é o nome que aparece nas classificações)</span></label>
-      <input class="form-input" id="reg-nick" type="text" placeholder="ex: hugo_r" autocomplete="nickname" maxlength="20"></div>
+    <div class="form-group"><label class="form-label">Nickname <span style="color:var(--sub);font-weight:400" data-i18n>(é o nome que aparece nas classificações)</span></label>
+      <input class="form-input" id="reg-nick" type="text" placeholder="ex: hugo_r" autocomplete="nickname" maxlength="20">
+      <!-- Critérios visíveis (lote 067): verificação só ao submeter, por decisão
+           do Hugo, mas as regras ficam à vista em letra pequena. -->
+      <div style="font-size:.68rem;color:var(--sub);margin-top:5px;line-height:1.45" data-i18n>3 a 20 caracteres · letras, números, . _ - · único e sem palavrões</div></div>
     <div class="form-group"><label class="form-label">Email</label>
       <input class="form-input" id="reg-email" type="email" placeholder="o-teu@email.com" autocomplete="email"></div>
     <div class="form-group"><label class="form-label">Password <span style="color:var(--sub);font-weight:400">(mín. 6 caracteres)</span></label>
       <input class="form-input" id="reg-pw" type="password" placeholder="Define a tua password" autocomplete="new-password"></div>
     <div class="form-group"><label class="form-label">Confirmar password</label>
       <input class="form-input" id="reg-pw2" type="password" placeholder="Repete a password" autocomplete="new-password" onkeydown="if(event.key==='Enter')submitRegister()"></div>
+    <!-- ── Aceitação dos termos (12 Ago 2026) ────────────────────────────────
+         Até aqui o registo não pedia aceitação nenhuma: os termos e a política
+         de privacidade só existiam num link do rodapé, o que não prova
+         consentimento (RGPD art.º 7.º, n.º 1) nem serve de aceitação expressa
+         das condições antes de vender um passe (DL 24/2014).
+         ⚠️ A checkbox NÃO pode vir pré-marcada (consentimento tem de ser um
+         ato positivo) e bloqueia os DOIS botões — email/password E Google.
+         O Google é bloqueado aqui à cabeça porque, depois de sair da página
+         para o consentimento da Google, já não há onde pedir nada.
+         ⚠️ A checkbox de marketing é SEPARADA e opcional: consentimentos não
+         se agrupam. Quem não a marcar fica com marketing_opt_in=false.
+         A validação a sério está na edge function `register` (e, para o
+         Google, no modal bloqueante do ensureTerms) — isto é só interface. -->
+    <label for="reg-terms" style="display:flex;gap:9px;align-items:flex-start;margin:14px 0 8px;font-size:.76rem;line-height:1.45;color:var(--text);cursor:pointer">
+      <input type="checkbox" id="reg-terms" onchange="regTermsToggle()" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;accent-color:var(--gold)">
+      <span>Li e aceito os <a href="https://unclepredictor.pt/termos.html" target="_blank" rel="noopener" style="color:var(--gold)">Termos de Utilização</a> e a <a href="https://unclepredictor.pt/privacidade.html" target="_blank" rel="noopener" style="color:var(--gold)">Política de Privacidade</a>. Tenho pelo menos 16 anos ou autorização de um responsável legal.</span>
+    </label>
+    <label for="reg-marketing" style="display:flex;gap:9px;align-items:flex-start;margin-bottom:12px;font-size:.74rem;line-height:1.45;color:var(--sub);cursor:pointer">
+      <input type="checkbox" id="reg-marketing" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;accent-color:var(--gold)">
+      <span>Quero receber emails com novidades, prazos e promoções do Uncle Predictor. (Opcional — podes mudar quando quiseres.)</span>
+    </label>
     <div id="reg-error" style="display:none" class="alert alert-error"></div>
     <div id="reg-success" style="display:none" class="alert alert-success"></div>
-    <button class="btn btn-primary btn-full" onclick="submitRegister()" id="reg-btn">Criar conta</button>
+    <button class="btn btn-primary btn-full" onclick="submitRegister()" id="reg-btn" disabled style="opacity:.5">Criar conta</button>
     <div style="text-align:center;margin:10px 0 2px;font-size:.72rem;color:var(--sub)">ou</div>
-    <button class="btn btn-full" onclick="loginGoogle()" style="margin-top:8px;background:#fff;color:#1f1f1f;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px">
+    <button class="btn btn-full" id="reg-google-btn" onclick="loginGoogle()" disabled style="margin-top:8px;background:#fff;color:#1f1f1f;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;opacity:.5">
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
       Registar com Google
     </button>
@@ -2582,6 +3247,33 @@ document.addEventListener('keydown', function(e){
     <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeChangePw()">Cancelar</button>
   </div>
 </div>
+<!-- ── Alterar email (menu de conta) ──────────────────────────────────────────
+     Fluxo NATIVO do Supabase com DUPLA confirmação ("Secure email change"):
+     sai um link para o email ANTIGO e outro para o NOVO; o auth.users.email só
+     muda depois dos DOIS. A migração 071 espelha depois em participants.email.
+     Contas que entram só com Google não passam daqui: não têm password para
+     reautenticar e o link-oauth volta a casar por email no login seguinte. -->
+<div class="switcher-overlay" id="changeemail-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px" data-i18n>✉️ Alterar email</div>
+    <div id="cem-current" style="font-size:.78rem;color:var(--sub);margin-bottom:14px;word-break:break-all"></div>
+    <div id="cem-google" style="display:none" class="alert alert-error"></div>
+    <div id="cem-form">
+      <div class="form-group"><label class="form-label" data-i18n>Novo email</label>
+        <input class="form-input" id="cem-new" type="email" placeholder="novo@email.com" autocomplete="email"></div>
+      <div class="form-group"><label class="form-label" data-i18n>Confirmar novo email</label>
+        <input class="form-input" id="cem-confirm" type="email" placeholder="Repete o novo email" data-i18n-attr="placeholder" autocomplete="off"></div>
+      <div class="form-group"><label class="form-label" data-i18n>Password atual</label>
+        <input class="form-input" id="cem-pw" type="password" placeholder="Password atual" data-i18n-attr="placeholder" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitChangeEmail()"></div>
+      <div style="font-size:.74rem;color:var(--sub);line-height:1.55;margin-bottom:12px" data-i18n>Por segurança vais receber dois emails: um no endereço atual e outro no novo. A troca só fica feita depois de clicares nos dois links.</div>
+    </div>
+    <div id="cem-error" style="display:none" class="alert alert-error"></div>
+    <div id="cem-success" style="display:none" class="alert alert-success"></div>
+    <button class="btn btn-primary btn-full" onclick="submitChangeEmail()" id="cem-btn" data-i18n>Pedir alteração</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.78rem" onclick="closeChangeEmail()" data-i18n>Cancelar</button>
+  </div>
+</div>
+
 <!-- ── Reset password (via link de email) ── -->
 <div class="switcher-overlay" id="resetpw-overlay">
   <div class="switcher-box" onclick="event.stopPropagation()">
@@ -2597,16 +3289,46 @@ document.addEventListener('keydown', function(e){
   </div>
 </div>
 
-<!-- Nickname obrigatório (competições não-Mundial) -->
+<!-- Nickname: obrigatório no 1.º acesso a competições não-Mundial, e desde
+     12 Ago 2026 também editável a partir do menu de conta (showNickEditor()).
+     ⚠️ #nick-esc-btn muda de "Sair" (obrigatório, faz logout) para "Cancelar"
+        (opcional, só fecha) conforme o _nickOptional. Ver ensureNickname(). -->
 <div class="switcher-overlay" id="nick-overlay">
   <div class="switcher-box" onclick="event.stopPropagation()">
-    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">🏷️ Escolhe o teu nickname</div>
-    <div style="font-size:.8rem;color:var(--sub);margin-bottom:16px;line-height:1.5">Os jogadores aparecem pelo teu <strong>nickname</strong> - o teu nome só fica visível ao clicar no teu perfil. Escolhe um para continuares. É único e fica associado à tua conta.</div>
-    <div class="form-group"><label class="form-label">Nickname <span style="color:var(--sub);font-weight:400">(3-20 caracteres: letras, números, . _ -)</span></label>
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px" data-i18n>🏷️ Escolhe o teu nickname</div>
+    <div id="nick-sub" style="font-size:.8rem;color:var(--sub);margin-bottom:16px;line-height:1.5">Os jogadores aparecem pelo teu <strong>nickname</strong> - o teu nome só fica visível ao clicar no teu perfil. Escolhe um para continuares. É único e fica associado à tua conta.</div>
+    <div id="nick-sub-opt" style="display:none;font-size:.8rem;color:var(--sub);margin-bottom:16px;line-height:1.5">O nickname é único e é como os outros jogadores te veem. <strong>Atenção:</strong> também serve para entrares na conta — depois de mudares, o antigo deixa de funcionar no login.</div>
+    <div class="form-group"><label class="form-label">Nickname <span style="color:var(--sub);font-weight:400" data-i18n>(3-20 caracteres · letras, números, . _ - · único e sem palavrões)</span></label>
       <input class="form-input" id="nick-input" type="text" maxlength="20" placeholder="ex.: rui_10" autocomplete="off" onkeydown="if(event.key==='Enter')saveNick()"></div>
     <div id="nick-error" style="display:none" class="alert alert-error"></div>
-    <button class="btn btn-primary btn-full" onclick="saveNick()" id="nick-save-btn">Guardar nickname</button>
-    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.8rem" onclick="cancelNick()">Sair</button>
+    <button class="btn btn-primary btn-full" onclick="saveNick()" id="nick-save-btn" data-i18n>Guardar nickname</button>
+    <button class="btn btn-outline btn-full" id="nick-esc-btn" style="margin-top:8px;font-size:.8rem" onclick="cancelNick()" data-i18n>Sair</button>
+  </div>
+</div>
+
+<!-- ── Aceitação dos termos (modal bloqueante, 12 Ago 2026) ───────────────────
+     Rede de segurança para TRÊS casos que a checkbox do registo não apanha:
+       1) as contas que já existiam antes disto (nunca lhes foi pedido nada);
+       2) quem cria conta com Google — nesse fluxo não há onde pedir a
+          aceitação antes de sair da página;
+       3) quando os termos mudarem: basta bombar o config.terms_version e toda
+          a gente volta a passar por aqui no login seguinte.
+     Só tem saída pela aceitação ou por sair da conta, como o do nickname. -->
+<div class="switcher-overlay" id="terms-overlay">
+  <div class="switcher-box" onclick="event.stopPropagation()" style="max-height:90vh;overflow-y:auto">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:1.1rem;margin-bottom:6px">📄 Termos e privacidade</div>
+    <div id="terms-intro" style="font-size:.8rem;color:var(--sub);margin-bottom:14px;line-height:1.5">Antes de continuares, precisamos da tua aceitação dos termos e da política de privacidade. Leva 10 segundos e é pedido uma única vez.</div>
+    <label for="terms-ok" style="display:flex;gap:9px;align-items:flex-start;margin-bottom:10px;font-size:.78rem;line-height:1.45;color:var(--text);cursor:pointer">
+      <input type="checkbox" id="terms-ok" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;accent-color:var(--gold)">
+      <span>Li e aceito os <a href="https://unclepredictor.pt/termos.html" target="_blank" rel="noopener" style="color:var(--gold)">Termos de Utilização</a> e a <a href="https://unclepredictor.pt/privacidade.html" target="_blank" rel="noopener" style="color:var(--gold)">Política de Privacidade</a>. Tenho pelo menos 16 anos ou autorização de um responsável legal.</span>
+    </label>
+    <label for="terms-marketing" style="display:flex;gap:9px;align-items:flex-start;margin-bottom:14px;font-size:.74rem;line-height:1.45;color:var(--sub);cursor:pointer">
+      <input type="checkbox" id="terms-marketing" style="width:17px;height:17px;flex-shrink:0;margin-top:1px;accent-color:var(--gold)">
+      <span>Quero receber emails com novidades, prazos e promoções. (Opcional.)</span>
+    </label>
+    <div id="terms-error" style="display:none" class="alert alert-error"></div>
+    <button class="btn btn-primary btn-full" onclick="acceptTerms()" id="terms-btn">Aceitar e continuar</button>
+    <button class="btn btn-outline btn-full" style="margin-top:8px;font-size:.8rem" onclick="cancelTerms()">Sair da conta</button>
   </div>
 </div>
 
@@ -2834,6 +3556,16 @@ document.addEventListener('keydown', function(e){
           <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           Continuar com Google
         </button>
+        <!-- Aviso passivo (12 Ago 2026): o "Continuar com Google" também CRIA
+             conta a quem ainda não tem. Não dá para meter aqui a checkbox sem
+             estragar o login de quem já é utilizador, por isso quem chegar por
+             aqui apanha o modal bloqueante do ensureTerms logo a seguir ao
+             login. Este aviso é o que se pede à entrada. -->
+        <div style="margin-top:10px;font-size:.68rem;color:var(--sub);text-align:center;line-height:1.45">
+          Ao entrar ou criar conta aceitas os
+          <a href="https://unclepredictor.pt/termos.html" target="_blank" rel="noopener" style="color:var(--sub);text-decoration:underline">Termos</a> e a
+          <a href="https://unclepredictor.pt/privacidade.html" target="_blank" rel="noopener" style="color:var(--sub);text-decoration:underline">Política de Privacidade</a>.
+        </div>
       </div>
       <div style="margin-top:10px;text-align:center">
         <span style="font-size:.78rem;color:var(--sub)">Não tens conta? </span>
@@ -3226,6 +3958,20 @@ document.addEventListener('keydown', function(e){
           <input class="form-input" id="broadcast-subject" type="text" maxlength="200" placeholder="Assunto (só usado no email)" style="width:100%;box-sizing:border-box;margin-bottom:4px">
           <div style="font-size:.68rem;color:var(--sub);margin-bottom:8px;line-height:1.4">⚠️ O assunto é enviado <b>sem acentos nem emojis</b> e cortado a ~65 caracteres (limitação do envio de email). A <b>mensagem</b> em baixo mantém tudo.</div>
           <textarea class="form-input" id="broadcast-text" rows="6" maxlength="4000" placeholder="Escreve a mensagem… (podes usar várias linhas e deixar linhas em branco entre parágrafos)" style="resize:vertical;width:100%;box-sizing:border-box;white-space:pre-wrap"></textarea>
+
+          <!-- 070: AUDIENCIA POR IDIOMA -->
+          <div style="margin-top:12px;font-size:.78rem;color:var(--sub)">Enviar a:</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 4px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer"><input type="radio" name="bcast-aud" value="pt" checked onchange="bcastAudChanged()"> 🇵🇹 Só quem tem a app em <b>Português</b></label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer"><input type="radio" name="bcast-aud" value="en" onchange="bcastAudChanged()"> 🇬🇧 Só quem tem a app em <b>Inglês</b></label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer"><input type="radio" name="bcast-aud" value="both" onchange="bcastAudChanged()"> 🌐 <b>Todos</b> — cada um na sua língua</label>
+          </div>
+          <div id="bcast-en-box" style="display:none;border-top:1px dashed var(--border);margin-top:10px;padding-top:10px">
+            <div style="font-size:.72rem;color:var(--sub);margin-bottom:6px">Versão inglesa <span style="opacity:.75">(se deixares em branco, os jogadores em inglês recebem o texto português)</span></div>
+            <input class="form-input" id="broadcast-subject-en" type="text" maxlength="200" placeholder="Subject (email only)" style="width:100%;box-sizing:border-box;margin-bottom:4px">
+            <textarea class="form-input" id="broadcast-text-en" rows="6" maxlength="4000" placeholder="Write the message in English…" style="resize:vertical;width:100%;box-sizing:border-box;white-space:pre-wrap"></textarea>
+          </div>
+
           <div style="margin-top:10px;font-size:.78rem;color:var(--sub)">Enviar via:</div>
           <div style="display:flex;flex-direction:column;gap:6px;margin:6px 0 4px">
             <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;cursor:pointer"><input type="radio" name="bcast-channel" value="notif" checked> 🔔 Só notificação app/web <span style="color:var(--sub);font-size:.72rem">(gera notificação no telemóvel)</span></label>
@@ -3246,15 +3992,15 @@ document.addEventListener('keydown', function(e){
        Play Store só no browser - dentro da app não faz sentido.  -->
   <footer id="app-foot" style="display:none">
     <div class="af-links">
-      <a href="https://unclepredictor.pt/regras.html" target="_blank" rel="noopener">Regras</a>
-      <a href="https://unclepredictor.pt/como-funciona.html" target="_blank" rel="noopener">Como funciona</a>
-      <a href="https://unclepredictor.pt/guias/" target="_blank" rel="noopener">Guias</a>
-      <a href="https://unclepredictor.pt/faq.html" target="_blank" rel="noopener">FAQ</a>
+      <a href="https://unclepredictor.pt/regras.html" target="_blank" rel="noopener" data-i18n>Regras</a>
+      <a href="https://unclepredictor.pt/como-funciona.html" target="_blank" rel="noopener" data-i18n>Como funciona</a>
+      <a href="https://unclepredictor.pt/guias/" target="_blank" rel="noopener" data-i18n>Guias</a>
+      <a href="https://unclepredictor.pt/faq.html" target="_blank" rel="noopener" data-i18n>FAQ</a>
       <a class="up-premium" href="https://unclepredictor.pt/premium.html" target="_blank" rel="noopener">Premium</a>
-      <a href="https://unclepredictor.pt/contactos.html" target="_blank" rel="noopener">Contactos</a>
-      <a href="https://unclepredictor.pt/termos.html" target="_blank" rel="noopener">Termos</a>
-      <a href="https://unclepredictor.pt/privacidade.html" target="_blank" rel="noopener">Privacidade e cookies</a>
-      <a href="https://unclepredictor.pt/eliminar-conta.html" target="_blank" rel="noopener">Eliminar conta</a>
+      <a href="https://unclepredictor.pt/contactos.html" target="_blank" rel="noopener" data-i18n>Contactos</a>
+      <a href="https://unclepredictor.pt/termos.html" target="_blank" rel="noopener" data-i18n>Termos</a>
+      <a href="https://unclepredictor.pt/privacidade.html" target="_blank" rel="noopener" data-i18n>Privacidade e cookies</a>
+      <a href="https://unclepredictor.pt/eliminar-conta.html" target="_blank" rel="noopener" data-i18n>Eliminar conta</a>
     </div>
     <div class="af-icons">
       <a href="https://www.facebook.com/unclepredictor" target="_blank" rel="noopener" title="Facebook" aria-label="Facebook">
@@ -3454,9 +4200,10 @@ function buildLeagueGamesFrom(dbGames){
 GAMES.forEach(g=>{
   if(!g.date) return;
   if(/[Zz]|[+\-]\d\d:?\d\d$/.test(g.date)) return;   // já tem fuso definido
-  let s=g.date;
-  if(/T\d\d:\d\d$/.test(s)) s+=':00';                 // garante segundos antes do offset
-  g.date=s+'+01:00';
+  // 070: era '+01:00' fixo. Certo no Mundial (Jun/Jul), ERRADO nas ligas de
+  // inverno, que correm em UTC+0. UP_DATE descobre o offset real da data.
+  const _d=UP_DATE(g.date);
+  if(!isNaN(_d.getTime())) g.date=_d.toISOString();
 });
 
 // ── Transmissões em Portugal por jogo ──
@@ -3479,7 +4226,7 @@ const TV_CHANNELS = {
   'FIN_01':{free:['RTP'],  streaming:true},   // Final
 };
 
-const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort((a,b)=>a.localeCompare(b,'pt'));
+const ALL_TEAMS = [...new Set(Object.values(GROUPS).flat())].sort((a,b)=>a.localeCompare(b,UP_LOCALE()));
 const KO_MDS = ['R32','R16','QF','SF','F3','FIN'];
 
 const FLAG_CODES = {
@@ -3740,7 +4487,7 @@ function updatePrebetDeadlineText() {
   // fica só para o WC2026, que está congelado com a regra antiga.
   if (S.competition !== 'mundial2026' && S.prebetWindow && S.prebetWindow.t_close) {
     const dl = new Date(Date.parse(S.prebetWindow.t_close));
-    const dstr = dl.toLocaleDateString('pt-PT', {day:'numeric',month:'long',year:'numeric'});
+    const dstr = dl.toLocaleDateString(UP_LOCALE(), {day:'numeric',month:'long',year:'numeric'});
     const pct = (typeof prebetValorHojePct==='function') ? prebetValorHojePct() : null;
     const lbl = 'até meio da época';
     const nota = `As pré-apostas ficam abertas até <strong style="color:var(--gold)">${dstr}</strong> (meio da época), mas <strong style="color:var(--text)">perdem valor com o tempo</strong>: quanto mais cedo fizeres o palpite, mais vale.`
@@ -3754,7 +4501,7 @@ function updatePrebetDeadlineText() {
   const dh = S.deadlineH || 1;
   const deadline = new Date(firstGame.getTime() - dh * 60 * 60 * 1000);
   const opts = {day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'};
-  const deadlineStr = deadline.toLocaleString('pt-PT', opts);
+  const deadlineStr = deadline.toLocaleString(UP_LOCALE(), opts);
   const note = `As pré-apostas encerram <strong style="color:var(--text)">${dh}h antes do 1º jogo</strong> - até <strong style="color:var(--gold)">${deadlineStr}</strong> (hora de Portugal).`;
   const label = `encerram ${dh}h antes do 1º jogo`;
   ['prebet-deadline-login','prebet-deadline-rules'].forEach(id => {
@@ -3800,6 +4547,30 @@ async function init() {
     }
   } catch (e) {}
 
+  // Confirmação da ALTERAÇÃO DE EMAIL (071). O template traz
+  // ?token_hash=..&type=email_change na QUERY STRING (mesmo desenho
+  // anti-prefetch do recovery). Com a dupla confirmação, este código corre uma
+  // vez por cada um dos dois links - o adapter distingue pelo access_token.
+  try {
+    const _qe = new URLSearchParams(window.location.search || '');
+    if (_qe.get('type') === 'email_change' && _qe.get('token_hash')) {
+      const _th = _qe.get('token_hash');
+      history.replaceState({}, '', window.location.pathname);
+      setTimeout(async () => {
+        let r = null;
+        try { r = await api('confirmEmailChange', { token_hash: _th }); } catch (e) {}
+        if (!r || !r.success) { showToast((r && r.error) || t('Link inválido ou já usado.'), 'error'); return; }
+        if (r.pending) { showToast(t('Confirmado. Falta confirmares no OUTRO email.'), 'success'); return; }
+        if (S.user && r.email) {
+          S.user.email = r.email;
+          try { localStorage.setItem('up26_user', JSON.stringify(S.user)); } catch (e) {}
+        }
+        showToast(r.conflict ? t('Email de login alterado, mas o perfil ficou por sincronizar - fala connosco.')
+                             : t('Email alterado com sucesso!'), r.conflict ? 'error' : 'success');
+      }, 700);
+    }
+  } catch (e) {}
+
   // REGRESSO DO PAGAMENTO (premium): o Payment Link do Stripe redireciona para
   // /?premium=ok. Marcamos a flag e limpamos o parâmetro do endereço.
   // ⚠️ PRESERVAR O HASH: o modo dev (#dev) e o UP_DEV() dependem dele; se
@@ -3819,7 +4590,10 @@ async function init() {
   // caminho normal de restauro (abaixo) fazer o resto.
   try {
     const _h = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
-    if (_h.get('access_token') && _h.get('type') !== 'recovery' && window.UPSB && window.UPSB.completeOAuth) {
+    // ⚠️ 'email_change' também volta com #access_token quando o template usa o
+    //    {{ .ConfirmationURL }} de origem. Sem este guard, a confirmação da
+    //    troca de email entrava pelo caminho do login Google e dava erro.
+    if (_h.get('access_token') && _h.get('type') !== 'recovery' && _h.get('type') !== 'email_change' && window.UPSB && window.UPSB.completeOAuth) {
       history.replaceState({}, '', window.location.pathname);
       const r = await UPSB.completeOAuth(_h.get('access_token'), _h.get('refresh_token') || '', _h.get('expires_in'));
       if (r && r.success) {
@@ -3872,6 +4646,8 @@ async function init() {
     setGaUser(S.user.code); track('login',{method:'auto'});
     // Nickname obrigatório (1x por conta): sessão restaurada sem nickname -> pede já.
     if(S.user && !S.user.nickname){ await ensureNickname(); if(!S.user.nickname) return; }
+    // Termos (068): depois do nickname, para não empilhar dois modais.
+    if(!(await ensureTerms())) return;
     // Entrar SEMPRE pela página de seleção de competições (decisão Hugo, 14 Jul).
     // Antes: se só houvesse 1 competição inscrita, saltava direto para a app (Mundial).
     showCompetitions();
@@ -3928,6 +4704,10 @@ async function login() {
     const r = await api('login', {identifier: ident, password: pw});
     if (r.success) {
       S.user = {name: r.name, realName: r.realName||r.name, nickname: r.nickname||null, code: r.code, email: r.email};
+      // Rede de segurança da 071: se o participants.email tiver ficado atrás do
+      // auth.users.email (trigger em falta, migração feita a meio), corrige-se
+      // aqui, em silêncio. Não bloqueia o login.
+      try { api('syncMyEmail',{}); } catch(e) {}
       setGaUser(S.user.code); track('login',{method:'manual'});
       localStorage.setItem('up26_user', JSON.stringify(S.user));
       const sc = localStorage.getItem('up26_saved_'+S.user.code);
@@ -3939,6 +4719,10 @@ async function login() {
       // simplesmente que o login tinha bloqueado (bug de 6 Ago 2026).
       btn.textContent = 'Entrar no jogo'; btn.disabled = false;
       if(!S.user.nickname){ await ensureNickname(); if(!S.user.nickname) return; }
+      // Termos (068): quem criou conta com Google, ou já tinha conta antes de
+      // isto existir, aceita aqui. Quem veio pelo registo normal já aceitou e
+      // o rpc_terms_status devolve needed=false — nem chega a ver o modal.
+      if(!(await ensureTerms())) return;
       // Entrar SEMPRE pela página de seleção de competições (decisão Hugo, 14 Jul).
       showCompetitions();
       loadData();         // buscar em paralelo (atualiza o nº de inscritos)
@@ -4003,10 +4787,30 @@ function showRegister() {
   preencherPadrinho();
   document.getElementById('reg-error').style.display='none';
   document.getElementById('reg-success').style.display='none';
-  const btn=document.getElementById('reg-btn'); btn.disabled=false; btn.style.display=''; btn.textContent='Criar conta';
+  const btn=document.getElementById('reg-btn'); btn.style.display=''; btn.textContent='Criar conta';
+  // ⚠️ Desmarcar SEMPRE as checkboxes ao reabrir. Um consentimento tem de ser
+  // um ato positivo de cada vez — deixar a marca de uma tentativa anterior
+  // seria o mesmo que a trazer pré-marcada. O regTermsToggle() volta a pôr os
+  // botões (incluindo o do Google) desativados.
+  const t=document.getElementById('reg-terms'); if(t) t.checked=false;
+  const m=document.getElementById('reg-marketing'); if(m) m.checked=false;
+  regTermsToggle();
   document.getElementById('register-overlay').classList.add('open');
 }
 function closeRegister(){ document.getElementById('register-overlay').classList.remove('open'); }
+
+// Liga/desliga OS DOIS caminhos de registo conforme a checkbox dos termos.
+// O botão do Google também tem de ficar bloqueado: uma vez saído da página
+// para o consentimento da Google, já não há onde pedir a aceitação.
+function regTermsToggle(){
+  const ok = !!(document.getElementById('reg-terms')||{}).checked;
+  ['reg-btn','reg-google-btn'].forEach(id=>{
+    const b=document.getElementById(id); if(!b) return;
+    b.disabled = !ok;
+    b.style.opacity = ok ? '' : '.5';
+    b.style.cursor  = ok ? '' : 'not-allowed';
+  });
+}
 
 async function submitRegister() {
   const firstName = document.getElementById('reg-first').value.trim();
@@ -4023,9 +4827,14 @@ async function submitRegister() {
   if (!/^[A-Za-z0-9_.\-]{3,20}$/.test(nick)) { errEl.textContent='Nickname inválido: 3 a 20 caracteres (letras, números, . _ -).'; errEl.style.display='block'; return; }
   if (pw.length<6) { errEl.textContent='A password deve ter pelo menos 6 caracteres.'; errEl.style.display='block'; return; }
   if (pw!==pw2) { errEl.textContent='As passwords não coincidem.'; errEl.style.display='block'; return; }
+  // Termos: o botão já está desativado sem a checkbox, mas isto fica como
+  // segunda guarda (o Enter no campo da password chama esta função direta).
+  const aceitou = !!(document.getElementById('reg-terms')||{}).checked;
+  const marketing = !!(document.getElementById('reg-marketing')||{}).checked;
+  if (!aceitou) { errEl.textContent='Tens de aceitar os Termos de Utilização e a Política de Privacidade.'; errEl.style.display='block'; return; }
   const btn=document.getElementById('reg-btn'); btn.textContent='A criar...'; btn.disabled=true;
   try {
-    const r=await api('register',{email,firstName,lastName,nickname:nick,password:pw});
+    const r=await api('register',{email,firstName,lastName,nickname:nick,password:pw,acceptedTerms:aceitou,marketing});
     if (r.success) {
       // Duas mensagens diferentes conforme a confirmação de email esteja ou não
       // exigida no projeto. Nunca dizer "podes entrar já" quando a conta ainda
@@ -4046,9 +4855,9 @@ async function submitRegister() {
       }
     } else {
       errEl.textContent=r.error||'Erro ao criar conta.'; errEl.style.display='block';
-      btn.disabled=false; btn.textContent='Criar conta';
+      btn.textContent='Criar conta'; regTermsToggle();
     }
-  } catch(e) { errEl.textContent='Erro de ligação.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='Criar conta'; }
+  } catch(e) { errEl.textContent='Erro de ligação.'; errEl.style.display='block'; btn.textContent='Criar conta'; regTermsToggle(); }
 }
 
 // ── Esqueci a password ──
@@ -4105,6 +4914,65 @@ async function submitChangePw() {
     }
   } catch(e){ errEl.textContent='Erro de ligação.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='Alterar password'; }
 }
+
+// ── Alterar email da conta (071) ────────────────────────────────────────────
+async function showChangeEmail() {
+  ['cem-new','cem-confirm','cem-pw'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('cem-error').style.display='none';
+  document.getElementById('cem-success').style.display='none';
+  document.getElementById('cem-google').style.display='none';
+  document.getElementById('cem-form').style.display='';
+  const btn=document.getElementById('cem-btn'); btn.disabled=false; btn.style.display=''; btn.textContent=t('Pedir alteração');
+  document.getElementById('cem-current').textContent=t('Email atual: ')+((S.user&&S.user.email)||'-');
+  document.getElementById('changeemail-overlay').classList.add('open');
+  // Contas só-Google: dizer JÁ que não dá, em vez de deixar falhar depois de
+  // preencherem tudo. Também apanha uma troca já pedida e por confirmar.
+  try {
+    const id=await api('emailIdentity',{});
+    if (id && id.ok && !id.hasPassword) {
+      const g=document.getElementById('cem-google');
+      g.innerHTML=t('A tua conta entra com {google}, por isso o email é o da conta Google e não pode ser alterado aqui.',{google:'<b>Google</b>'})
+        +'<br><br>'+t('Se quiseres usar outro endereço, cria primeiro uma password em {forgot} e volta a este ecrã.',{forgot:'<b>"'+t('Esqueceste a password?')+'"</b>'});
+      g.style.display='block';
+      document.getElementById('cem-form').style.display='none';
+      btn.style.display='none';
+    } else if (id && id.ok && id.pending) {
+      const s=document.getElementById('cem-success');
+      s.innerHTML=t('Já pediste a troca para {email}. Confirma nos {dois} emails para ficar feita.',{email:'<b>'+id.pending+'</b>',dois:'<b>'+t('dois')+'</b>'});
+      s.style.display='block';
+    }
+  } catch(e) {}
+}
+function closeChangeEmail(){ document.getElementById('changeemail-overlay').classList.remove('open'); }
+
+async function submitChangeEmail() {
+  const nw=(document.getElementById('cem-new').value||'').trim().toLowerCase();
+  const cf=(document.getElementById('cem-confirm').value||'').trim().toLowerCase();
+  const pw=document.getElementById('cem-pw').value;
+  const errEl=document.getElementById('cem-error'), sucEl=document.getElementById('cem-success');
+  errEl.style.display='none'; sucEl.style.display='none';
+  if (!nw||!cf||!pw){ errEl.textContent=t('Preenche todos os campos.'); errEl.style.display='block'; return; }
+  if (nw!==cf){ errEl.textContent=t('Os dois emails não coincidem.'); errEl.style.display='block'; return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nw)){ errEl.textContent=t('Email inválido.'); errEl.style.display='block'; return; }
+  const btn=document.getElementById('cem-btn'); btn.textContent=t('A pedir...'); btn.disabled=true;
+  try {
+    const r=await api('changeEmail',{newEmail:nw,password:pw});
+    if (r && r.success) {
+      sucEl.innerHTML=t('Pedido registado. Enviámos um link para {atual} e outro para {novo}. Só depois de clicares nos {dois} é que a troca fica feita.',
+        {atual:'<b>'+((S.user&&S.user.email)||t('o endereço atual'))+'</b>', novo:'<b>'+nw+'</b>', dois:'<b>'+t('dois')+'</b>'});
+      sucEl.style.display='block';
+      btn.style.display='none';
+      document.getElementById('cem-form').style.display='none';
+    } else {
+      errEl.textContent=(r&&r.error)||t('Não foi possível pedir a alteração.'); errEl.style.display='block';
+      btn.disabled=false; btn.textContent=t('Pedir alteração');
+    }
+  } catch(e){ errEl.textContent=t('Erro de ligação.'); errEl.style.display='block'; btn.disabled=false; btn.textContent=t('Pedir alteração'); }
+}
+
+// Nickname a partir do menu de conta (o modal já existia, mas só no modo
+// obrigatório - ali o botão de escape faz LOGOUT). Ver ensureNickname().
+function showNickEditor(){ _nickOptional=true; ensureNickname(); }
 
 // ── Reset password (via link de email) ──
 let _resetEmail='', _resetToken='';
@@ -4364,6 +5232,8 @@ function showApp() {
   showView('leaderboard');
   registerPush();
   try{ syncAds(); }catch(e){}   // banner AdMob (só app nativa, só não-premium)
+  // 🎫 Passaporte (069): pastilha + estado; auto-abre na 2.ª sessão, uma vez.
+  try{ renderQuestsPill(); loadQuests().then(ppMaybeIntro).catch(()=>{}); }catch(e){}
 }
 // ══════════════════════════════════════════════════════════════════════════
 //  VISTA DE LIGA (pontos-corridos) - Fase 1
@@ -4447,7 +5317,7 @@ function renderLeagueView(){
   let cards='';
   games.forEach(g=>{
     const p=L.preds[g.game_id]||{}, res=L.results[g.game_id], jok=!!p.joker, locked=leagueGameLocked(g)||!!res;
-    const dt=g.kickoff_utc?new Date(g.kickoff_utc).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'data por confirmar';
+    const dt=g.kickoff_utc?UP_DATE(g.kickoff_utc).toLocaleString(UP_LOCALE(),{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'data por confirmar';
     const t1v=p.t1!=null?p.t1:'', t2v=p.t2!=null?p.t2:'';
     let ptsHtml='';
     // ⚠️ Era `typeof calcPoints==='function'` - calcPoints vive dentro do IIFE do
@@ -4542,7 +5412,7 @@ function drawPending(id){
 }
 function drawDateStr(id){
   const d=COMP_DRAW[id||S.competition]; if(!d) return '';
-  try{ return new Date(d).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}); }
+  try{ return UP_DATE(d).toLocaleString(UP_LOCALE(),{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}); }
   catch(e){ return '27 de agosto'; }
 }
 // ── Nome de exibição do PRÓPRIO consoante a competição atual ────────────────
@@ -4935,17 +5805,83 @@ async function enterCompetition(id){
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
   showApp();
 }
-// ── Nickname obrigatório (modal bloqueante; devolve Promise<boolean>) ────────
+// ── Nickname (modal bloqueante; devolve Promise<boolean>) ───────────────────
+// Dois modos:
+//   obrigatório (_nickOptional=false) - 1.º acesso a competições não-Mundial;
+//                                       o único escape é SAIR da conta;
+//   opcional    (_nickOptional=true)  - a partir do menu de conta (12 Ago 2026);
+//                                       o escape é só fechar.
 let _nickResolve=null;
+let _nickOptional=false;
 function ensureNickname(){
   return new Promise(resolve=>{
     _nickResolve=resolve;
     const inp=document.getElementById('nick-input');
     if(inp) inp.value=(S.user&&S.user.nickname)?S.user.nickname:'';
     const err=document.getElementById('nick-error'); if(err) err.style.display='none';
+    const esc=document.getElementById('nick-esc-btn'); if(esc) esc.textContent=_nickOptional?t('Cancelar'):t('Sair');
+    const sub=document.getElementById('nick-sub');      if(sub) sub.style.display=_nickOptional?'none':'';
+    const sbo=document.getElementById('nick-sub-opt');  if(sbo) sbo.style.display=_nickOptional?'':'none';
     document.getElementById('nick-overlay').classList.add('open');
     setTimeout(()=>{try{inp&&inp.focus();}catch(e){}},50);
   });
+}
+// ── Aceitação dos termos (modal bloqueante; devolve Promise<boolean>) ────────
+// Apanha quem não passou pela checkbox do registo: contas antigas, quem criou
+// conta com Google, e toda a gente quando o config.terms_version for bombado.
+// ⚠️ Se a consulta ao servidor falhar, NÃO bloqueia ninguém: uma falha de rede
+// não pode transformar-se num ecrã do qual não se sai. O registo novo já é
+// travado na edge function, por isso o risco de deixar passar é pequeno.
+let _termsResolve=null;
+async function ensureTerms(){
+  if(S.demoMode) return true;
+  let st=null;
+  try{ st=await api('termsStatus',{}); }catch(e){ return true; }
+  if(!st || !st.needed) return true;
+  return new Promise(resolve=>{
+    _termsResolve=resolve;
+    const ok=document.getElementById('terms-ok'); if(ok) ok.checked=false;
+    const mk=document.getElementById('terms-marketing'); if(mk) mk.checked=(st.marketing===true);
+    const err=document.getElementById('terms-error'); if(err) err.style.display='none';
+    const btn=document.getElementById('terms-btn'); if(btn){ btn.disabled=false; btn.textContent='Aceitar e continuar'; }
+    // Texto diferente para quem já tinha aceitado uma versão anterior: dizer
+    // "é pedido uma única vez" a quem está a ver isto pela segunda vez seria
+    // mentira, e é logo aí que se perde a confiança.
+    const intro=document.getElementById('terms-intro');
+    if(intro && st.version && document.body.dataset.termsSeen==='1'){
+      intro.textContent='Os termos foram atualizados. Confirma que aceitas a nova versão para continuares.';
+    }
+    document.body.dataset.termsSeen='1';
+    document.getElementById('terms-overlay').classList.add('open');
+  });
+}
+async function acceptTerms(){
+  const err=document.getElementById('terms-error'); err.style.display='none';
+  if(!document.getElementById('terms-ok').checked){
+    err.textContent='Marca a caixa para aceitares os termos.'; err.style.display='block'; return;
+  }
+  const btn=document.getElementById('terms-btn'); btn.disabled=true; btn.textContent='A guardar...';
+  try{
+    const r=await api('acceptTerms',{marketing:!!document.getElementById('terms-marketing').checked});
+    if(r&&r.success){
+      document.getElementById('terms-overlay').classList.remove('open');
+      if(_termsResolve){ _termsResolve(true); _termsResolve=null; }
+      return;
+    }
+    err.textContent='Não foi possível guardar. Tenta outra vez.'; err.style.display='block';
+  }catch(e){ err.textContent='Erro de ligação. Tenta outra vez.'; err.style.display='block'; }
+  btn.disabled=false; btn.textContent='Aceitar e continuar';
+}
+async function cancelTerms(){
+  // Sem aceitação não há utilização — a única saída é sair da conta.
+  if(!confirm('Sem aceitares os termos não é possível continuar. Queres sair da conta?')) return;
+  document.getElementById('terms-overlay').classList.remove('open');
+  if(_termsResolve){ _termsResolve(false); _termsResolve=null; }
+  // ⚠️ Sair a sério: o cancelNick limpa só o up26_user, mas a sessão do
+  // Supabase fica de pé e o modal voltava a aparecer no recarregamento.
+  try{ await api('logout',{}); }catch(e){}
+  try{ localStorage.removeItem('up26_user'); }catch(e){}
+  location.reload();
 }
 // ══════════════ AVATAR DO PARTICIPANTE ══════════════
 // Catálogo fechado (sem upload). Guardado em participants.avatar via
@@ -5085,6 +6021,9 @@ function refreshPremiumEntry(){
 }
 function showPremium(){
   if(window.UP_IS_NATIVE) return;              // nunca na app
+  // 🎫 Passaporte: DEPOIS do guarda nativo — na app este carimbo não existe
+  // (é substituído por "ativar notificações", coluna platform da 069).
+  try{ questTouchMark('passes'); }catch(e){}
   // Competição por sortear: o painel ABRE na mesma e explica-se. A versão
   // anterior fazia `return` com um toast — um clique que não abre nada parece
   // avaria, e foi exactamente assim que pareceu (9 Ago).
@@ -5128,7 +6067,7 @@ function showPremium(){
   const expMs = S.premiumExpires ? Date.parse(S.premiumExpires) : NaN;
   const diasRestantes = isFinite(expMs) ? Math.ceil((expMs-Date.now())/86400000) : null;
   const prazoHtml = !isFinite(expMs) ? '' : (()=>{
-    const dt = new Date(expMs).toLocaleDateString('pt-PT',{timeZone:'Europe/Lisbon',day:'numeric',month:'long',year:'numeric'});
+    const dt = new Date(expMs).toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'long',year:'numeric'});
     const urgente = diasRestantes<=14;
     const cor = urgente?'#f39c12':'var(--gold)';
     return `<div style="border:1px solid ${cor};border-radius:12px;padding:12px 14px;margin-bottom:14px;text-align:center;line-height:1.5">
@@ -5144,8 +6083,8 @@ function showPremium(){
      essencial no modelo por tempo: renovar cedo passou a ser o caso normal e
      não custa um único dia, porque o tempo novo SOMA-SE ao que resta. Sem este
      cartão, a mecânica existia mas ninguém lhe chegava. */
-  const _dtPT = ms => new Date(ms).toLocaleDateString('pt-PT',
-    {timeZone:'Europe/Lisbon',day:'numeric',month:'long',year:'numeric'});
+  const _dtPT = ms => new Date(ms).toLocaleDateString(UP_LOCALE(),
+    {day:'numeric',month:'long',year:'numeric'});
   function buyCards(prolongar){
     const l3=premiumTime3mLink(), ls=premiumSeasonLink();
     if(!l3&&!ls) return '';
@@ -5463,6 +6402,8 @@ function showBadges(_manter){
     // Palmarés no topo da mesma página. Assíncrono e fora do #badges-body, por
     // isso só corre na abertura - o re-render das medalhas não lhe toca.
     try{ fillPalmares(); }catch(e){}
+    // 🎫 Passaporte: só na abertura real (o showBadges(true) é re-render).
+    try{ questTouchMark('badges'); }catch(e){}
   }
 
   const defs=(S.badgeDefs||[]).slice().sort((a,b)=>(a.sort||0)-(b.sort||0));
@@ -5676,7 +6617,7 @@ async function showEmbaixadores(){
   // "o Rui registou-se há duas semanas e nunca mais apostou" é acionável;
   // "tens 4 convidados, 1 ativo" não é.
   const amigos=Array.isArray(d.lista)?d.lista:[];
-  const dataPt=(s)=>{ try{ return new Date(s).toLocaleDateString('pt-PT',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return ''; } };
+  const dataPt=(s)=>{ try{ return new Date(s).toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return ''; } };
   const linhaAmigo=(a)=>`<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border)">
       <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:${a.ativo?'var(--green)':'var(--sub)'}"></div>
       <div style="flex:1;min-width:0">
@@ -6240,6 +7181,7 @@ async function saveNick(){
       try{ localStorage.setItem('up26_user',JSON.stringify(S.user)); }catch(e){}
       document.getElementById('nick-overlay').classList.remove('open');
       btn.disabled=false; btn.textContent='Guardar nickname';
+      if(_nickOptional){ _nickOptional=false; showToast(t('Nickname alterado.'),'success'); }
       if(_nickResolve){ _nickResolve(true); _nickResolve=null; }
     } else {
       err.textContent=(r&&r.error)||'Não foi possível guardar. Tenta outro.'; err.style.display='block';
@@ -6248,8 +7190,15 @@ async function saveNick(){
   }catch(e){ err.textContent='Erro de ligação.'; err.style.display='block'; btn.disabled=false; btn.textContent='Guardar nickname'; }
 }
 function cancelNick(){
+  // Modo opcional (menu de conta): fechar e mais nada. NUNCA fazer logout aqui.
+  if(_nickOptional){
+    _nickOptional=false;
+    document.getElementById('nick-overlay').classList.remove('open');
+    if(_nickResolve){ _nickResolve(false); _nickResolve=null; }
+    return;
+  }
   // O nickname é obrigatório - o único "escape" é sair da conta.
-  if(!confirm('Precisas de um nickname para continuar. Queres sair da conta?')) return;
+  if(!confirm(t('Precisas de um nickname para continuar. Queres sair da conta?'))) return;
   document.getElementById('nick-overlay').classList.remove('open');
   if(_nickResolve){ _nickResolve(false); _nickResolve=null; }
   try{ localStorage.removeItem('up26_user'); }catch(e){}
@@ -6456,6 +7405,13 @@ function showView(v) {
   document.getElementById('view-'+v).classList.add('active');
   const nb=document.getElementById('nav-'+v); if(nb)nb.classList.add('active');
   S.curView=v;
+  // 🎫 Passaporte: carimbos de visita — DEPOIS do S.curView=v (a função pode
+  // abortar mais acima nos confirms). Vão em lote, com debounce.
+  try{
+    if(v==='leaderboard')questTouchMark('classificacao');
+    if(v==='rules')questTouchMark('regras');
+    if(v==='stats')questTouchMark('stats');
+  }catch(e){}
   if(v==='leaderboard')renderLB();
   if(v==='bets'){
     // Auto-navegar para a jornada do jogo em curso/próximo sempre que se abre a tab,
@@ -7175,7 +8131,7 @@ const FEED_STYLE={
 };
 function feedWhen(at){
   if(!at)return '';
-  try{ return new Date(at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
+  try{ return new Date(at).toLocaleString(UP_LOCALE(),{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }
   catch(e){ return ''; }
 }
 // Chips de reação. Só aparecem em itens que já vieram do servidor (têm id):
@@ -7446,7 +8402,7 @@ function showNotifs(){
   const list=[...(S.notifs||[])].reverse();
   body.innerHTML=list.length?list.map(n=>{
     const unread=!seen||(n.at&&String(n.at)>seen);
-    const date=n.at?new Date(n.at).toLocaleString('pt-PT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const date=n.at?new Date(n.at).toLocaleString(UP_LOCALE(),{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
     return`<div onclick="toggleNotif(this)" style="padding:9px 4px;border-bottom:1px solid var(--border);cursor:pointer;${unread?'':'opacity:.55'}">
       <div style="display:flex;align-items:flex-start;gap:6px">
         <span class="notif-caret" style="color:var(--sub);font-size:.7rem;margin-top:3px;flex-shrink:0">▸</span>
@@ -7515,21 +8471,36 @@ async function loadPendingReport(){
 }
 
 // ── Broadcast do admin global ──
+// 070: mostra as caixas em ingles quando a audiencia as precisa.
+function bcastAudChanged(){
+  const a=(document.querySelector('input[name="bcast-aud"]:checked')||{}).value||'pt';
+  const box=document.getElementById('bcast-en-box');
+  if(box) box.style.display=(a==='pt')?'none':'';
+}
 async function sendBroadcast(){
   const ta=document.getElementById('broadcast-text');
   const text=(ta.value||'').trim();
   const subjEl=document.getElementById('broadcast-subject');
   const subject=(subjEl&&subjEl.value||'').trim();
   const channel=(document.querySelector('input[name="bcast-channel"]:checked')||{}).value||'notif';
+  // 070: audiencia por idioma
+  const audience=(document.querySelector('input[name="bcast-aud"]:checked')||{}).value||'pt';
+  const taEn=document.getElementById('broadcast-text-en');
+  const subjElEn=document.getElementById('broadcast-subject-en');
+  const textEn=(taEn&&taEn.value||'').trim();
+  const subjectEn=(subjElEn&&subjElEn.value||'').trim();
   if(!text){showToast('Escreve a mensagem primeiro','error');return;}
+  if(audience==='en'&&!textEn&&!confirm('Vais enviar aos jogadores em INGLÊS o texto que escreveste em português. Continuar?'))return;
+  if(audience==='both'&&!textEn&&!confirm('Não escreveste a versão inglesa. Os jogadores em inglês vão receber o texto português. Continuar?'))return;
   if((channel==='email'||channel==='both')&&!subject){
     if(!confirm('Não escreveste assunto para o email. Continuar com o assunto por defeito?'))return;
   }
   const via=channel==='email'?'por EMAIL':channel==='both'?'por NOTIFICAÇÃO + EMAIL':'por NOTIFICAÇÃO';
-  if(!confirm('Enviar esta mensagem a TODOS os jogadores '+via+'?\n\n"'+text+'"'))return;
+  const quem=audience==='pt'?'aos jogadores em PORTUGUÊS':audience==='en'?'aos jogadores em INGLÊS':'a TODOS os jogadores (cada um na sua língua)';
+  if(!confirm('Enviar esta mensagem '+quem+' '+via+'?\n\n"'+text+'"'))return;
   const btn=event&&event.target;if(btn){btn.disabled=true;btn.textContent='A enviar…';}
   try{
-    const r=await api('broadcast',{password:document.getElementById('admin-pw').value,text,subject,channel});
+    const r=await api('broadcast',{password:document.getElementById('admin-pw').value,text,subject,channel,audience,textEn,subjectEn});
     if(r.success){
       let msg='Mensagem enviada!';
       const pushTxt=' (📱 '+(r.pushed||0)+' push)';
@@ -7539,6 +8510,7 @@ async function sendBroadcast(){
       showToast(msg,'success');
       if(r.emailError)showToast('Aviso email: '+r.emailError,'error');
       ta.value='';if(subjEl)subjEl.value='';
+      if(taEn)taEn.value='';if(subjElEn)subjElEn.value='';
     } else showToast(r.error||'Erro ao enviar','error');
   }catch(e){showToast('Erro de ligação','error');}
   finally{if(btn){btn.disabled=false;btn.textContent='Enviar 📤';}}
@@ -7781,7 +8753,7 @@ function renderBetsKO() {
   const byDateKO = {};
   const dayOrderKO = [];
   games.forEach((g, idx) => {
-    const dk = new Date(g.date).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+    const dk = new Date(g.date).toLocaleDateString(UP_LOCALE(), { weekday: 'long', day: 'numeric', month: 'long' });
     if (!byDateKO[dk]) { byDateKO[dk] = []; dayOrderKO.push(dk); }
     byDateKO[dk].push({ g, idx });
   });
@@ -7838,7 +8810,7 @@ function renderBetsKO() {
         : ((knownTeams && S.bettorsOk) ? `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"` : '')
     }>
       <div class="game-meta">
-        <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}</span>
+        <span><span class="ko-badge">${matchNum}</span>${new Date(g.date).toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'short'})} · ${new Date(g.date).toLocaleTimeString(UP_LOCALE(),{hour:'2-digit',minute:'2-digit'})}</span>
         <span>${dlWarn}${ptsHtml}${insightsBtnHtml(g.id)}</span>
       </div>
       <div class="game-teams">
@@ -7927,7 +8899,7 @@ function renderBets() {
 
   const byDate={};
   games.forEach(g=>{
-    const dk=new Date(g.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'});
+    const dk=new Date(g.date).toLocaleDateString(UP_LOCALE(),{weekday:'long',day:'numeric',month:'long'});
     if(!byDate[dk])byDate[dk]=[];
     byDate[dk].push(g);
   });
@@ -7983,7 +8955,7 @@ function renderBets() {
           : (S.bettorsOk ? `onclick="openBettorsModal('${g.id}')" style="cursor:pointer"` : '')
       }>
         <div class="game-meta">
-          <span>${g.g?`<span class="grp-badge">Gr.${g.g}</span>`:''}${new Date(g.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}${g.venue?' · '+g.venue:''}</span>
+          <span>${g.g?`<span class="grp-badge">Gr.${g.g}</span>`:''}${new Date(g.date).toLocaleTimeString(UP_LOCALE(),{hour:'2-digit',minute:'2-digit'})}${g.venue?' · '+g.venue:''}</span>
           <span>${dlWarn}${suggestedMark(g.id)}${ptsHtml}${insightsBtnHtml(g.id)}</span>
         </div>
         <div class="game-teams">
@@ -8764,7 +9736,7 @@ function prebetDecayNoteHtml(){
   const pct=prebetValorHojePct();
   const dl=leaguePrebetDeadlineMs();
   if(pct==null&&!dl) return '';
-  const dstr=dl?new Date(dl).toLocaleDateString('pt-PT',{day:'numeric',month:'long',year:'numeric'}):'';
+  const dstr=dl?new Date(dl).toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'long',year:'numeric'}):'';
   return `<div class="alert alert-info" style="font-size:.76rem;line-height:1.6;margin-bottom:12px">
       ⏳ <strong>Quem arrisca cedo ganha mais.</strong> As pré-apostas ficam abertas até meio da época${dstr?` (<strong style="color:var(--gold)">${dstr}</strong>)`:''},
       mas vão perdendo valor com o tempo.${pct!=null?` Uma pré-aposta feita <strong style="color:var(--gold)">hoje</strong> vale <strong style="color:var(--gold)">${pct}%</strong> do valor cheio.`:''}
@@ -8794,11 +9766,11 @@ function renderLeaguePrebets(){
   // Equipas dos dropdowns: config teams_<comp> se existir; senão deriva do
   // calendário carregado (fase de liga) - funciona na UCL de teste e no sorteio real.
   let teams=(S.leagueTeams||[]).slice();
-  if(!teams.length){ teams=[...new Set((GAMES||[]).filter(g=>!g.ko).flatMap(g=>[g.t1,g.t2]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt')); }
+  if(!teams.length){ teams=[...new Set((GAMES||[]).filter(g=>!g.ko).flatMap(g=>[g.t1,g.t2]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,UP_LOCALE())); }
   const dlMs=leaguePrebetDeadlineMs();
   const closed=dlMs!=null && Date.now()>=dlMs;
   if(closed) S.prebetPending=false;
-  const dlStr=dlMs!=null?new Date(dlMs).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):null;
+  const dlStr=dlMs!=null?new Date(dlMs).toLocaleString(UP_LOCALE(),{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):null;
   const sp=S.specials||{};
   const maxPts=cfg.reduce((s,it)=>s+(it.type==='multi'?(it.pts_each||0)*(it.count||1):(it.pts||0)),0);
 
@@ -8962,7 +9934,7 @@ function buildLeagueStandingsHtml(){
   const totalTeams=new Set([].concat(...phaseGames.map(g=>[g.t1,g.t2]).filter(x=>x))).size||18;
   let rows=Object.values(tbl).map(t=>({...t,gd:t.gf-t.ga,pts:t.w*3+t.d}));
   if(!rows.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">Ainda sem resultados.<br><span style="font-size:.8rem">A tabela vai aparecendo à medida que os jogos terminam.</span></div>`;
-  rows.sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf || a.team.localeCompare(b.team,'pt'));
+  rows.sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf || a.team.localeCompare(b.team,UP_LOCALE()));
   const releg = totalTeams>=20?3:2;           // descidas: 3 em ligas de 20+ equipas (Premier), 2 nas menores
   const allIn = rows.length>=totalTeams;      // só marca a zona de descida com a tabela completa
   // Zonas só nas ligas domésticas (Top4 / descida). Na UCL (híbrido) a tabela é neutra.
@@ -9069,7 +10041,7 @@ function buildLeagueResultsHtml(){
     const has=r&&r.t1!=null;
     const w1=has&&+r.t1>+r.t2, w2=has&&+r.t2>+r.t1;
     const d=g.date?new Date(g.date):null;
-    const when=d?`${d.toLocaleDateString('pt-PT',{day:'numeric',month:'short'})} ${d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'})}`:'';
+    const when=d?`${d.toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'short'})} ${d.toLocaleTimeString(UP_LOCALE(),{hour:'2-digit',minute:'2-digit'})}`:'';
     html+=`<div class="bracket-match bk-r16">
       <span class="bracket-team${w1?' bracket-winner':''}">${crest(g.t1,15)}${escapeHtml(g.t1||'')}</span>
       <span class="bracket-score-badge">${has?`${r.t1}-${r.t2}`:'·'}</span>
@@ -9129,8 +10101,8 @@ function renderBracket() {
       const f1 = !t1ph ? flag(t1) : '';
       const f2 = !t2ph ? flag(t2) : '';
       const d = new Date(g.date);
-      const dateShort = d.toLocaleDateString('pt-PT',{day:'numeric',month:'short'});
-      const timeShort = d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+      const dateShort = d.toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'short'});
+      const timeShort = d.toLocaleTimeString(UP_LOCALE(),{hour:'2-digit',minute:'2-digit'});
       const tv = TV_CHANNELS[g.id] || {};
       const hasFree = (tv.free||[]).length > 0;
       const tvBtnStyle = hasFree
@@ -9211,8 +10183,8 @@ function showTVInfo(gameId) {
   const hasStreaming = tv.streaming || false;
   const t1 = game.ko ? getKOTeamName(game.id,'t1') : game.t1;
   const t2 = game.ko ? getKOTeamName(game.id,'t2') : game.t2;
-  const dateStr = new Date(game.date).toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short'});
-  const timeStr = new Date(game.date).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+  const dateStr = new Date(game.date).toLocaleDateString(UP_LOCALE(),{weekday:'short',day:'numeric',month:'short'});
+  const timeStr = new Date(game.date).toLocaleTimeString(UP_LOCALE(),{hour:'2-digit',minute:'2-digit'});
   document.getElementById('modal-title').textContent = `${t1} vs ${t2}`;
   document.getElementById('modal-subtitle').textContent = `${dateStr} · ${timeStr}h Portugal`;
   let html = `<div style="font-size:.82rem">`;
@@ -9300,8 +10272,8 @@ function renderMundialGroup() {
   grpGames.forEach(g => {
     const res = results[g.id];
     const d = new Date(g.date);
-    const dateStr = d.toLocaleDateString('pt-PT',{day:'numeric',month:'short'});
-    const timeStr = d.toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+    const dateStr = d.toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'short'});
+    const timeStr = d.toLocaleTimeString(UP_LOCALE(),{hour:'2-digit',minute:'2-digit'});
     const mdLabel = `J${g.md}`;
     const tv = TV_CHANNELS[g.id] || {};
     const hasFree = (tv.free||[]).length > 0;
@@ -9347,7 +10319,7 @@ function buildGroupStandings(grp) {
       const GD  = s.GF - s.GA;
       return {name:t, ...s, GD, Pts};
     })
-    .sort((a,b) => b.Pts-a.Pts || b.GD-a.GD || b.GF-a.GF || a.name.localeCompare(b.name,'pt'));
+    .sort((a,b) => b.Pts-a.Pts || b.GD-a.GD || b.GF-a.GF || a.name.localeCompare(b.name,UP_LOCALE()));
 }
 
 // ════════════════════════════════════════════════
@@ -9468,7 +10440,7 @@ function openBettorsModal(gameId) {
   // Quem ainda não apostou primeiro: é essa a lista que interessa ver.
   const orden = users.slice().sort((a,b)=>{
     const fa=setCodes.has(String(a.code).toUpperCase())?1:0, fb=setCodes.has(String(b.code).toUpperCase())?1:0;
-    return fa-fb || String(a.name||'').localeCompare(String(b.name||''),'pt');
+    return fa-fb || String(a.name||'').localeCompare(String(b.name||''),UP_LOCALE());
   });
   const feitos = orden.filter(u=>setCodes.has(String(u.code).toUpperCase())).length;
 
@@ -9559,7 +10531,7 @@ function openGameModal(gameId) {
   document.getElementById('modal-title').textContent = resEff ? `${t1} ${resEff.t1}-${resEff.t2} ${t2}` : `${t1} vs ${t2}`;
   const penNote = isFinished && res.pen ? ` · ★ ${res.pen==='t1'?t1:t2} passou por penáltis` : '';
   document.getElementById('modal-subtitle').textContent =
-    `${game.g?`Grupo ${game.g}`:jornadaName(game.md)} · ${new Date(game.date).toLocaleDateString('pt-PT',{weekday:'long',day:'numeric',month:'long'})}${isFinished?penNote:(lv?` · ${liveBadgeTxt(lv)} - pontuação potencial`:' · 🔒 Apostas fechadas - jogo por disputar')}`;
+    `${game.g?`Grupo ${game.g}`:jornadaName(game.md)} · ${new Date(game.date).toLocaleDateString(UP_LOCALE(),{weekday:'long',day:'numeric',month:'long'})}${isFinished?penNote:(lv?` · ${liveBadgeTxt(lv)} - pontuação potencial`:' · 🔒 Apostas fechadas - jogo por disputar')}`;
 
   // Apostas de todos: S.allPreds (backend só envia jogos já fechados)
   const isKO = !!game.ko;
@@ -10536,7 +11508,7 @@ function renderAdminResults(){
 
   const byDate={};
   games.forEach(g=>{
-    const dk=new Date(g.date).toLocaleDateString('pt-PT',{weekday:'short',day:'numeric',month:'short'});
+    const dk=new Date(g.date).toLocaleDateString(UP_LOCALE(),{weekday:'short',day:'numeric',month:'short'});
     if(!byDate[dk])byDate[dk]=[];byDate[dk].push(g);
   });
   let html='';
@@ -10892,6 +11864,18 @@ async function api(action,data){
   try{return JSON.parse(text);}catch(e){throw new Error('Resposta inválida do servidor');}
 }
 
+// 🎫 Passaporte (069): wrapper no api() — depois de ações que podem completar
+// carimbos 'auto', agenda um refresh preguiçoso (4 s). Nunca bloqueia nem
+// atrasa a resposta da ação original.
+(function(){
+  const _api=api;
+  api=async function(action,data){
+    const r=await _api(action,data);
+    try{ if(PP_REFRESH_ACTS[action] && r && r.success!==false) scheduleQuestsRefresh(); }catch(e){}
+    return r;
+  };
+})();
+
 function mockApi(action,data){
   if(action==='login'){
     // Em modo demo: aceita qualquer email/nickname com password >= 6 chars
@@ -11205,6 +12189,226 @@ function showToast(msg,type){
   const el=document.getElementById('toast');
   el.textContent=msg; el.className='toast show'+(type?' '+type:'');
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ════════════════════════════════════════════════
+//  🎫 PASSAPORTE (lote 069) — tutorial jogável
+// ════════════════════════════════════════════════
+// Regras de implementação (PASSAPORTE_PLANO.md):
+//  · leituras com null = "migração por aplicar / desligado" → esconder tudo;
+//  · toques em LOTE (debounce ~3 s) e nunca quando o Passaporte já fechou;
+//  · toast por carimbo, celebração e sino só aos 100%;
+//  · a pastilha 🎫 desaparece sozinha aos 100%.
+let QQ=null;            // último estado devolvido pela rpc_my_quests
+let _ppLoading=false;
+let _ppTouchQ=[];       // fila de toques por enviar
+let _ppTouchT=null;
+
+function ppCode(){ return (S.user&&S.user.code)?String(S.user.code):''; }
+function ppLS(k){ return 'up26_pp_'+k+'_'+ppCode(); }
+function ppPlatform(){ return window.UP_IS_NATIVE?'native':'web'; }
+// Fechado de vez (100% + prémio tratado): nunca mais se chama o servidor
+// sozinho — só se o jogador abrir o Passaporte pelo menu.
+function ppClosed(){ try{ return !!localStorage.getItem(ppLS('closed')); }catch(e){ return false; } }
+
+function renderQuestsPill(){
+  const pill=document.getElementById('quests-pill'); if(!pill) return;
+  const n=document.getElementById('quests-pill-n');
+  if(!QQ || !QQ.enabled || QQ.complete || ppClosed()){ pill.style.display='none'; return; }
+  if(n) n.textContent=QQ.done+'/'+QQ.total;
+  pill.style.display='';
+}
+
+async function loadQuests(){
+  if(!ppCode() || !window.UPSB) return;          // só na versão Supabase, com sessão
+  if(ppClosed()){ renderQuestsPill(); return; }  // já fechado: não gastar chamadas
+  if(_ppLoading) return;
+  _ppLoading=true;
+  try{
+    const r=await api('myQuests',{platform:ppPlatform()}).catch(()=>null);
+    const q=(r && r.success!==false)?(r.quests||null):null;
+    QQ=q;
+    renderQuestsPill();
+    if(q && q.enabled){
+      (q.newly||[]).forEach(k=>ppToastFor(k));
+      if(q.complete) ppOnComplete();
+    }
+  } finally { _ppLoading=false; }
+}
+
+function ppToastFor(key){
+  const q=QQ&&(QQ.quests||[]).find(x=>x.key===key);
+  if(!q) return;
+  showToast(t('✅ Carimbo novo: {nome} · {feitos}/{total}',{nome:q.name,feitos:QQ.done,total:QQ.total}));
+}
+
+// Aos 100%: celebrar UMA vez; quando o prémio ficou tratado, fechar de vez
+// (a pastilha some e as chamadas automáticas param — plano §3).
+function ppOnComplete(){
+  renderQuestsPill();
+  const st=(QQ.reward&&QQ.reward.status)||'pending';
+  try{
+    if(!localStorage.getItem(ppLS('celebrated'))){
+      localStorage.setItem(ppLS('celebrated'),'1');
+      showQuestsDone();
+    }
+    if(st==='granted'||st==='symbolic'||st==='already_covered'){
+      localStorage.setItem(ppLS('closed'),'1');
+    }
+  }catch(e){}
+}
+
+// ── Toques ("visitar a janela X") — em lote, nunca 1 chamada por separador ──
+function questTouchMark(key){
+  if(!QQ || !QQ.enabled || QQ.complete || ppClosed()) return;
+  const q=(QQ.quests||[]).find(x=>x.key===key);
+  if(!q || q.done || q.mode!=='touch') return;
+  if(_ppTouchQ.indexOf(key)<0) _ppTouchQ.push(key);
+  clearTimeout(_ppTouchT);
+  _ppTouchT=setTimeout(flushQuestTouches,3000);
+}
+async function flushQuestTouches(){
+  clearTimeout(_ppTouchT); _ppTouchT=null;
+  const keys=_ppTouchQ.slice(); _ppTouchQ=[];
+  if(!keys.length || !window.UPSB) return;
+  try{
+    const r=await api('questTouch',{keys}).catch(()=>null);
+    const res=r&&r.result;
+    if(res && res.newly && res.newly.length){
+      // Marca localmente, mostra os toasts e vai buscar o estado completo
+      // (pode ter sido o último carimbo → prémio).
+      res.newly.forEach(k=>{
+        const q=QQ&&(QQ.quests||[]).find(x=>x.key===k);
+        if(q && !q.done){ q.done=true; QQ.done++; }
+      });
+      renderQuestsPill();
+      res.newly.forEach(k=>ppToastFor(k));
+      if(QQ && QQ.done>=QQ.total) loadQuests();
+    }
+  }catch(e){}
+}
+// Se o separador perder o foco com toques na fila, envia já.
+document.addEventListener('visibilitychange',function(){ if(document.hidden) flushQuestTouches(); });
+
+// Refresh preguiçoso depois de ações que podem completar carimbos 'auto'.
+const PP_REFRESH_ACTS={savePred:1,savePreds:1,savePrebets:1,saveAvatar:1,joinLeague:1,joinByInvite:1,addComment:1,suggestApply:1,registerCompetition:1,savePushToken:1};
+let _ppRefreshT=null;
+function scheduleQuestsRefresh(){
+  if(!QQ || !QQ.enabled || QQ.complete || ppClosed()) return;
+  clearTimeout(_ppRefreshT);
+  _ppRefreshT=setTimeout(loadQuests,4000);
+}
+
+// ── Ecrã do Passaporte ──────────────────────────────────────────────────────
+// CTA "Levar-me lá": cada carimbo por ganhar leva ao sítio onde se ganha.
+const PP_GOTO={
+  classificacao:()=>showView('leaderboard'),
+  aposta:()=>showView('bets'), jornada:()=>showView('bets'), joker:()=>showView('bets'),
+  sugestao:()=>showView('bets'), prebets:()=>showView('prebets'),
+  regras:()=>showView('rules'), stats:()=>showView('stats'),
+  badges:()=>showBadges(), avatar:()=>showAvatarPicker(),
+  liga:()=>showLeagueSwitcher(), bancada:()=>showView('leaderboard'),
+  convite:()=>showEmbaixadores(), passes:()=>showPremium(),
+  notificacoes:()=>showNotifPrefs(),
+  inscricao:()=>showCompetitions()
+};
+function questGoto(key){
+  closeQuests();
+  const f=PP_GOTO[key];
+  if(f){ try{ f(); }catch(e){} }
+}
+
+async function showQuests(){
+  const ov=document.getElementById('quests-overlay');
+  const body=document.getElementById('quests-body');
+  if(!ov||!body) return;
+  ov.style.display='block'; document.body.style.overflow='hidden';
+  body.innerHTML='<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:40px 0">'+t('A carregar o teu Passaporte…')+'</div>';
+  // Abertura explícita busca sempre estado fresco (mesmo com o pp fechado).
+  const r=await api('myQuests',{platform:ppPlatform()}).catch(()=>null);
+  const q=(r && r.success!==false)?(r.quests||null):null;
+  if(!q || !q.enabled){
+    body.innerHTML='<div style="text-align:center;color:var(--sub);font-size:.82rem;padding:40px 0">'+t('O Passaporte ainda não está disponível.')+'</div>';
+    return;
+  }
+  QQ=q; renderQuestsPill();
+  const quests=q.quests||[];
+  const caps={};
+  quests.forEach(x=>{ (caps[x.chapter]=caps[x.chapter]||{name:x.chapterName,list:[]}).list.push(x); });
+  const next=quests.find(x=>!x.done);
+  let html='<div class="pp-hero"><div class="em">🎫</div><h2>'+t('O teu Passaporte')+'</h2>'
+    +'<p>'+t('{n} carimbos para conheceres o jogo todo.',{n:q.total})+'<br>'+t('Ganham-se a jogar — não há nada para ler.')+'</p></div>'
+    +'<div class="pp-bar"><div style="width:'+q.pct+'%"></div></div>'
+    +'<div class="pp-meta"><span>'+t('{d} de {t} carimbos',{d:'<b>'+q.done+'</b>',t:q.total})+'</span><span>'+q.pct+'%</span></div>';
+  Object.keys(caps).sort((a,b)=>a-b).forEach(c=>{
+    const cap=caps[c];
+    const feitos=cap.list.filter(x=>x.done).length;
+    html+='<div class="pp-chapter">'+t('Capítulo {c}',{c})+' · '+cap.name+' <i></i><em>'+feitos+'/'+cap.list.length+'</em></div><div class="pp-grid">';
+    cap.list.forEach(x=>{
+      const cls=x.done?' on':(next&&next.key===x.key?' next':'');
+      const when=x.done&&x.at?' title="'+UP_DATE(x.at).toLocaleDateString(UP_LOCALE())+'"':'';
+      html+='<div class="pp-st'+cls+'"'+when+'><div class="ic">'+x.icon+'</div><div class="nm">'+x.name+'</div></div>';
+    });
+    html+='</div>';
+  });
+  if(next){
+    html+='<div class="pp-next"><div class="ic">'+next.icon+'</div><div><div class="t">'+t('A seguir: {nome}',{nome:next.name})+'</div><div class="d">'+next.descr+'</div></div></div>';
+    if(PP_GOTO[next.key]) html+='<button class="btn btn-primary btn-full" style="margin-top:9px" onclick="questGoto(\''+next.key+'\')">'+t('Levar-me lá →')+'</button>';
+    if(q.label) html+='<div class="pp-reward">'+t('Ao carimbares os {t}, ganhas',{t:q.total})+' <b>'+q.label+'</b>.</div>';
+  }else{
+    const st=(q.reward&&q.reward.status)||'pending';
+    const ganhou=(st==='granted')&&q.reward.reward&&q.reward.reward!=='simbolico'&&q.reward.reward!=='ja_tinha';
+    html+='<div class="pp-reward">'+(ganhou
+      ?t('Passaporte completo — ganhaste {premio}. Está ativo na tua conta.',{premio:'<b>'+q.reward.reward+'</b>'})
+      :t('Passaporte completo — carimbaste tudo. Bem-vindo ao clube.'))+'</div>';
+  }
+  body.innerHTML=html;
+}
+function closeQuests(){
+  const ov=document.getElementById('quests-overlay');
+  if(ov) ov.style.display='none';
+  document.body.style.overflow='';
+  flushQuestTouches();
+}
+
+// Celebração dos 100% — o texto do prémio depende do que REALMENTE saiu.
+function showQuestsDone(){
+  const ov=document.getElementById('quests-done-overlay');
+  const body=document.getElementById('quests-done-body');
+  if(!ov||!body||!QQ) return;
+  const st=(QQ.reward&&QQ.reward.status)||'pending';
+  const ganhou=(st==='granted')&&QQ.reward.reward&&QQ.reward.reward!=='simbolico'&&QQ.reward.reward!=='ja_tinha';
+  body.innerHTML='<div class="pp-cel">'
+    +'<div class="pp-stamp"><div class="e">🎫</div><div class="t">'+t('PASSAPORTE')+'</div><div class="t">'+t('COMPLETO')+'</div></div>'
+    +'<h2>'+t('Está tudo carimbado')+'</h2>'
+    +'<p>'+t('Percorreste o jogo de uma ponta à outra:')+'<br>'+t('{t} de {t} carimbos, os {c} capítulos fechados.',{t:QQ.total,c:4})+'</p>'
+    +(ganhou
+      ?'<div class="pp-prize"><div class="b">🎁 '+QQ.reward.reward+'</div><div class="s">'+t('Já está ativo na tua conta.')+'</div></div>'
+      :'<p style="margin-top:12px">'+t('Carimbaste tudo — bem-vindo ao clube.')+'</p>')
+    +'<button class="btn btn-primary btn-full" style="margin-top:14px" onclick="closeQuestsDone();showQuests()">'+t('Ver o meu Passaporte')+'</button>'
+    +'<button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeQuestsDone()">'+t('Fechar')+'</button>'
+    +'</div>';
+  ov.style.display='block'; document.body.style.overflow='hidden';
+}
+function closeQuestsDone(){
+  const ov=document.getElementById('quests-done-overlay');
+  if(ov) ov.style.display='none';
+  document.body.style.overflow='';
+}
+
+// Primeira abertura automática: na SEGUNDA sessão, uma vez só (a primeira já
+// tem o modal do nickname e a inscrição — plano §3).
+function ppMaybeIntro(){
+  if(!QQ || !QQ.enabled || QQ.complete || ppClosed()) return;
+  try{
+    if(localStorage.getItem(ppLS('intro'))) return;
+    if(localStorage.getItem(ppLS('sess'))){
+      localStorage.setItem(ppLS('intro'),'1');
+      showQuests();
+    }else{
+      localStorage.setItem(ppLS('sess'),'1');
+    }
+  }catch(e){}
 }
 
 // ════════════════════════════════════════════════
@@ -11577,7 +12781,7 @@ async function loadManageRequests(leagueId) {
       html+=`<div style="font-size:.7rem;color:var(--sub);font-weight:700;letter-spacing:.5px;margin:12px 0 4px">💌 CONVITES ENVIADOS</div>`;
       invites.forEach(iv=>{
         const joined=iv.status==='joined';
-        const dateStr=iv.at?new Date(iv.at).toLocaleDateString('pt-PT',{day:'numeric',month:'short'}):'';
+        const dateStr=iv.at?new Date(iv.at).toLocaleDateString(UP_LOCALE(),{day:'numeric',month:'short'}):'';
         html+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
           <div style="font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(iv.name||'')}</div>
           <div style="flex-shrink:0;display:flex;align-items:center;gap:8px">
