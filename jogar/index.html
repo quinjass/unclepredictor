@@ -1133,6 +1133,13 @@
      Pílula fixa no canto. Escolha deliberada: position:fixed não interfere com
      nenhum layout existente, logo não pode partir ecrã nenhum. */
   function mountSwitcher(){
+    // ⚠️ ESCONDIDO por decisão do Hugo (12 Ago): enquanto o inglês não abre ao
+    // público, a pílula fixa só aparece a quem entra por /jogar/#admin (a mesma
+    // regra da tab Admin). O resto vive no menu de conta (#btn-lang, também
+    // gated). O ?lang=en no URL continua a funcionar para toda a gente.
+    // Para LANÇAR o inglês: apagar a linha do return abaixo e tirar o gate do
+    // #btn-lang no showAccountMenu().
+    if (location.hash !== '#admin') return;
     if (document.getElementById('up-lang-switch')) return;
     var box = document.createElement('div');
     box.id = 'up-lang-switch';
@@ -2962,7 +2969,7 @@ document.addEventListener('keydown', function(e){
       <!-- 🎫 PASSAPORTE (069): só aparece enquanto estiver por completar — aos
            100% some sozinho e o Passaporte passa a viver no menu de conta.
            SEM .up-premium: não fala de preços, pode aparecer na app Android. -->
-      <div class="user-pill" id="quests-pill" style="display:none;padding:4px 9px;border-color:var(--gold);color:var(--gold);background:rgba(245,197,24,.1);font-weight:700" onclick="showQuests()" title="Passaporte">🎫 <b id="quests-pill-n" style="font-size:.68rem;font-weight:700"></b></div>
+      <div class="user-pill" id="quests-pill" style="display:none;padding:4px 9px;border-color:#6fc3ff;color:#6fc3ff;background:rgba(111,195,255,.12);font-weight:700" onclick="showQuests()" title="Passaporte">🎫 <b id="quests-pill-n" style="font-size:.68rem;font-weight:700"></b></div>
       <div class="up-premium user-pill" id="premium-pill" style="display:none;padding:4px 9px;border-color:var(--gold);color:var(--gold)" onclick="showPremium()" title="Passe Premium">⭐</div>
       <div class="user-pill" id="notif-bell" style="position:relative;padding:4px 9px" onclick="showNotifs()" title="Notificações">🔔<span id="notif-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:9px;min-width:16px;height:16px;font-size:.6rem;line-height:16px;text-align:center;font-weight:700;padding:0 3px"></span></div>
       <div class="user-pill" onclick="showAccountMenu()" id="user-pill" title="Minha conta">👤 -</div>
@@ -3029,6 +3036,9 @@ document.addEventListener('keydown', function(e){
 
     <div class="acct-sep" data-i18n>Definições</div>
     <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showNotifPrefs()" data-i18n>🔔 Gerir notificações</button>
+    <!-- Idioma: ESCONDIDO até o inglês abrir ao público (decisão de 12 Ago).
+         O showAccountMenu() só o revela em modo admin (#admin ou S.isAdmin). -->
+    <button id="btn-lang" class="btn btn-outline btn-full" style="display:none" onclick="closeAccountMenu();upToggleLang()">🌐 Idioma / Language</button>
 
     <button class="btn btn-danger btn-full" style="margin-top:14px" onclick="logout()" data-i18n>↩ Terminar sessão</button>
     <!-- Eliminar conta: link discreto e não botão, de propósito. Continua a ser
@@ -5020,8 +5030,19 @@ function showAccountMenu(){
     const av=(S.user&&S.user.avatar)||'';
     avEl.firstChild.nodeValue = av || '👤';
   }
+  // Idioma: só em modo admin, enquanto o inglês não abre ao público.
+  try{
+    const lb=document.getElementById('btn-lang');
+    if(lb){
+      const adm=(location.hash==='#admin')||S.isAdmin;
+      lb.style.display=adm?'':'none';
+      if(adm) lb.textContent='🌐 '+(window.UP_LANG==='en'?'Language: EN → mudar para PT':'Idioma: PT → switch to EN');
+    }
+  }catch(e){}
   document.getElementById('account-menu-overlay').classList.add('open');
 }
+// Alterna PT↔EN (recarrega a página — comportamento deliberado do lote 070).
+function upToggleLang(){ try{ upSetLang(window.UP_LANG==='pt'?'en':'pt'); }catch(e){} }
 function closeAccountMenu(){document.getElementById('account-menu-overlay').classList.remove('open');}
 // Rodapé da app: visível em tudo o que seja pós-login (seleção de competição,
 // picker de ligas e todas as tabs do jogo). No ecrã de login fica escondido -
@@ -12318,6 +12339,16 @@ function questGoto(key){
   if(f){ try{ f(); }catch(e){} }
 }
 
+// Toque num carimbo: mostra o que é e como se ganha (o hover não existe no
+// telemóvel — o title fica para o desktop, isto cobre o resto).
+function ppStampInfo(key){
+  const q=QQ&&(QQ.quests||[]).find(x=>x.key===key);
+  if(!q) return;
+  let msg=q.icon+' '+q.name+': '+q.descr;
+  if(q.done&&q.at) msg+=' ✓ '+UP_DATE(q.at).toLocaleDateString(UP_LOCALE());
+  showToast(msg);
+}
+
 async function showQuests(){
   const ov=document.getElementById('quests-overlay');
   const body=document.getElementById('quests-body');
@@ -12346,8 +12377,11 @@ async function showQuests(){
     html+='<div class="pp-chapter">'+t('Capítulo {c}',{c})+' · '+cap.name+' <i></i><em>'+feitos+'/'+cap.list.length+'</em></div><div class="pp-grid">';
     cap.list.forEach(x=>{
       const cls=x.done?' on':(next&&next.key===x.key?' next':'');
-      const when=x.done&&x.at?' title="'+UP_DATE(x.at).toLocaleDateString(UP_LOCALE())+'"':'';
-      html+='<div class="pp-st'+cls+'"'+when+'><div class="ic">'+x.icon+'</div><div class="nm">'+x.name+'</div></div>';
+      // Tooltip: nome + como se ganha (+ data se já carimbado). No telemóvel
+      // não há hover — o toque mostra o mesmo em toast (ppStampInfo).
+      let tip=x.name+' — '+x.descr;
+      if(x.done&&x.at) tip+=' ('+t('carimbado a {d}',{d:UP_DATE(x.at).toLocaleDateString(UP_LOCALE())})+')';
+      html+='<div class="pp-st'+cls+'" style="cursor:help" title="'+tip.replace(/"/g,'&quot;')+'" onclick="ppStampInfo(\''+x.key+'\')"><div class="ic">'+x.icon+'</div><div class="nm">'+x.name+'</div></div>';
     });
     html+='</div>';
   });
