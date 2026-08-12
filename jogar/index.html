@@ -3017,8 +3017,6 @@ document.addEventListener('keydown', function(e){
     <button id="btn-premium" class="up-premium btn btn-outline btn-full" style="display:none;border-color:var(--gold);color:var(--gold)" onclick="closeAccountMenu();showPremium()" data-i18n>⭐ Passe Premium</button>
 
     <div class="acct-sep" data-i18n>Perfil</div>
-    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showAvatarPicker()" data-i18n>😀 Avatar</button>
-    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showNickEditor()" data-i18n>🏷️ Alterar nickname</button>
     <!-- 🎫 PASSAPORTE (069): entrada permanente — é por aqui que se chega
          depois de completo, quando a pastilha da barra de cima desaparece. -->
     <button id="btn-passaporte" class="btn btn-outline btn-full" onclick="closeAccountMenu();showQuests()" data-i18n>🎫 Passaporte</button>
@@ -3030,7 +3028,10 @@ document.addEventListener('keydown', function(e){
          na app. O JS só o mostra se referrals_enabled='true'. -->
     <button id="btn-embaixadores" class="btn btn-outline btn-full" style="display:none" onclick="closeAccountMenu();showEmbaixadores()" data-i18n>🤝 Convidar amigos</button>
 
+    <!-- Avatar e nickname mudaram para CONTA a 13 Ago (pedido do Hugo). -->
     <div class="acct-sep" data-i18n>Conta</div>
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showAvatarPicker()" data-i18n>😀 Avatar</button>
+    <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showNickEditor()" data-i18n>🏷️ Alterar nickname</button>
     <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showChangeEmail()" data-i18n>✉️ Alterar email</button>
     <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showChangePw()" data-i18n>🔑 Alterar password</button>
 
@@ -12339,6 +12340,18 @@ function questGoto(key){
   if(f){ try{ f(); }catch(e){} }
 }
 
+// Na app Android a janela de Passes NÃO existe (política de pagamentos da
+// Play) — falar do prémio como "Passe Premium" apontava para uma loja que o
+// jogador da app nunca vê. Aí o prémio descreve-se pelo benefício, sem o nome
+// do produto da loja. Na web fica o texto normal.
+function ppRewardText(s){
+  s=String(s||'');
+  if(window.UP_IS_NATIVE){
+    s=s.replace(/Passe Premium/gi,'acesso Premium').replace(/\bPasses?\b/g,'acesso');
+  }
+  return s;
+}
+
 // Toque num carimbo: mostra o que é e como se ganha (o hover não existe no
 // telemóvel — o title fica para o desktop, isto cobre o resto).
 function ppStampInfo(key){
@@ -12388,12 +12401,12 @@ async function showQuests(){
   if(next){
     html+='<div class="pp-next"><div class="ic">'+next.icon+'</div><div><div class="t">'+t('A seguir: {nome}',{nome:next.name})+'</div><div class="d">'+next.descr+'</div></div></div>';
     if(PP_GOTO[next.key]) html+='<button class="btn btn-primary btn-full" style="margin-top:9px" onclick="questGoto(\''+next.key+'\')">'+t('Levar-me lá →')+'</button>';
-    if(q.label) html+='<div class="pp-reward">'+t('Ao carimbares os {t}, ganhas',{t:q.total})+' <b>'+q.label+'</b>.</div>';
+    if(q.label) html+='<div class="pp-reward">'+t('Ao carimbares os {t}, ganhas',{t:q.total})+' <b>'+ppRewardText(q.label)+'</b>.</div>';
   }else{
     const st=(q.reward&&q.reward.status)||'pending';
     const ganhou=(st==='granted')&&q.reward.reward&&q.reward.reward!=='simbolico'&&q.reward.reward!=='ja_tinha';
     html+='<div class="pp-reward">'+(ganhou
-      ?t('Passaporte completo — ganhaste {premio}. Está ativo na tua conta.',{premio:'<b>'+q.reward.reward+'</b>'})
+      ?t('Passaporte completo — ganhaste {premio}. Está ativo na tua conta.',{premio:'<b>'+ppRewardText(q.reward.reward)+'</b>'})
       :t('Passaporte completo — carimbaste tudo. Bem-vindo ao clube.'))+'</div>';
   }
   body.innerHTML=html;
@@ -12417,7 +12430,7 @@ function showQuestsDone(){
     +'<h2>'+t('Está tudo carimbado')+'</h2>'
     +'<p>'+t('Percorreste o jogo de uma ponta à outra:')+'<br>'+t('{t} de {t} carimbos, os {c} capítulos fechados.',{t:QQ.total,c:4})+'</p>'
     +(ganhou
-      ?'<div class="pp-prize"><div class="b">🎁 '+QQ.reward.reward+'</div><div class="s">'+t('Já está ativo na tua conta.')+'</div></div>'
+      ?'<div class="pp-prize"><div class="b">🎁 '+ppRewardText(QQ.reward.reward)+'</div><div class="s">'+t('Já está ativo na tua conta.')+'</div></div>'
       :'<p style="margin-top:12px">'+t('Carimbaste tudo — bem-vindo ao clube.')+'</p>')
     +'<button class="btn btn-primary btn-full" style="margin-top:14px" onclick="closeQuestsDone();showQuests()">'+t('Ver o meu Passaporte')+'</button>'
     +'<button class="btn btn-outline btn-full" style="margin-top:8px" onclick="closeQuestsDone()">'+t('Fechar')+'</button>'
