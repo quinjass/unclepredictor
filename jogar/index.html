@@ -1210,9 +1210,14 @@
     function txText(node){
       var d = dict(); if (!d) return;
       var s = node.nodeValue; if (!s) return;
-      var k = s.trim(); if (!k || k.length > 260) return;
+      // Normalizar espaços/quebras de linha: o HTML formatado parte frases em
+      // várias linhas ("... quem ganha -\n        apostas o") e o match exato
+      // falhava. A chave do dicionário é a frase com espaços simples.
+      var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(s);
+      var k = m[2].replace(/\s+/g, ' ');
+      if (!k || k.length > 700) return;
       var hit = d[k];
-      if (hit && hit !== k) node.nodeValue = s.replace(k, hit);
+      if (hit && hit !== k) node.nodeValue = m[1] + hit + m[3];
     }
     function txAttrs(el){
       var d = dict(); if (!d || !el.getAttribute) return;
@@ -1276,14 +1281,16 @@
       NUNCA Get-Content — corrompe os acentos (já aconteceu duas vezes).
    ══════════════════════════════════════════════════════════════════════════ */
 window.UP_DICT = {
-  /* Dicionário PT -> EN. A CHAVE é a própria frase em português (regra do
-     lote 070). Gerado/alargado a 13 Ago 2026 — ~987 entradas.
+  /* Dicionário PT -> EN. A CHAVE é a própria frase em português, com espaços
+     normalizados (o tradutor automático colapsa \s+ antes do match).
+     Gerado/alargado a 13 Ago 2026 — ~1020 entradas.
      Frase fora do dicionário => t() devolve o português; nunca parte nada. */
   en: {
     "(3-20 caracteres · letras, números, . _ - · único e sem palavrões)": "(3-20 characters · letters, numbers, . _ - · unique and no profanity)",
     "(a tendência está certa; longe demais para a aproximação)": "(the outcome is right; too far off for the near miss)",
     "(estimado com o resultado atual)": "(estimated with the current score)",
     "(gera notificação no telemóvel)": "(sends a phone notification)",
+    "(mín. 6 caracteres)": "(min. 6 characters)",
     "(para auto-fetch de resultados)": "(for auto-fetching results)",
     "(preenche os dois resultados para guardar)": "(fill in both scores to save)",
     "(resultado ao fim dos 120 min)": "(score after 120 minutes)",
@@ -1303,6 +1310,7 @@ window.UP_DICT = {
     "- sem utilizadores carregados -": "- no users loaded -",
     ". Assim que sair, o calendário aparece aqui e as apostas abrem.": ". As soon as it's out, the schedule appears here and predictions open.",
     ". Não é uma subscrição — pagas uma vez e não há renovação nem nada a cancelar.": ". It's not a subscription — you pay once and there's no renewal or anything to cancel.",
+    ". Sem dinheiro e sem prémios monetários: joga-se por pontos e pela classificação.": ". No money and no cash prizes: you play for points and for the leaderboard.",
     ". Tenho pelo menos 16 anos ou autorização de um responsável legal.": ". I am at least 16 years old or have permission from a legal guardian.",
     "1 golo": "1 goal",
     "1 JOKER por jornada": "1 JOKER per matchday",
@@ -1353,6 +1361,7 @@ window.UP_DICT = {
     "Abriste as tuas Estatísticas.": "You opened your Stats.",
     "Acaba hoje.": "Ends today.",
     "Aceito e quero continuar": "I accept and want to continue",
+    "Acertar quem ganha dá pontos. Acertar o resultado certo dá bastante mais. É o que separa quem arrisca de quem joga pelo seguro.": "Getting the winner right earns points. Getting the exact score right earns a lot more. It's what separates the bold from the safe players.",
     "Acertaste o resultado certo.": "You got the exact score right.",
     "Acertaste quem ganhou ou o empate, mas não o resultado.": "You got the winner or the draw right, but not the score.",
     "acertos na tendência": "outcome hits",
@@ -1389,6 +1398,7 @@ window.UP_DICT = {
     "Antes do 1º jogo": "Before the 1st match",
     "Análise avançada": "Advanced analysis",
     "Ao carimbares os {t}, ganhas": "Stamp all {t} and you earn",
+    "Ao entrar ou criar conta aceitas os": "By logging in or creating an account you accept the",
     "Ao vivo": "Live",
     "Ao Vivo / Próximo jogo": "Live / Next match",
     "Ao vivo agora": "Live now",
@@ -1416,7 +1426,9 @@ window.UP_DICT = {
     "Argélia": "Algeria",
     "Arrasta as equipas para reordenar. Grupos com resultados reais são automáticos.": "Drag the teams to reorder. Groups with real results are automatic.",
     "arrasta para ordenar · 1º e 2º contam (2 pts cada)": "drag to order · 1st and 2nd count (2 pts each)",
+    "Artigos e análises": "Articles and analysis",
     "Arábia Saudita": "Saudi Arabia",
+    "As apostas fecham antes do apito inicial e o jogo avisa-te antes. Sem boletins em papel, sem folhas de cálculo, sem discussões sobre quem entregou a tempo.": "Predictions close before kick-off and the game reminds you in advance. No paper slips, no spreadsheets, no arguments about who submitted on time.",
     "As apostas fecham antes do apito inicial.": "Predictions close before kick-off.",
     "As compras estão fechadas nesta fase": "Purchases are closed at this stage",
     "As inscrições para esta competição ainda não abriram.": "Registration for this competition hasn't opened yet.",
@@ -1453,6 +1465,7 @@ window.UP_DICT = {
     "Bónus do joker - duplica a base e a raridade do jogo onde foi usado": "Joker bonus - doubles the base and the rarity of the match where it was used",
     "Bósnia e Herzegovina": "Bosnia and Herzegovina",
     "Cabo Verde": "Cape Verde",
+    "Cada competição tem a sua própria classificação e as suas regras de pontuação. Consulta as": "Each competition has its own leaderboard and its own scoring rules. Check the",
     "Campeão": "Champion",
     "Canadá": "Canada",
     "Cancelar": "Cancel",
@@ -1516,6 +1529,7 @@ window.UP_DICT = {
     "Copiar": "Copy",
     "Coreia do Sul": "South Korea",
     "Costa do Marfim": "Ivory Coast",
+    "Cria uma tabela fechada para os amigos, a família ou os colegas. Apostas uma vez e conta para a geral e para todas as tuas ligas.": "Create a private table for friends, family or colleagues. You predict once and it counts for the overall table and for all your leagues.",
     "Criar conta": "Create account",
     "Criar Liga": "Create League",
     "Criar Nova Liga": "Create New League",
@@ -1544,13 +1558,17 @@ window.UP_DICT = {
     "dia de premium": "day of premium",
     "dias de premium": "days of premium",
     "Diferença de golos": "Goal difference",
+    "disponíveis.": "available.",
     "Disponível com passe ativo.": "Available with an active pass.",
+    "Disponível no": "Available on",
     "Distintivos": "Badges",
     "divergências na classificação": "leaderboard mismatches",
     "Do palpite ao resultado": "From prediction to result",
     "dobra os pontos": "doubles the points",
     "duplica o bónus de raridade": "doubles the rarity bonus",
     "Duplica os pontos desse jogo.": "Doubles that match's points.",
+    "e a": "and the",
+    "e as": "and the",
     "e para o MVP, mas aparecem à parte na coluna": "and for the MVP, but they're shown separately in the column",
     "Egipto": "Egypt",
     "Egito": "Egypt",
@@ -1563,6 +1581,7 @@ window.UP_DICT = {
     "Email atual: ": "Current email: ",
     "Email de login alterado, mas o perfil ficou por sincronizar - fala connosco.": "Login email changed, but the profile didn't sync - contact us.",
     "Email inválido.": "Invalid email.",
+    "email@exemplo.com": "email@example.com",
     "Empate": "Draw",
     "Empates": "Draws",
     "Entendi - usar email e password": "Got it - use email and password",
@@ -1749,6 +1768,7 @@ window.UP_DICT = {
     "Liga apagada.": "League deleted.",
     "Liga silenciada.": "League muted.",
     "Liga:": "League:",
+    "LIGAS": "LEAGUES",
     "Ligas": "Leagues",
     "ligas criadas": "leagues created",
     "ligas em que participas": "leagues you're in",
@@ -1809,6 +1829,7 @@ window.UP_DICT = {
     "Nova password": "New password",
     "Nova Zelândia": "New Zealand",
     "Novo email": "New email",
+    "novo@email.com": "new@email.com",
     "nunca dá pontos nem vantagem na pontuação": "never gives points or a scoring advantage",
     "NÃO CONTA PARA PONTOS": "DOES NOT COUNT FOR POINTS",
     "Não contam": "They don't count",
@@ -1849,6 +1870,7 @@ window.UP_DICT = {
     "Números na mão": "Numbers in hand",
     "O bot não vê as apostas de ninguém, aposta antes do fecho como toda a gente, e não usa joker.": "The bot doesn't see anyone's predictions, predicts before the deadline like everyone else, and doesn't use the joker.",
     "o endereço atual": "your current address",
+    "O jogo": "The game",
     "O link do email é inválido ou já foi usado. Pede um novo em \"Esqueceste a password?\".": "The email link is invalid or already used. Request a new one via \"Forgot your password?\".",
     "O mercado, a forma das equipas e onde está o valor. Disponível com passe ativo.": "The market, team form and where the value is. Available with an active pass.",
     "O Mundial 2026 está encerrado e mantém os critérios com que foi disputado.": "The 2026 World Cup is closed and keeps the rules it was played under.",
@@ -1867,11 +1889,14 @@ window.UP_DICT = {
     "O teu percurso na classificação, jogo a jogo.": "Your journey through the leaderboard, match by match.",
     "O teu percurso nas competições em que participaste.": "Your record in the competitions you played.",
     "O utilizador receberá um email e deverá usar \"Esqueceste a password?\" para definir o acesso.": "The user will receive an email and should use \"Forgot your password?\" to set up access.",
+    "o-teu@email.com": "your@email.com",
     "o-teu@email.com ou o teu nickname": "your@email.com or your nickname",
+    "obtidos no jogo onde o usas!": "earned in the match where you use it!",
     "Oferecido a todos nesta fase": "Free for everyone at this stage",
     "Oferecido no arranque da época": "Free at the start of the season",
     "Oitavos": "Round of 16",
     "Oitavos de Final": "Round of 16",
+    "Olá,": "Hi,",
     "Onde estou?": "Where am I?",
     "ontem": "yesterday",
     "Ontem": "Yesterday",
@@ -1880,12 +1905,14 @@ window.UP_DICT = {
     "Os jogadores aparecem pelo teu": "Players are shown by your",
     "Os resultados apostados só aparecem depois do apito inicial.": "Predicted scores only appear after kick-off.",
     "Os resultados e a classificação aparecem aqui.": "Results and standings will appear here.",
+    "Os resultados entram sozinhos e a classificação mexe enquanto a bola rola. Depois do prazo, vês o que cada participante apostou.": "Results come in on their own and the leaderboard moves while the ball rolls. After the deadline, you can see what everyone predicted.",
     "Os termos foram atualizados. Confirma que aceitas a nova versão para continuares.": "The terms have been updated. Confirm you accept the new version to continue.",
     "Outras ligas": "Other leagues",
     "Palmarés": "Hall of fame",
     "Panamá": "Panama",
     "para criar uma. Depois entras com email e password em qualquer rede.": "to create one. Then you can log in with email and password on any network.",
     "Para entrares noutra liga, sai primeiro de uma.": "To join another league, leave one first.",
+    "para perceberes como funciona, e as": "to see how it works, and the",
     "Paraguai": "Paraguay",
     "Partilha este código para convidar jogadores": "Share this code to invite players",
     "Partilha o teu link e eles aparecem aqui.": "Share your link and they'll appear here.",
@@ -1936,6 +1963,7 @@ window.UP_DICT = {
     "Posição": "Position",
     "POSIÇÃO NA JORNADA": "MATCHDAY POSITION",
     "Prazo": "Deadline",
+    "Prazos automáticos": "Automatic deadlines",
     "Precisas de um nickname para continuar. Queres sair da conta?": "You need a nickname to continue. Do you want to log out?",
     "Preenche as Pré-Apostas. Depois do arranque ficam bloqueadas.": "Fill in your Season Picks. They lock once the season starts.",
     "Preenche todos os campos.": "Fill in all the fields.",
@@ -1976,7 +2004,10 @@ window.UP_DICT = {
     "Reativar notificações desta liga": "Re-enable this league's notifications",
     "rede de segurança": "safety net",
     "Registar": "Sign up",
+    "Registar com Google": "Sign up with Google",
+    "regras": "rules",
     "Regras": "Rules",
+    "Regras do Jogo": "Game Rules",
     "Regras e pontuação": "Rules and scoring",
     "Remover do jogo (irreversível)": "Remove from the game (irreversible)",
     "Remover este membro da liga?": "Remove this member from the league?",
@@ -1984,6 +2015,7 @@ window.UP_DICT = {
     "Repete a nova password": "Repeat the new password",
     "Repete o novo email": "Repeat the new email",
     "Resposta inválida do servidor": "Invalid server response",
+    "resultado": "score",
     "Resultado": "Result",
     "Resultado confirmado pelo admin - o auto-fetch não lhe toca": "Result confirmed by the admin - auto-fetch won't touch it",
     "Resultado desbloqueado - o auto-fetch volta a geri-lo.": "Result unlocked - auto-fetch manages it again.",
@@ -2005,6 +2037,7 @@ window.UP_DICT = {
     "Sair?": "Log out?",
     "Sala de troféus": "Trophy room",
     "Salvo se ainda tiveres default picks disponíveis.": "Unless you still have default picks available.",
+    "Se acertares um resultado que quase ninguém arriscou, levas pontos extra. Apostar sempre o resultado óbvio é seguro - e raramente ganha competições.": "If you hit a score almost nobody dared to predict, you earn extra points. Always going for the obvious score is safe - and rarely wins competitions.",
     "Se o email estiver registado, receberás um link em breve. Verifica também a pasta de spam.": "If the email is registered, you'll receive a link shortly. Also check your spam folder.",
     "Se quiseres usar outro endereço, cria primeiro uma password em {forgot} e volta a este ecrã.": "If you want to use another address, first create a password via {forgot} and come back to this screen.",
     "Seleciona primeiro a equipa para ver a lista de jogadores.": "Select the team first to see the player list.",
@@ -2041,6 +2074,7 @@ window.UP_DICT = {
     "Sessão expirada - entra de novo.": "Session expired - log in again.",
     "Silenciar notificações desta liga": "Mute this league's notifications",
     "Sim, remover mesmo assim": "Yes, remove anyway",
+    "Sim.": "Yes.",
     "Simul.": "Sim.",
     "Simula toda a fase a eliminar à tua vontade - sem afetar a tua pontuação real.": "Simulate the whole knockout stage as you like - without affecting your real score.",
     "Simulador": "Simulator",
@@ -2088,10 +2122,14 @@ window.UP_DICT = {
     "TOTAL PRÉ-APOSTAS": "TOTAL SEASON PICKS",
     "Trazer companhia": "Bring company",
     "Trocar de competição": "Switch competition",
+    "Tudo ao vivo": "Everything live",
     "Tunísia": "Tunisia",
     "Turquia": "Türkiye",
     "Um amigo registou-se com o teu convite.": "A friend signed up with your invite.",
+    "Um jogo de prognósticos de futebol entre amigos. Aqui não apostas quem ganha - apostas o": "A football prediction game between friends. Here you don't predict who wins - you predict the",
+    "Uma vez por jornada podes dobrar os pontos de um jogo à tua escolha. Mas não protege erros: se falhares, continua a valer zero.": "Once per matchday you can double the points of one match of your choice. But it doesn't protect mistakes: if you miss, it's still worth zero.",
     "Uncle Predictor - jogo de prognósticos de futebol": "Uncle Predictor - football prediction game",
+    "Uncle Predictor - jogo de prognósticos de futebol entre amigos, sem apostas em dinheiro e sem prémios monetários. Não somos afiliados da FIFA, UEFA ou Premier League.": "Uncle Predictor - a football prediction game between friends, with no money betting and no cash prizes. Not affiliated with FIFA, UEFA or the Premier League.",
     "Uruguai": "Uruguay",
     "usado neste jogo": "used in this match",
     "Usaste a sugestão automática numa jornada.": "You used the automatic suggestion on a matchday.",
@@ -2107,6 +2145,7 @@ window.UP_DICT = {
     "Ver menos": "See less",
     "Ver o meu Passaporte": "See my Passport",
     "Ver quem já apostou (sem revelar os resultados)": "See who has predicted (without revealing the scores)",
+    "Ver relatório": "View report",
     "Ver todas as ligas": "See all leagues",
     "Versão inglesa": "English version",
     "Vice-Campeão": "Runner-up",
