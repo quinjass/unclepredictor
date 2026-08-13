@@ -2063,7 +2063,7 @@ window.UP_DICT = {
     "Não guardado": "Not saved",
     "Não há joker, raridade nem aproximação": "No joker, rarity or near miss",
     "Não há prazo. Podes guardar e usar quando quiseres.": "There's no deadline. You can keep it and use it whenever you like.",
-    "Não há sugestões disponíveis para esta jornada - pode faltar histórico das equipas.": "No suggestions available for this matchday - the teams may lack history.",
+    "Não há jogos por apostar nesta jornada.": "There are no games left to predict in this matchday.",
     "Não pagaste nem tens nada a cancelar. Quando terminar, poderás comprar se quiseres continuar.": "You haven't paid and there's nothing to cancel. When it ends, you can buy one if you want to continue.",
     "Não tens conta?": "No account?",
     "Nível": "Level",
@@ -2194,7 +2194,7 @@ window.UP_DICT = {
     "Precisas de um nickname para continuar. Queres sair da conta?": "You need a nickname to continue. Do you want to log out?",
     "Preenche as Pré-Apostas. Depois do arranque ficam bloqueadas.": "Fill in your Season Picks. They lock once the season starts.",
     "Preenche todos os campos.": "Fill in all the fields.",
-    "Preenchemos a jornada toda com o resultado mais provável pela forma recente. Podes alterar tudo a seguir.": "We filled the whole matchday with the most likely score based on recent form. You can change everything afterwards.",
+    "Preenchemos a jornada toda com um dos resultados mais apostados pelos outros jogadores. Podes alterar tudo a seguir.": "We fill the whole matchday with one of the scores most predicted by the other players. You can change everything afterwards.",
     "Presença": "Ever-present",
     "presenças no pódio": "podium finishes",
     "Previsão": "Prediction",
@@ -10558,13 +10558,14 @@ window.addEventListener('beforeunload',function(e){
   if(S.pending){e.preventDefault();e.returnValue='';}
 });
 // ══════════════════════════════════════════════════════════════════════════
-//  MOTOR DE SUGESTÃO (066)
+//  MOTOR DE SUGESTÃO (066, reescrito na 072)
 // ══════════════════════════════════════════════════════════════════════════
-// A estimativa é feita no servidor (fn_match_estimate): forma recente das duas
-// equipas -> golos esperados -> Poisson -> placar mais provável. Aqui só se
-// mostra e se aplica. NUNCA sobrescreve apostas - a RPC garante-o.
-// Degrada em silêncio: sem a 066 aplicada, o preview falha e a barra não
-// chega a aparecer.
+// A escolha é feita no servidor (fn_crowd_pick): dos 3 placares mais apostados
+// nesse jogo pelos outros jogadores, sorteia um com 1/3 de probabilidade cada.
+// As apostas que o próprio botão preencheu não contam para esse ranking, senão
+// o motor alimentava-se a si próprio. Aqui só se mostra e se aplica. NUNCA
+// sobrescreve apostas - a RPC garante-o.
+// (Até 13 Ago era forma recente -> Poisson; dava 1-1 em 87% dos jogos.)
 // 💡 no cartão: esta aposta veio do motor, não fui eu que a fiz. Some assim
 // que o jogador mexer no resultado (o setPred limpa a marca).
 function suggestedMark(gid){
@@ -10614,7 +10615,7 @@ async function renderSuggestBar(){
   bar.innerHTML=`<div class="card" style="padding:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:190px">
         <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem">💡 Tens ${pend} jogo${pend===1?'':'s'} por apostar nesta jornada</div>
-        <div style="font-size:.7rem;color:var(--sub);margin-top:2px">Preenchemos a jornada toda com o resultado mais provável pela forma recente. Podes alterar tudo a seguir.</div>
+        <div style="font-size:.7rem;color:var(--sub);margin-top:2px">Preenchemos a jornada toda com um dos resultados mais apostados pelos outros jogadores. Podes alterar tudo a seguir.</div>
         <div style="font-size:.7rem;color:var(--sub);margin-top:4px">${contador}</div>
       </div>
       <button class="btn ${semQuota?'btn-outline':'btn-primary'}" id="suggest-btn" ${semQuota?'disabled':''}
@@ -10645,7 +10646,7 @@ async function applySuggestions(md){
         msg.innerHTML='Esgotaste as utilizações grátis nesta competição. Com passe ativo não há limite.';
       }else{
         msg.className='alert alert-info';
-        msg.innerHTML='Não há sugestões disponíveis para esta jornada - pode faltar histórico das equipas.';
+        msg.innerHTML='Não há jogos por apostar nesta jornada.';
       }
     }
     if(r.applied){ S._suggestAt=0; S._suggestState=null; await loadData(); if(S.curView==='bets'){ renderBets(); renderSuggestBar(); } }
