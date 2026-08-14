@@ -2195,6 +2195,9 @@ window.UP_DICT = {
     "Preenche as Pré-Apostas. Depois do arranque ficam bloqueadas.": "Fill in your Season Picks. They lock once the season starts.",
     "Preenche todos os campos.": "Fill in all the fields.",
     "Preenchemos a jornada toda com um dos resultados mais apostados pelos outros jogadores. Podes alterar tudo a seguir.": "We fill the whole matchday with one of the scores most predicted by the other players. You can change everything afterwards.",
+    "Voltamos a sortear com as apostas mais recentes dos outros jogadores. As tuas apostas não são tocadas.": "We draw again using the other players' most recent predictions. Your own predictions are left untouched.",
+    "🔄 Atualizar sugestões": "🔄 Refresh suggestions",
+    "Esta jornada já foi preenchida - repetir não gasta utilizações.": "This matchday has already been filled - repeating does not use up any credits.",
     "Presença": "Ever-present",
     "presenças no pódio": "podium finishes",
     "Previsão": "Prediction",
@@ -9909,6 +9912,10 @@ function switchMD(md) {
   S.curMD=md;
   if(S.leagueMode) setupMDNav(); else syncMDButtons(md);
   renderBets();
+  // ⚠️ A barra de sugestão é POR JORNADA. Sem isto ficava com o estado da
+  // jornada anterior: bastava a jornada de entrada estar preenchida para o
+  // botão nunca mais aparecer, por muito que se navegasse (bug real, 13 Ago).
+  try{ renderSuggestBar(); }catch(e){}
 }
 function syncMDButtons(md){
   [1,2,3].forEach(m=>{const el=document.getElementById('md-'+m);if(el)el.classList.toggle('active',m===md);});
@@ -10597,9 +10604,15 @@ async function renderSuggestBar(){
   }
   if(!st.enabled) return;
 
+  // Duas contagens distintas (073): jogos sem aposta nenhuma, e jogos onde já
+  // está uma sugestão que pode ser refeita. A barra aparece com qualquer uma
+  // delas - o botão deixou de desaparecer só por a jornada estar preenchida.
   const md=String(S.curMD);
   const pend=(st.pending||{})[md]||0;
-  if(!pend) return;                       // nada por apostar nesta jornada
+  const refr=(st.refresh||{})[md]||0;
+  if(!pend && !refr) return;              // jornada toda apostada à mão, ou fechada
+
+  const soRefazer = !pend && refr>0;      // nada por apostar: o botão é "atualizar"
 
   const ilimitado = st.remaining===-1;
   const jaPaga    = (st.paid_mds||[]).map(String).indexOf(md)>=0;
@@ -10609,18 +10622,31 @@ async function renderSuggestBar(){
   const contador = ilimitado
     ? `<span style="color:var(--gold)">Sugestões ilimitadas</span>`
     : jaPaga
-      ? `Esta jornada já foi preenchida - completar não gasta utilizações.`
+      ? `Esta jornada já foi preenchida - repetir não gasta utilizações.`
       : `Restam-te <strong style="color:var(--gold)">${restam}</strong> de ${st.free_uses} utilizações nesta competição.`;
+
+  const titulo = soRefazer
+    ? `🔄 ${refr} sugest${refr===1?'ão':'ões'} nesta jornada`
+    : `💡 Tens ${pend} jogo${pend===1?'':'s'} por apostar nesta jornada`;
+  // No caso misto (uns por apostar, outros já sugeridos) o botão faz as duas
+  // coisas - convém dizê-lo, senão parece que as sugestões antigas mudaram
+  // sozinhas.
+  const descricao = soRefazer
+    ? 'Voltamos a sortear com as apostas mais recentes dos outros jogadores. As tuas apostas não são tocadas.'
+    : ('Preenchemos a jornada toda com um dos resultados mais apostados pelos outros jogadores. Podes alterar tudo a seguir.'
+       + (refr ? ` As ${refr} sugest${refr===1?'ão':'ões'} que já lá estão são sorteadas de novo.` : ''));
+  const rotulo = soRefazer ? '🔄 Atualizar sugestões' : '💡 Apostar a jornada';
 
   bar.innerHTML=`<div class="card" style="padding:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:190px">
-        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem">💡 Tens ${pend} jogo${pend===1?'':'s'} por apostar nesta jornada</div>
-        <div style="font-size:.7rem;color:var(--sub);margin-top:2px">Preenchemos a jornada toda com um dos resultados mais apostados pelos outros jogadores. Podes alterar tudo a seguir.</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--gold);font-size:.9rem">${titulo}</div>
+        <div style="font-size:.7rem;color:var(--sub);margin-top:2px">${descricao}</div>
         <div style="font-size:.7rem;color:var(--sub);margin-top:4px">${contador}</div>
       </div>
       <button class="btn ${semQuota?'btn-outline':'btn-primary'}" id="suggest-btn" ${semQuota?'disabled':''}
+        data-rotulo="${rotulo}"
         style="font-size:.78rem;padding:7px 13px;white-space:nowrap${semQuota?';opacity:.5;cursor:not-allowed':''}"
-        onclick="applySuggestions('${md.replace(/'/g,'')}')">💡 Apostar a jornada</button>
+        onclick="applySuggestions('${md.replace(/'/g,'')}')">${rotulo}</button>
     </div>
     <div id="suggest-msg" style="display:none;font-size:.75rem;margin-top:6px;padding:7px 10px;border-radius:6px">${
       semQuota?'Esgotaste as utilizações grátis nesta competição. Com passe ativo não há limite.':''
@@ -10640,7 +10666,10 @@ async function applySuggestions(md){
       if(r.applied){
         msg.className='alert alert-success';
         const rest=(r.remaining===-1||r.remaining==null)?'':` Restam-te <b>${r.remaining}</b> utilizações.`;
-        msg.innerHTML=`✓ Jornada preenchida com ${r.applied} aposta${r.applied===1?'':'s'}.${r.charged?rest:''}`;
+        // `refreshed` = quantas destas já eram sugestões e foram sorteadas de novo.
+        msg.innerHTML=(r.refreshed && r.refreshed>=r.applied)
+          ? `✓ ${r.applied} sugestão${r.applied===1?'':'ões'} atualizada${r.applied===1?'':'s'}.${r.charged?rest:''}`
+          : `✓ Jornada preenchida com ${r.applied} aposta${r.applied===1?'':'s'}.${r.charged?rest:''}`;
       }else if(r.reason==='quota'){
         msg.className='alert alert-info';
         msg.innerHTML='Esgotaste as utilizações grátis nesta competição. Com passe ativo não há limite.';
@@ -10653,7 +10682,8 @@ async function applySuggestions(md){
   }catch(e){
     if(msg){ msg.style.display=''; msg.className='alert alert-error'; msg.textContent='Não foi possível sugerir agora.'; }
   }finally{
-    if(btn){ btn.disabled=false; btn.textContent='💡 Apostar a jornada'; }
+    // Repor o rótulo que a barra tinha (pode ser "Apostar" ou "Atualizar").
+    if(btn){ btn.disabled=false; btn.textContent=btn.getAttribute('data-rotulo')||'💡 Apostar a jornada'; }
   }
 }
 
