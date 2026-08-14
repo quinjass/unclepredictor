@@ -527,7 +527,9 @@
     @keyframes pulse-warn{0%,100%{opacity:1}50%{opacity:.6}}
     /* 9600: acima da .switcher-overlay (9500) — os toasts têm de continuar a
        ver-se por cima das janelas, como acontecia com 500 vs 450. */
-    .toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.82rem;opacity:0;transition:all .3s;z-index:9600;white-space:nowrap;pointer-events:none}
+    /* white-space:normal + max-width (14 Ago): com nowrap, os toasts longos
+       (ex.: descrição de um carimbo do Passaporte no telemóvel) saíam do ecrã. */
+    .toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 20px;font-size:.82rem;opacity:0;transition:all .3s;z-index:9600;white-space:normal;max-width:min(92vw,440px);width:max-content;text-align:center;line-height:1.45;pointer-events:none}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     .toast.success{border-color:var(--green);color:var(--green)}.toast.error{border-color:var(--red);color:var(--red)}
     /* ── MUNDIAL ── */
@@ -994,7 +996,13 @@
   function detect(){
     try{
       var q = new URLSearchParams(location.search).get('lang');
-      if (q && SUPPORTED.indexOf(q.toLowerCase()) >= 0) return q.toLowerCase();
+      if (q && SUPPORTED.indexOf(q.toLowerCase()) >= 0){
+        // ?lang= no URL é uma escolha EXPLÍCITA (links do site /en/, divulgação)
+        // e fica guardada — senão a página seguinte, já sem query, voltava ao
+        // idioma anterior e o utilizador via a língua trocar sozinha (14 Ago).
+        try{ localStorage.setItem(LS_KEY, q.toLowerCase()); }catch(e){}
+        return q.toLowerCase();
+      }
     }catch(e){}
     try{
       var sv = localStorage.getItem(LS_KEY);
@@ -1364,7 +1372,7 @@ window.UP_RX = [
 window.UP_DICT = {
   /* Dicionário PT -> EN. A CHAVE é a própria frase em português, com espaços
      normalizados. Frases com variáveis vivem no UP_RX acima.
-     Gerado/alargado a 13 Ago 2026 — ~1236 entradas. */
+     Gerado/alargado a 13-14 Ago 2026 — ~1240 entradas. */
   en: {
     "(3-20 caracteres · letras, números, . _ - · único e sem palavrões)": "(3-20 characters · letters, numbers, . _ - · unique and no profanity)",
     "(a tendência está certa; longe demais para a aproximação)": "(the outcome is right; too far off for the near miss)",
@@ -1806,6 +1814,7 @@ window.UP_DICT = {
     "Esqueceste-te de apostar num jogo? Em vez de zero, herdas automaticamente a": "Forgot to predict a match? Instead of zero, you automatically inherit the",
     "Esse já é o teu email atual.": "That is already your current email.",
     "Esta ação ainda não está disponível no sistema novo (": "This action isn't available in the new system yet (",
+    "Esta jornada já foi preenchida - repetir não gasta utilizações.": "This matchday has already been filled - repeating does not use up any credits.",
     "Esta época e a seguinte": "This season and the next",
     "Estatísticas": "Statistics",
     "Estatísticas avançadas": "Advanced stats",
@@ -2061,9 +2070,9 @@ window.UP_DICT = {
     "Não foi possível retirar.": "Could not withdraw.",
     "Não foi possível usar o passe.": "Could not use the pass.",
     "Não guardado": "Not saved",
+    "Não há jogos por apostar nesta jornada.": "There are no games left to predict in this matchday.",
     "Não há joker, raridade nem aproximação": "No joker, rarity or near miss",
     "Não há prazo. Podes guardar e usar quando quiseres.": "There's no deadline. You can keep it and use it whenever you like.",
-    "Não há jogos por apostar nesta jornada.": "There are no games left to predict in this matchday.",
     "Não pagaste nem tens nada a cancelar. Quando terminar, poderás comprar se quiseres continuar.": "You haven't paid and there's nothing to cancel. When it ends, you can buy one if you want to continue.",
     "Não tens conta?": "No account?",
     "Nível": "Level",
@@ -2195,9 +2204,6 @@ window.UP_DICT = {
     "Preenche as Pré-Apostas. Depois do arranque ficam bloqueadas.": "Fill in your Season Picks. They lock once the season starts.",
     "Preenche todos os campos.": "Fill in all the fields.",
     "Preenchemos a jornada toda com um dos resultados mais apostados pelos outros jogadores. Podes alterar tudo a seguir.": "We fill the whole matchday with one of the scores most predicted by the other players. You can change everything afterwards.",
-    "Voltamos a sortear com as apostas mais recentes dos outros jogadores. As tuas apostas não são tocadas.": "We draw again using the other players' most recent predictions. Your own predictions are left untouched.",
-    "🔄 Atualizar sugestões": "🔄 Refresh suggestions",
-    "Esta jornada já foi preenchida - repetir não gasta utilizações.": "This matchday has already been filled - repeating does not use up any credits.",
     "Presença": "Ever-present",
     "presenças no pódio": "podium finishes",
     "Previsão": "Prediction",
@@ -2337,6 +2343,7 @@ window.UP_DICT = {
     "Só em jogos com apostas suficientes, para não expor apostas individuais.": "Only in matches with enough predictions, so individual predictions aren't exposed.",
     "Só informação pública e agregada. Nunca mostra apostas individuais.": "Only public, aggregated information. It never shows individual predictions.",
     "Só tu vês isto: distribuição das apostas da comunidade antes do jogo começar": "Only you can see this: how the community's predictions split before kick-off",
+    "Tabela a zeros, por ordem alfabética — mexe com a 1.ª jornada.": "Table at zero, in alphabetical order — it moves with matchday 1.",
     "também duplica a aproximação": "also doubles the near miss",
     "também serve para entrares na conta — depois de mudares, o antigo deixa de funcionar no login.": "it's also used to log in — after you change it, the old one no longer works at login.",
     "Taxa de acerto": "Accuracy",
@@ -2416,6 +2423,7 @@ window.UP_DICT = {
     "Vitória": "Win",
     "Vitórias": "Wins",
     "Volta mais perto do apito.": "Come back closer to kick-off.",
+    "Voltamos a sortear com as apostas mais recentes dos outros jogadores. As tuas apostas não são tocadas.": "We draw again using the other players' most recent predictions. Your own predictions are left untouched.",
     "Voltar": "Back",
     "Voz na Bancada": "Voice in the stands",
     "Vês a percentagem da comunidade em cada resultado antes de fechares a tua aposta.": "You see the community's percentage on each score before locking in your prediction.",
@@ -2555,6 +2563,7 @@ window.UP_DICT = {
     "📥 Descarregar card desta jornada": "📥 Download this matchday's card",
     "📥 Guardar PNG": "📥 Save PNG",
     "📺 Transmissão em Portugal": "📺 Broadcast in Portugal",
+    "🔄 Atualizar sugestões": "🔄 Refresh suggestions",
     "🔄 Nova versão disponível - toca aqui para atualizar": "🔄 New version available - tap here to update",
     "🔄 Reiniciar simulação": "🔄 Restart simulation",
     "🔄 Trocar de competição": "🔄 Switch competition",
@@ -4337,9 +4346,9 @@ document.addEventListener('keydown', function(e){
 
     <div class="acct-sep" data-i18n>Definições</div>
     <button class="btn btn-outline btn-full" onclick="closeAccountMenu();showNotifPrefs()" data-i18n>🔔 Gerir notificações</button>
-    <!-- Idioma: ESCONDIDO até o inglês abrir ao público (decisão de 12 Ago).
-         O showAccountMenu() só o revela em modo admin (#admin ou S.isAdmin). -->
-    <button id="btn-lang" class="btn btn-outline btn-full" style="display:none" onclick="closeAccountMenu();upToggleLang()">🌐 Idioma / Language</button>
+    <!-- Idioma: visível para todos desde 14 Ago (o showAccountMenu() põe o
+         rótulo com a língua atual). Alterna PT/EN e recarrega a página. -->
+    <button id="btn-lang" class="btn btn-outline btn-full" onclick="closeAccountMenu();upToggleLang()">🌐 Idioma / Language</button>
 
     <button class="btn btn-danger btn-full" style="margin-top:14px" onclick="logout()" data-i18n>↩ Terminar sessão</button>
     <!-- Eliminar conta: link discreto e não botão, de propósito. Continua a ser
@@ -6331,13 +6340,13 @@ function showAccountMenu(){
     const av=(S.user&&S.user.avatar)||'';
     avEl.firstChild.nodeValue = av || '👤';
   }
-  // Idioma: só em modo admin, enquanto o inglês não abre ao público.
+  // Idioma: visível para TODOS desde 14 Ago (pedido do Hugo) — com o site /en/
+  // e a app traduzida, o switch deixou de estar atrás do gate #admin.
   try{
     const lb=document.getElementById('btn-lang');
     if(lb){
-      const adm=(location.hash==='#admin')||S.isAdmin;
-      lb.style.display=adm?'':'none';
-      if(adm) lb.textContent='🌐 '+(window.UP_LANG==='en'?'Language: EN → mudar para PT':'Idioma: PT → switch to EN');
+      lb.style.display='';
+      lb.textContent='🌐 '+(window.UP_LANG==='en'?'Language: English → mudar para Português':'Idioma: Português → switch to English');
     }
   }catch(e){}
   document.getElementById('account-menu-overlay').classList.add('open');
@@ -11283,12 +11292,20 @@ function buildLeagueStandingsHtml(){
     if(+r.t1>+r.t2){a.w++;b.l++;} else if(+r.t1<+r.t2){b.w++;a.l++;} else {a.d++;b.d++;} });
   const totalTeams=new Set([].concat(...phaseGames.map(g=>[g.t1,g.t2]).filter(x=>x))).size||18;
   let rows=Object.values(tbl).map(t=>({...t,gd:t.gf-t.ga,pts:t.w*3+t.d}));
-  if(!rows.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">Ainda sem resultados.<br><span style="font-size:.8rem">A tabela vai aparecendo à medida que os jogos terminam.</span></div>`;
+  // Antes da 1.ª jornada (14 Ago, pedido do Hugo): em vez de uma caixa vazia,
+  // a tabela COMPLETA a zeros, semeada do calendário — mostra logo quem joga.
+  const preSeason = !rows.length;
+  if(preSeason){
+    phaseGames.forEach(g=>{ if(g.t1)ensure(g.t1); if(g.t2)ensure(g.t2); });
+    rows=Object.values(tbl).map(t=>({...t,gd:0,pts:0}));
+  }
+  if(!rows.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">${t('Ainda sem resultados.')}<br><span style="font-size:.8rem">${t('A tabela vai aparecendo à medida que os jogos terminam.')}</span></div>`;
   rows.sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf || a.team.localeCompare(b.team,UP_LOCALE()));
   const releg = totalTeams>=20?3:2;           // descidas: 3 em ligas de 20+ equipas (Premier), 2 nas menores
   const allIn = rows.length>=totalTeams;      // só marca a zona de descida com a tabela completa
-  // Zonas só nas ligas domésticas (Top4 / descida). Na UCL (híbrido) a tabela é neutra.
-  const zone=i=> hybrid ? 'transparent' : (i<4 ? 'var(--green)' : (allIn && i>=rows.length-releg ? 'var(--red)' : 'transparent'));
+  // Zonas só nas ligas domésticas (Top4 / descida) e só depois de haver jogos —
+  // pintar descidas numa tabela alfabética a zeros seria enganador.
+  const zone=i=> (hybrid||preSeason) ? 'transparent' : (i<4 ? 'var(--green)' : (allIn && i>=rows.length-releg ? 'var(--red)' : 'transparent'));
   let body='';
   rows.forEach((t,i)=>{ const dg=t.gd>0?'+'+t.gd:t.gd;
     body+=`<tr>
@@ -11312,7 +11329,8 @@ function buildLeagueStandingsHtml(){
       <th title="Diferença de golos">DG</th>
       <th title="Pontos" style="color:var(--gold)">Pts</th>
     </tr></thead><tbody>${body}</tbody></table></div>
-    ${hybrid?'':`<div style="display:flex;gap:14px;font-size:.7rem;color:var(--sub);margin:10px 2px;flex-wrap:wrap">
+    ${preSeason?`<div style="font-size:.72rem;color:var(--sub);margin:10px 2px">${t('Tabela a zeros, por ordem alfabética — mexe com a 1.ª jornada.')}</div>`:''}
+    ${(hybrid||preSeason)?'':`<div style="display:flex;gap:14px;font-size:.7rem;color:var(--sub);margin:10px 2px;flex-wrap:wrap">
       <span style="border-left:3px solid var(--green);padding-left:6px">Zona europeia (Top 4)</span>
       <span style="border-left:3px solid var(--red);padding-left:6px">Descida (${releg} últimos)</span>
     </div>`}`;
