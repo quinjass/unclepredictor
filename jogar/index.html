@@ -1327,9 +1327,39 @@ window.UP_RX = [
   [/^(\d+) equipas$/, '$1 teams'],
   [/^(\d+) seleções$/, '$1 national teams'],
   [/^🌎 Formato · (.+)$/, '🌎 Format · $1'],
-  [/^(.+) venceu (\d+) dos últimos (\d+)$/, '$1 won $2 of the last $3'],
-  [/^(.+) perdeu (\d+) dos últimos (\d+)$/, '$1 lost $2 of the last $3'],
-  [/^(.+) empatou (\d+) dos últimos (\d+)$/, '$1 drew $2 of the last $3'],
+  // ⚠️ 14 Ago: as três de baixo tinham $ logo a seguir ao número — nunca
+  // batiam certo com o forma_texto real do build-insights, que fecha com
+  // ponto final ("... dos últimos 5."). Grupo 4 opcional preserva o ponto
+  // quando existir, sem inventar um onde não havia.
+  [/^(.+) venceu (\d+) dos últimos (\d+)(\.?)$/, '$1 won $2 of the last $3$4'],
+  [/^(.+) perdeu (\d+) dos últimos (\d+)(\.?)$/, '$1 lost $2 of the last $3$4'],
+  [/^(.+) empatou (\d+) dos últimos (\d+)(\.?)$/, '$1 drew $2 of the last $3$4'],
+
+  /* ── build-insights: h2h_texto (14 Ago 2026) — texto do bloco "confronto
+     direto" do cartão de Insights. Gerado server-side em templates fixos
+     (edge function build-insights); estas regras cobrem as 4 formas que ele
+     produz (cálculo próprio a partir do histórico + fallback football-data). */
+  [/^Só se encontraram uma vez: vitória do (.+), (\d+) golos\.$/, 'Only met once: $1 won, $2 goals.'],
+  [/^Só se encontraram uma vez: empate, (\d+) golos\.$/, 'Only met once: draw, $1 goals.'],
+  [/^Só se encontraram uma vez, num jogo de (\d+) golos\.$/, "They've only met once, in a match with $1 goals."],
+  [/^Nos últimos (\d+) encontros: (\d+)V-(\d+)E-(\d+)D para o (.+), média de (\d+),(\d) golos\.$/, 'In the last $1 meetings: $2W-$3D-$4L for $5, average of $6.$7 goals.'],
+  [/^Nos últimos (\d+) encontros: (\d+)V-(\d+)E-(\d+)D para o (.+), com média de (\d+),(\d) golos\.$/, 'In the last $1 meetings: $2W-$3D-$4L for $5, with an average of $6.$7 goals.'],
+  [/^Nos últimos (\d+) encontros, média de (\d+),(\d) golos por jogo\.$/, 'In the last $1 meetings, average of $2.$3 goals per match.'],
+  [/^Encontraram-se (\d+) vezes, com média de (\d+),(\d) golos por jogo\.$/, "They've met $1 times, with an average of $2.$3 goals per match."],
+
+  /* ── build-insights: valor_texto (14 Ago 2026) — o bloco 💡 "onde está o
+     valor". Desdobrado por desfecho (vitória de uma equipa / empate) × com
+     ou sem a frase de raridade no fim, porque o $-replace não traduz o que
+     captura (o "vitória do X"/"empate" e a etiqueta de raridade têm de vir
+     escritos por extenso em cada regra). */
+  [/^O mercado dá (\d+)% a vitória do (.+), mas só (\d+)% da comunidade apostou nisso\.$/, 'The market gives $1% to a $2 win, but only $3% of the community predicted it.'],
+  [/^O mercado dá (\d+)% a empate, mas só (\d+)% da comunidade apostou nisso\.$/, 'The market gives $1% to a draw, but only $2% of the community predicted it.'],
+  [/^O mercado dá (\d+)% a vitória do (.+), mas só (\d+)% da comunidade apostou nisso\. Um (\d+–\d+) tem hoje raridade estimada Ultra Raro \(\+(\d+)\)\.$/, 'The market gives $1% to a $2 win, but only $3% of the community predicted it. A $4 scoreline carries an estimated Ultra Rare bonus (+$5) today.'],
+  [/^O mercado dá (\d+)% a vitória do (.+), mas só (\d+)% da comunidade apostou nisso\. Um (\d+–\d+) tem hoje raridade estimada Muito Raro \(\+(\d+)\)\.$/, 'The market gives $1% to a $2 win, but only $3% of the community predicted it. A $4 scoreline carries an estimated Very Rare bonus (+$5) today.'],
+  [/^O mercado dá (\d+)% a vitória do (.+), mas só (\d+)% da comunidade apostou nisso\. Um (\d+–\d+) tem hoje raridade estimada Raro \(\+(\d+)\)\.$/, 'The market gives $1% to a $2 win, but only $3% of the community predicted it. A $4 scoreline carries an estimated Rare bonus (+$5) today.'],
+  [/^O mercado dá (\d+)% a empate, mas só (\d+)% da comunidade apostou nisso\. Um (\d+–\d+) tem hoje raridade estimada Ultra Raro \(\+(\d+)\)\.$/, 'The market gives $1% to a draw, but only $2% of the community predicted it. A $3 scoreline carries an estimated Ultra Rare bonus (+$4) today.'],
+  [/^O mercado dá (\d+)% a empate, mas só (\d+)% da comunidade apostou nisso\. Um (\d+–\d+) tem hoje raridade estimada Muito Raro \(\+(\d+)\)\.$/, 'The market gives $1% to a draw, but only $2% of the community predicted it. A $3 scoreline carries an estimated Very Rare bonus (+$4) today.'],
+  [/^O mercado dá (\d+)% a empate, mas só (\d+)% da comunidade apostou nisso\. Um (\d+–\d+) tem hoje raridade estimada Raro \(\+(\d+)\)\.$/, 'The market gives $1% to a draw, but only $2% of the community predicted it. A $3 scoreline carries an estimated Rare bonus (+$4) today.'],
   [/^\(×(\d+)\)$/, '(×$1)'],
   [/^\+(\d+) pts? cada$/, '+$1 pts each'],
   [/^Máximo (\d+) pts?\.?$/, 'Maximum $1 pts.'],
@@ -2614,6 +2644,46 @@ window.UP_DICT = {
     "🥉 Melhores 3.ºs (seleciona 8)": "🥉 Best 3rd-placed (select 8)",
     "🥊 Meias-Finais": "🥊 Semi-finals",
     "🧪 Entrar (teste)": "🧪 Log in (test)",
+
+    /* ── Registo (submitRegister + edge function register + rpc_nickname_check,
+       migração 067) — 14 Ago 2026. Os erros do registo são devolvidos pelo
+       servidor mas mostrados via errEl.textContent no browser, por isso
+       chaves de dicionário simples (match exato) chegam — não precisam de
+       mudança nenhuma no register/index.ts. */
+    "Preenche todos os campos.": "Fill in all fields.",
+    "Nickname inválido: 3 a 20 caracteres (letras, números, . _ -).": "Invalid nickname: 3 to 20 characters (letters, numbers, . _ -).",
+    "A password deve ter pelo menos 6 caracteres.": "Password must be at least 6 characters.",
+    "As passwords não coincidem.": "Passwords don't match.",
+    "Tens de aceitar os Termos de Utilização e a Política de Privacidade.": "You need to accept the Terms of Use and Privacy Policy.",
+    "Erro ao criar conta.": "Error creating account.",
+    "Erro de ligação.": "Connection error.",
+    "Conta criada! Já podes entrar com o teu email e password.": "Account created! You can now log in with your email and password.",
+    "Conta criada! Enviámos um email de confirmação para": "Account created! We've sent a confirmation email to",
+    ". Confirma o email e depois entra com a tua password.": ". Confirm your email, then log in with your password.",
+    "Email inválido.": "Invalid email.",
+    "Preenche o nome.": "Enter your name.",
+    "A password deve ter entre 6 e 72 caracteres.": "Password must be between 6 and 72 characters.",
+    "Tens de aceitar os Termos de Utilização e a Política de Privacidade para criar conta.": "You need to accept the Terms of Use and Privacy Policy to create an account.",
+    "Já existe uma conta com este email. Entra com a tua password ou usa \"Esqueci-me da password\".": "An account with this email already exists. Log in with your password or use \"Forgot password\".",
+    "Demasiadas tentativas. Espera um minuto e tenta outra vez.": "Too many attempts. Wait a minute and try again.",
+    "Password recusada. Usa pelo menos 6 caracteres.": "Password rejected. Use at least 6 characters.",
+    "Não foi possível criar a conta. Tenta outra vez daqui a pouco.": "We couldn't create the account. Please try again shortly.",
+    "Competição inválida.": "Invalid competition.",
+    "Não foi possível validar o nickname. Tenta outra vez.": "We couldn't validate the nickname. Please try again.",
+    "Esse nickname acabou de ser apanhado por outra pessoa. Escolhe outro.": "That nickname was just taken by someone else. Choose another one.",
+    "Esse nickname não é permitido. Escolhe outro.": "That nickname isn't allowed. Choose another one.",
+    "Esse nickname já está a ser usado. Escolhe outro.": "That nickname is already taken. Choose another one.",
+
+    /* ── Textos de partilha nativa (embaixadorMsg/leagueInviteMsg) — 14 Ago.
+       Chamados via t() no momento da construção, não via DOM. */
+    "Anda jogar Uncle Predictor comigo ⚽\nPrevês os resultados, desafias os teus amigos. É grátis.": "Come play Uncle Predictor with me ⚽\nPredict the scores, challenge your friends. It's free.",
+    "Entra na minha liga do Uncle Predictor 👀": "Join my Uncle Predictor league 👀",
+
+    /* ── Etiquetas de raridade (SCORING_PROFILES.rarityLabels) — 14 Ago.
+       Usadas nos badges de raridade e no valor_texto do build-insights. */
+    "Ultra Raro": "Ultra Rare",
+    "Muito Raro": "Very Rare",
+    "Raro": "Rare",
   }
 };
 </script>
@@ -7838,7 +7908,10 @@ function embaixadorLink(){
   return 'https://unclepredictor.pt/?ref='+encodeURIComponent(c);
 }
 function embaixadorMsg(){
-  return 'Anda jogar Uncle Predictor comigo ⚽\nPrevês os resultados, desafias os teus amigos. É grátis.\n'+embaixadorLink();
+  // i18n (14 Ago): texto de partilha nativo (navigator.share/WhatsApp) não
+  // passa pelo DOM, por isso o upAutoTranslate nunca o via — tem de ir por
+  // t() no momento em que é construído.
+  return t('Anda jogar Uncle Predictor comigo ⚽\nPrevês os resultados, desafias os teus amigos. É grátis.')+'\n'+embaixadorLink();
 }
 function shareEmbaixadorWhatsApp(){
   window.open('https://wa.me/?text='+encodeURIComponent(embaixadorMsg()),'_blank');
@@ -11287,25 +11360,33 @@ function buildLeagueStandingsHtml(){
   const hybrid=GAMES.some(g=>g.ko);          // UCL: fase de liga + mata-mata
   const phaseGames=GAMES.filter(g=>!g.ko);    // classificação = só jogos de pontos-corridos
   const tbl={}, ensure=t=>tbl[t]||(tbl[t]={team:t,p:0,w:0,d:0,l:0,gf:0,ga:0});
+  // TODAS as equipas do calendário entram na tabela, SEMPRE (22 Ago 2026).
+  // Antes só se semeava a tabela completa quando não havia resultado NENHUM
+  // (`preSeason`); bastou terminar o 1.º jogo da Premier para a tabela passar
+  // de 20 equipas a duas — só as que já tinham jogado. Uma tabela de liga
+  // mostra sempre toda a gente, com zeros em quem ainda não jogou.
+  phaseGames.forEach(g=>{ if(g.t1)ensure(g.t1); if(g.t2)ensure(g.t2); });
+  let played=0;
   phaseGames.forEach(g=>{ const r=S.results[g.id]; if(!r||r.t1==null||r.t2==null||!g.t1||!g.t2) return;
+    played++;
     const a=ensure(g.t1), b=ensure(g.t2); a.p++;b.p++; a.gf+=+r.t1;a.ga+=+r.t2; b.gf+=+r.t2;b.ga+=+r.t1;
     if(+r.t1>+r.t2){a.w++;b.l++;} else if(+r.t1<+r.t2){b.w++;a.l++;} else {a.d++;b.d++;} });
   const totalTeams=new Set([].concat(...phaseGames.map(g=>[g.t1,g.t2]).filter(x=>x))).size||18;
-  let rows=Object.values(tbl).map(t=>({...t,gd:t.gf-t.ga,pts:t.w*3+t.d}));
-  // Antes da 1.ª jornada (14 Ago, pedido do Hugo): em vez de uma caixa vazia,
-  // a tabela COMPLETA a zeros, semeada do calendário — mostra logo quem joga.
-  const preSeason = !rows.length;
-  if(preSeason){
-    phaseGames.forEach(g=>{ if(g.t1)ensure(g.t1); if(g.t2)ensure(g.t2); });
-    rows=Object.values(tbl).map(t=>({...t,gd:0,pts:0}));
-  }
+  const rows=Object.values(tbl).map(t=>({...t,gd:t.gf-t.ga,pts:t.w*3+t.d}));
+  // Antes da 1.ª jornada (14 Ago, pedido do Hugo): tabela a zeros por ordem
+  // alfabética em vez de uma caixa vazia. Passou a ser só uma questão de
+  // rótulo — as linhas já lá estão de qualquer maneira.
+  const preSeason = played===0;
   if(!rows.length) return `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;color:var(--sub);line-height:1.5">${t('Ainda sem resultados.')}<br><span style="font-size:.8rem">${t('A tabela vai aparecendo à medida que os jogos terminam.')}</span></div>`;
   rows.sort((a,b)=> b.pts-a.pts || b.gd-a.gd || b.gf-a.gf || a.team.localeCompare(b.team,UP_LOCALE()));
   const releg = totalTeams>=20?3:2;           // descidas: 3 em ligas de 20+ equipas (Premier), 2 nas menores
   const allIn = rows.length>=totalTeams;      // só marca a zona de descida com a tabela completa
-  // Zonas só nas ligas domésticas (Top4 / descida) e só depois de haver jogos —
-  // pintar descidas numa tabela alfabética a zeros seria enganador.
-  const zone=i=> (hybrid||preSeason) ? 'transparent' : (i<4 ? 'var(--green)' : (allIn && i>=rows.length-releg ? 'var(--red)' : 'transparent'));
+  // Zonas só nas ligas domésticas (Top4 / descida) e só quando TODAS as equipas
+  // já jogaram pelo menos uma vez. A meio da 1.ª jornada metade da tabela está
+  // a zeros e ordenada por ordem alfabética — pintar aí zonas de descida seria
+  // enganador (era o que acontecia enquanto o critério era só `preSeason`).
+  const allPlayed = rows.every(t=>t.p>0);
+  const zone=i=> (hybrid||preSeason||!allPlayed) ? 'transparent' : (i<4 ? 'var(--green)' : (allIn && i>=rows.length-releg ? 'var(--red)' : 'transparent'));
   let body='';
   rows.forEach((t,i)=>{ const dg=t.gd>0?'+'+t.gd:t.gd;
     body+=`<tr>
@@ -11330,7 +11411,7 @@ function buildLeagueStandingsHtml(){
       <th title="Pontos" style="color:var(--gold)">Pts</th>
     </tr></thead><tbody>${body}</tbody></table></div>
     ${preSeason?`<div style="font-size:.72rem;color:var(--sub);margin:10px 2px">${t('Tabela a zeros, por ordem alfabética — mexe com a 1.ª jornada.')}</div>`:''}
-    ${(hybrid||preSeason)?'':`<div style="display:flex;gap:14px;font-size:.7rem;color:var(--sub);margin:10px 2px;flex-wrap:wrap">
+    ${(hybrid||preSeason||!allPlayed)?'':`<div style="display:flex;gap:14px;font-size:.7rem;color:var(--sub);margin:10px 2px;flex-wrap:wrap">
       <span style="border-left:3px solid var(--green);padding-left:6px">Zona europeia (Top 4)</span>
       <span style="border-left:3px solid var(--red);padding-left:6px">Descida (${releg} últimos)</span>
     </div>`}`;
@@ -14095,8 +14176,10 @@ function leagueInviteMsg() {
   const lg = S_managingLeague;
   const inv = (document.getElementById('manage-invite-code') || {}).textContent || '';
   if (!inv || inv === '...') return null;
-  const nome = (lg && lg.name) ? lg.name : 'a minha liga';
-  return 'Entra na minha liga do Uncle Predictor 👀\n' + nome + '\n' + leagueInviteLink(inv);
+  // i18n (14 Ago): mesma razão do embaixadorMsg — partilha nativa não passa
+  // pelo DOM, por isso t() é chamado aqui, não confiado ao upAutoTranslate.
+  const nome = (lg && lg.name) ? lg.name : t('a minha liga');
+  return t('Entra na minha liga do Uncle Predictor 👀') + '\n' + nome + '\n' + leagueInviteLink(inv);
 }
 function shareLeagueWhatsApp() {
   const msg = leagueInviteMsg();
