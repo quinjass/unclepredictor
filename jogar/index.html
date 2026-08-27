@@ -3827,14 +3827,47 @@ document.addEventListener('keydown', function(e){
     await writeRest('DELETE', `predictions?competition_id=eq.${COMP}&code=eq.${enc(code)}&game_id=eq.${enc(data.gameId)}`);
     DB = null; return { success: true };
   }
+  // ⚠️ 27 Ago 2026 — grava SÓ o que MUDOU. A versão anterior apagava todas as
+  // linhas do jogador e reinseria tudo, o que punha `saved_at = now()` em TODAS
+  // as chaves: mudar o palpite do campeão em janeiro destruía o valor do melhor
+  // marcador feito em agosto. O decaimento da 065 é POR CHAVE — quem grava cedo
+  // tem de continuar a valer o que valia.
   async function savePrebets(data) {
     const code = myCode(); if (!code) return { success: false, error: 'Sessão expirada - entra de novo.' };
     const pb = data.prebets || {};
-    await writeRest('DELETE', `prebets?competition_id=eq.${COMP}&code=eq.${enc(code)}`);
     // Multi-seleção (ligas: despromovidos/europa) é um array → serializa como JSON.
-    // Valores simples (WC e single/player) continuam como string. Filtra arrays vazios.
-    const rows = Object.entries(pb).filter(([k, v]) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0)).map(([k, v]) => ({ competition_id: COMP, code, key: k, value: (v != null && typeof v === 'object') ? JSON.stringify(v) : String(v) }));
-    if (rows.length) await writeRest('POST', 'prebets', rows, 'return=minimal');
+    // Valores simples (WC e single/player) continuam como string. Filtra vazios.
+    const ser = v => (v != null && typeof v === 'object') ? JSON.stringify(v) : String(v);
+    const want = {};
+    Object.entries(pb).forEach(([k, v]) => {
+      if (v == null || v === '' || (Array.isArray(v) && v.length === 0)) return;
+      want[k] = ser(v);
+    });
+    // Igualdade INSENSÍVEL À ORDEM nas multi: reordenar os mesmos clubes não é
+    // uma aposta nova e não pode custar decaimento (a pontuação compara conjuntos,
+    // tanto no fn_prebet_points como no calcLeaguePrebetPoints).
+    const same = (a, b) => {
+      if (a === b) return true;
+      if (a == null || b == null) return false;
+      try {
+        const pa = JSON.parse(a), pbv = JSON.parse(b);
+        if (Array.isArray(pa) && Array.isArray(pbv)) {
+          if (pa.length !== pbv.length) return false;
+          const n = x => x.map(String).sort().join('\u0001');
+          return n(pa) === n(pbv);
+        }
+      } catch (e) { /* não é JSON: comparação simples acima já decidiu */ }
+      return false;
+    };
+    const CFB = `competition_id=eq.${COMP}&code=eq.${enc(code)}`;
+    const cur = {};
+    (await rest('prebets', 'key,value', CFB, true, 'key')).forEach(r => { cur[r.key] = r.value == null ? '' : String(r.value); });
+    const ups = Object.entries(want)
+      .filter(([k, v]) => !same(cur[k], v))
+      .map(([k, v]) => ({ competition_id: COMP, code, key: k, value: v, saved_at: new Date().toISOString() }));
+    const dels = Object.keys(cur).filter(k => want[k] === undefined);
+    if (ups.length) await writeRest('POST', 'prebets?on_conflict=competition_id,code,key', ups, 'resolution=merge-duplicates,return=minimal');
+    if (dels.length) await writeRest('DELETE', `prebets?${CFB}&key=in.(${dels.map(k => enc('"' + k + '"')).join(',')})`);
     DB = null; return { success: true };
   }
   async function saveSimState(data) {
@@ -11127,6 +11160,9 @@ async function savePrebetsAuto(){
     S.prebetPending=false;
     showPrebetSaveSuccess();
   } catch(e){
+    // 27 Ago 2026: este catch engoliu um 403 da RLS durante seis dias sem deixar
+    // rasto nenhum. Nunca falhar em silêncio numa gravação.
+    console.error('[prebets] gravação falhou:', (e && e.message) || e);
     localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro - guardado offline','error');
   }
