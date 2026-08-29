@@ -6037,6 +6037,20 @@ async function init() {
     }
   } catch (e) {}
 
+  // LIMPEZA ÚNICA (28 Ago 2026): chaves antigas sem competição no nome. Os
+  // valores não são aproveitáveis - não se sabe de que competição são. Testa-se
+  // pelo prefixo da competição (e não pelo nº de '_'), para o caso de algum
+  // código de participante ter underscore.
+  try{
+    const _comps=Object.keys(COMP_DB_ID);
+    ['preds','saved','prebets','league'].forEach(k=>{
+      const pref='up26_'+k+'_';
+      Object.keys(localStorage)
+        .filter(x => x.startsWith(pref) && !_comps.some(c => x.startsWith(pref+c+'_')))
+        .forEach(x => localStorage.removeItem(x));
+    });
+  }catch(e){}
+
   let saved = localStorage.getItem('up26_user');
   // MIGRAÇÃO (4 Jul): sessões do sistema antigo (GS) deixadas no localStorage
   // faziam auto-login SEM sessão Auth do Supabase → user "logado" mas sem JWT,
@@ -6055,17 +6069,14 @@ async function init() {
       if(S.user.realName==null) S.user.realName=S.user.name;
       if(S.user.nickname===undefined){ try{ const _s=window.UPSB&&UPSB.session(); S.user.nickname=(_s&&_s.nickname)||null; }catch(e){ S.user.nickname=null; } }
     }
-    const sp = localStorage.getItem('up26_preds_'+S.user.code);
-    if (sp) S.preds = JSON.parse(sp);
-    const sc = localStorage.getItem('up26_saved_'+S.user.code);
-    if (sc) S.savedCards = JSON.parse(sc);
-    const sb = localStorage.getItem('up26_prebets_'+S.user.code);
-    if (sb) S.prebets = JSON.parse(sb);
+    // ⚠️ Aqui NÃO se lê cache de apostas: desde 14 Jul entra-se sempre pelo
+    // ecrã de seleção de competições, portanto neste ponto ainda não há
+    // competição e o cache não teria dono. A leitura passou para o
+    // enterCompetition(). O up26_notifprefs_ fica: é mesmo por utilizador.
     const snp = localStorage.getItem('up26_notifprefs_'+S.user.code);
     if (snp) { try { S.notifPrefs = JSON.parse(snp); } catch(e){} }
     // Mostrar a app de imediato (com loading) e ir buscar tudo ao servidor em paralelo
     // (antes: 2 chamadas sequenciais ao Apps Script bloqueavam o ecrã de login)
-    const sl = localStorage.getItem('up26_league_'+S.user.code);
     setGaUser(S.user.code); track('login',{method:'auto'});
     // Nickname obrigatório (1x por conta): sessão restaurada sem nickname -> pede já.
     if(S.user && !S.user.nickname){ await ensureNickname(); if(!S.user.nickname) return; }
@@ -6098,12 +6109,8 @@ async function init() {
         }
       }).catch(()=>{});
     }
-    loadMyLeagues().then(()=>{
-      if (sl && S.leagues.length) {
-        const lg = S.leagues.find(l=>l.id===sl);
-        if (lg) { S.curLeague = lg; updateLeaguePill(); if(S.curView==='leaderboard')renderLB(); }
-      }
-    });
+    // A liga privada guardada é POR competição - restaura-se no enterCompetition().
+    loadMyLeagues();
   } else {
     // Sem sessão guardada - só permitir login após interação real do utilizador
     // (evita submit automático do browser via autocomplete)
@@ -6133,8 +6140,8 @@ async function login() {
       try { api('syncMyEmail',{}); } catch(e) {}
       setGaUser(S.user.code); track('login',{method:'manual'});
       localStorage.setItem('up26_user', JSON.stringify(S.user));
-      const sc = localStorage.getItem('up26_saved_'+S.user.code);
-      if (sc) S.savedCards = JSON.parse(sc); else S.savedCards = {};
+      // Sem competição escolhida não há cache legítimo para ler (ver lsKey).
+      S.savedCards = {};
       // Nickname obrigatório (1x por conta): quem ainda não tem define-o já no login.
       // ⚠️ Repor o botão ANTES de esperar pelo nickname. Sem isto ficava preso
       // em "A verificar..." durante todo o tempo em que a janela do nickname
@@ -6810,6 +6817,22 @@ const COMP_FALLBACK={mundial2026:'🏆',ucl2627:'⭐',pl2627:'⚽'};
 // Mapa id-do-frontend → id-na-base-de-dados. Modo dev (?dev / localStorage up_dev='1')
 // desbloqueia a entrada de teste nas competições 'soon' - invisível ao público.
 const COMP_DB_ID={mundial2026:'WC2026',ucl2627:'UCL2627',pl2627:'PL2627'};
+// ── Cache local POR COMPETIÇÃO (28 Ago 2026) ───────────────────────────────
+// Até aqui a chave era só 'up26_<tipo>_<código do jogador>': as três
+// competições partilhavam o MESMO slot e quem trocava de competição levava
+// para lá as apostas da anterior (ver HANDOFF_LOCALSTORAGE_POR_COMPETICAO.md).
+// Sem competição escolhida devolve um slot morto ('_'), que ninguém lê.
+function lsKey(tipo){
+  const comp = S.competition || '_';
+  return 'up26_' + tipo + '_' + comp + '_' + (S.user ? S.user.code : '_');
+}
+// Escrita no cache local. Sem competição escolhida NÃO se escreve nada: o
+// loadData() do restauro de sessão corre antes do picker e escrevia num slot
+// sem dono. Objetos vão em JSON; strings (id da liga) vão como estão.
+function lsSet(tipo, val){
+  if(!S.competition || !S.user) return;
+  try{ localStorage.setItem(lsKey(tipo), typeof val==='string' ? val : JSON.stringify(val)); }catch(e){}
+}
 // Mapa inverso (id da BD → id do frontend). Usado pelo convite por link, que
 // só conhece o id da BD devolvido pelo rpc_join_by_invite.
 const COMP_ID_BY_DB=Object.keys(COMP_DB_ID).reduce((a,k)=>{a[COMP_DB_ID[k]]=k;return a;},{});
@@ -7225,6 +7248,13 @@ async function enterCompetition(id){
   // abria com os pontos do Mundial).
   S.lb=[]; S.lbPrev=null; S.lbReady=false; S.rarityMap={};
   S.preds={}; S.savedCards={}; S.prebets={}; S.allPreds={}; S.allPrebets={};
+  // Cache local DESTA competição: pinta o ecrã antes da resposta do servidor e
+  // é a rede de segurança se o loadData falhar (o catch dele é silencioso).
+  try{
+    const _p=localStorage.getItem(lsKey('preds'));   if(_p) S.preds=JSON.parse(_p);
+    const _s=localStorage.getItem(lsKey('saved'));   if(_s) S.savedCards=JSON.parse(_s);
+    const _b=localStorage.getItem(lsKey('prebets')); if(_b) S.prebets=JSON.parse(_b);
+  }catch(e){}
   S.results={}; S.koTeams={}; S.specials={}; S.live={}; S.scorers=[];
   S.insights={};
   try{ await loadData(); }catch(e){}
@@ -7237,6 +7267,15 @@ async function enterCompetition(id){
     if(S.curView) showView(S.curView);
   }).catch(()=>{});
   try{ await loadMyLeagues(); }catch(e){ S.leagues=[]; renderLigaSelector&&renderLigaSelector(); }
+  // Liga privada escolhida da última vez NESTA competição (a chave é por
+  // competição desde 28 Ago; antes vinha do restauro de sessão, sem dono).
+  try{
+    const _lg=localStorage.getItem(lsKey('league'));
+    if(_lg && S.leagues.length){
+      const lg=S.leagues.find(l=>l.id===_lg);
+      if(lg){ S.curLeague=lg; updateLeaguePill(); if(S.curView==='leaderboard')renderLB(); }
+    }
+  }catch(e){}
   showApp();
 }
 // ── Nickname (modal bloqueante; devolve Promise<boolean>) ───────────────────
@@ -8919,10 +8958,10 @@ async function loadData() {
           delete S.preds[id]; delete S.savedCards[id];
         });
       }
-      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-      localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+      lsSet('preds',S.preds);
+      lsSet('saved',S.savedCards);
     }
-    if(r.prebets){S.prebets=r.prebets;localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));}
+    if(r.prebets){S.prebets=r.prebets;lsSet('prebets',S.prebets);}
     S.leaguePrebetsCfg=r.leaguePrebetsCfg||null; S.leagueTeams=r.leagueTeams||null; S.crests=r.crests||{};
     if(r.results)S.results=r.results;
     S.koTeams=r.koTeams||{}; // equipas KO resolvidas automaticamente pelo backend
@@ -9099,7 +9138,7 @@ async function resyncLocalPreds(){
   try{
     const r=await api('savePreds',{code:S.user.code,preds:S.preds});
     if(r&&r.success){
-      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+      lsSet('preds',S.preds);
       showToast('✓ Apostas re-sincronizadas com o servidor','success');
     }
   }catch(e){/* mantém o local; nova tentativa no próximo loadData */}
@@ -10500,12 +10539,12 @@ async function saveCard(id){
     S.savedCards[id]=true;
     S.pending=false;
     track('bet_saved',{game_id:id});
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    lsSet('preds',S.preds);
+    lsSet('saved',S.savedCards);
     renderBets();        // re-render do estado real - evita botões "presos em A guardar"
     showSaveSuccess();
   }catch(e){
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    lsSet('preds',S.preds);
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro ao guardar - tenta de novo','error');
     renderBets();        // repõe o botão "Guardar aposta" no estado certo
   }finally{
@@ -10535,15 +10574,15 @@ async function clearCard(id){
     // ainda com a linha antes do delete propagar) volte a mostrar a aposta. Janela curta.
     S.clearedGames=S.clearedGames||{}; S.clearedGames[id]=Date.now();
     delete S.preds[id];
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    lsSet('preds',S.preds);
+    lsSet('saved',S.savedCards);
     refreshPendingFlag(); // AUTOSAVE: não apaga o pending de OUTROS jogos
     renderBets();
   }catch(e){
     // Rollback: repõe a aposta para não dar a falsa ideia de que foi limpa
     if(prev){S.preds[id]=prev; if(prev.t1!==undefined&&prev.t2!==undefined)S.savedCards[id]=true;}
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    lsSet('preds',S.preds);
+    lsSet('saved',S.savedCards);
     showToast('⚠ Erro ao limpar - tenta de novo','error');
     renderBets();
   }finally{
@@ -10578,7 +10617,7 @@ async function autoSaveCard(id){
     // marcado à espera dos resultados - grava quando a aposta ficar completa)
     if(!(p&&p.joker))delete S.preds[id];
     if(S.dirtyGames)delete S.dirtyGames[id];
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    lsSet('preds',S.preds);
     setCardASStatus(id,'idle'); refreshPendingFlag(); return;
   }
   S.autoBusy=S.autoBusy||{};
@@ -10590,8 +10629,8 @@ async function autoSaveCard(id){
     if(S.demoMode){
       if(complete)S.savedCards[id]=true; else {delete S.preds[id];delete S.savedCards[id];}
       if(S.dirtyGames)delete S.dirtyGames[id];
-      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-      localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+      lsSet('preds',S.preds);
+      lsSet('saved',S.savedCards);
       setCardASStatus(id,complete?'saved':'cleared');
     } else if(emptied){
       // Apagou os dois números → apagar a aposta no servidor
@@ -10601,8 +10640,8 @@ async function autoSaveCard(id){
       delete S.preds[id]; delete S.savedCards[id];
       if(S.hadSaved)delete S.hadSaved[id];
       if(S.dirtyGames)delete S.dirtyGames[id];
-      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-      localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+      lsSet('preds',S.preds);
+      lsSet('saved',S.savedCards);
       setCardASStatus(id,'cleared');
     } else {
       // jokerScope: jogos que partilham o joker desta ronda (backend garante 1 só)
@@ -10616,12 +10655,12 @@ async function autoSaveCard(id){
       S.savedCards[id]=true; (S.hadSaved=S.hadSaved||{})[id]=1;
       if(S.dirtyGames)delete S.dirtyGames[id];
       track('bet_autosaved',{game_id:id});
-      localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
-      localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+      lsSet('preds',S.preds);
+      lsSet('saved',S.savedCards);
       setCardASStatus(id,'saved');
     }
   }catch(e){
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    lsSet('preds',S.preds);
     setCardASStatus(id,'error');
   }finally{
     delete S.savingGames[id];
@@ -10826,11 +10865,11 @@ async function saveBets(){
   try {
     const r=await api('savePreds',{code:S.user.code,preds:S.preds});
     if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    lsSet('preds',S.preds);
     S.pending=false;
     showSaveSuccess();
   } catch(e){
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    lsSet('preds',S.preds);
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro ao guardar - tenta de novo','error');
   }
   if(btn){btn.disabled=false;btn.textContent='💾 Guardar todos';}
@@ -10856,7 +10895,7 @@ async function saveAllCards(){
   try {
     const r=await api('savePreds',{code:S.user.code,preds:S.preds});
     if(r&&r.success===false)throw new Error(r.error||'Falha ao guardar');
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    lsSet('preds',S.preds);
     // Marcar todos os cartões com pred preenchida como guardados
     const isKO=typeof S.curMD==='string';
     const games=GAMES.filter(g=>isKO?typeof g.md==='string'&&g.md===S.curMD:g.md===S.curMD);
@@ -10864,13 +10903,13 @@ async function saveAllCards(){
       const p=S.preds[g.id]||{};
       if(p.t1!==undefined&&p.t2!==undefined) S.savedCards[g.id]=true;
     });
-    localStorage.setItem('up26_saved_'+S.user.code,JSON.stringify(S.savedCards));
+    lsSet('saved',S.savedCards);
     S.pending=false;
     track('bets_saved_all',{md:String(S.curMD)});
     showSaveSuccess();
     renderBets();
   } catch(e){
-    localStorage.setItem('up26_preds_'+S.user.code,JSON.stringify(S.preds));
+    lsSet('preds',S.preds);
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro - guardado offline','error');
   }
   if(btn){btn.disabled=false;btn.textContent='💾 Guardar todos';}
@@ -11156,14 +11195,14 @@ async function savePrebetsAuto(){
   if(btn){btn.disabled=true;btn.textContent='💾 A guardar...';}
   try {
     await api('savePrebets',{code:S.user.code,prebets:S.prebets});
-    localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));
+    lsSet('prebets',S.prebets);
     S.prebetPending=false;
     showPrebetSaveSuccess();
   } catch(e){
     // 27 Ago 2026: este catch engoliu um 403 da RLS durante seis dias sem deixar
     // rasto nenhum. Nunca falhar em silêncio numa gravação.
     console.error('[prebets] gravação falhou:', (e && e.message) || e);
-    localStorage.setItem('up26_prebets_'+S.user.code,JSON.stringify(S.prebets));
+    lsSet('prebets',S.prebets);
     showToast(S.demoMode?'✓ Guardado localmente':'⚠ Erro - guardado offline','error');
   }
   if(btn){btn.disabled=false;btn.textContent='💾 Guardar';}
@@ -14014,7 +14053,7 @@ async function enterLeague(leagueId) {
   } else {
     S.curLeague = S.leagues.find(l=>l.id===leagueId)||null;
   }
-  if (S.user) localStorage.setItem('up26_league_'+S.user.code, leagueId||'');
+  lsSet('league', leagueId||'');
   updateLeaguePill();
   showApp();
 }
@@ -14048,7 +14087,7 @@ function selectLeague(id) {
   const cleanId = id ? String(id).trim() : null;
   S.curLeague = cleanId ? (S.leagues.find(l=>String(l.id).trim()===cleanId)||null) : null;
   S.lbPage = 0; // a liga muda o universo de jogadores - volta à 1.ª página
-  if (S.user) localStorage.setItem('up26_league_'+S.user.code, cleanId||'');
+  lsSet('league', cleanId||'');
   updateLeaguePill();
   renderLB();
 }
@@ -14165,7 +14204,7 @@ async function createLeagueFromPicker() {
       await loadMyLeagues();
       // Auto-entrar na liga recém criada
       const newLg = S.leagues.find(l => l.id === r.league.id);
-      if (newLg) { S.curLeague = newLg; if(S.user)localStorage.setItem('up26_league_'+S.user.code, newLg.id); updateLeaguePill(); }
+      if (newLg) { S.curLeague = newLg; lsSet('league', newLg.id); updateLeaguePill(); }
       renderLeaguePicker();
     } else {
       showToast(r.error||'Erro ao criar liga.','error');
