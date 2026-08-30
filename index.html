@@ -88,7 +88,6 @@
 <meta name="twitter:description" content="Faz as tuas previsões, ganha pontos, lidera a classificação.">
 <meta name="twitter:image" content="https://unclepredictor.pt/logo.png">
 
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7065183055996289" crossorigin="anonymous"></script>
 <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png?v=2">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -135,16 +134,16 @@
   .up-topnav a.up-enter{ background:var(--gold); color:#12202f; font-weight:700 }
   .up-topnav a.up-enter:hover{ background:#ffd633; color:#12202f }
 
-  .up-hero{ max-width:760px; margin:0 auto; padding:46px 20px 34px; text-align:center }
-  .up-hero-logo{ height:192px; width:auto; margin-bottom:18px;
+  .up-hero{ max-width:700px; margin:0 auto; padding:34px 20px 26px; text-align:center }
+  .up-hero-logo{ height:150px; width:auto; margin-bottom:14px;
                  filter:drop-shadow(0 8px 34px rgba(245,197,24,.45)) }
   .up-hero-h1{ font-family:Rajdhani,sans-serif; font-weight:700;
-               font-size:2.4rem; line-height:1.12; margin:0 0 14px; color:#fff;
+               font-size:2.2rem; line-height:1.12; margin:0 0 14px; color:#fff;
                text-shadow:0 2px 20px rgba(0,0,0,.6) }
   .up-hero-sub{ font-size:.96rem; line-height:1.7; color:#cfe0ee; margin:0 auto 22px; max-width:580px }
   .up-hero-sub strong{ color:#fff }
 
-  .up-social{ display:flex; gap:10px; justify-content:center; margin:0 0 20px }
+  .up-social{ display:flex; gap:10px; justify-content:center; margin:0 0 12px }
   .up-social-ico{ display:inline-flex; align-items:center; justify-content:center;
                   width:36px; height:36px; border-radius:50%;
                   background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.14);
@@ -154,7 +153,7 @@
   .up-hero-cta{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap }
   .up-hero-cta .btn{ text-decoration:none }
 
-  .up-store{ margin-top:14px; display:flex; justify-content:center }
+  .up-store{ margin:0 0 6px; display:flex; justify-content:center }
   .up-store a{ display:inline-flex; align-items:center; gap:10px;
                padding:9px 16px; border-radius:10px; text-decoration:none;
                background:rgba(13,27,42,.6); border:1px solid rgba(255,255,255,.16);
@@ -178,9 +177,12 @@
   .up-note a{ color:var(--gold) }
 
   @media(max-width:560px){
-    .up-hero{ padding:30px 18px 26px }
-    .up-hero-logo{ height:132px }
-    .up-hero-h1{ font-size:1.75rem }
+    /* barra numa so linha: o logotipo chega, o nome ocupa a linha toda */
+    .up-brand span{ display:none }
+    .up-topnav a{ font-size:.78rem; padding:5px 8px }
+    .up-hero{ padding:24px 18px 20px }
+    .up-hero-logo{ height:112px }
+    .up-hero-h1{ font-size:1.68rem }
     .up-hero-sub{ font-size:.9rem }
   }
 </style>
@@ -214,25 +216,52 @@
   <header class="up-topbar">
     <a class="up-brand" href="/"><img src="/logo-96.png" alt="Uncle Predictor" width="34" height="34"><span>Uncle Predictor</span></a>
     <nav class="up-topnav">
-      <a href="/como-funciona.html">Como funciona</a>
-      <a href="/regras.html">Regras</a>
-      <a href="/competicoes.html">Competições</a>
+      <a href="/como-se-joga.html">Como se joga</a>
       <a href="/premium.html">Premium</a>
       <a class="up-enter" href="/jogar/#entrar">Entrar</a>
     </nav>
   </header>
 
   <section class="up-hero">
-    <!-- logo-192 em vez do logo.png de 1,2 MB: é exibido a 192px, fica igual -->
+    <!-- logo-192 em vez do logo.png de 1,2 MB: é exibido a 150px, fica igual -->
     <img class="up-hero-logo" src="/logo-192.png" alt="Uncle Predictor" width="192" height="192">
     <h1 class="up-hero-h1">Prevê o resultado. Ganha pontos.<br>Sobe na classificação.</h1>
-    <p class="up-hero-sub">
-      Um jogo de prognósticos de futebol entre amigos. Aqui não apostas quem ganha —
-      apostas o <strong>resultado</strong>. Sem dinheiro e sem prémios monetários:
-      joga-se por pontos e pela classificação.
-    </p>
+    <p class="up-hero-sub">Um jogo de prognósticos de futebol entre amigos. Aqui não apostas quem ganha — apostas o <strong>resultado</strong>. Sem dinheiro e sem prémios: joga-se por pontos.</p>
 
-    <div class="up-social" aria-label="Redes sociais">
+    <div class="up-hero-cta">
+      <a class="btn" href="/jogar/#entrar">Entrar ou criar conta</a>
+      <a class="btn btn-outline" href="/como-se-joga.html">Como se joga</a>
+    </div>
+  </section>
+
+  <section class="up-blocks">
+    <div class="up-block">
+      <div class="up-block-ico">🎯</div>
+      <h2>O resultado exato vale mais</h2>
+      <p>Acertar quem ganha dá pontos. Acertar o resultado certo dá bastante mais. É o que separa quem arrisca de quem joga pelo seguro.</p>
+    </div>
+    <div class="up-block">
+      <div class="up-block-ico">💎</div>
+      <h2>Joker e bónus de raridade</h2>
+      <p>Uma vez por jornada dobras os pontos de um jogo. E se acertares um resultado que quase ninguém arriscou, levas pontos extra.</p>
+    </div>
+    <div class="up-block">
+      <div class="up-block-ico">🏆</div>
+      <h2>Ligas privadas</h2>
+      <p>Cria uma tabela fechada para os amigos, a família ou os colegas. Apostas uma vez e conta para a geral e para todas as tuas ligas.</p>
+    </div>
+  </section>
+
+  <section class="up-note">
+    <p>Cada competição tem a sua classificação e as suas regras de pontuação. <a href="/como-se-joga.html">Ver como se joga &rsaquo;</a></p>
+  </section>
+
+</div>
+
+<footer class="site-footer">
+  <div class="site-footer-inner">
+
+    <div class="up-social" aria-label="Uncle Predictor">
       <a class="up-social-ico" href="https://www.facebook.com/unclepredictor" rel="noopener" target="_blank" title="Facebook" aria-label="Facebook">
         <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.51 1.5-3.9 3.79-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12z"/></svg>
       </a>
@@ -241,104 +270,24 @@
       </a>
     </div>
 
-    <div class="up-hero-cta">
-      <a class="btn" href="/jogar/#entrar">Entrar ou criar conta</a>
-    </div>
-
     <div class="up-store">
       <a href="https://play.google.com/store/apps/details?id=pt.unclepredictor" rel="noopener" target="_blank">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3.6 1.8a1 1 0 0 0-.5.9v18.6a1 1 0 0 0 .5.9l10-10.2-10-10.2zm11.1 9.3 2.9-3-9.7-5.5 6.8 8.5zm0 1.8-6.8 8.5 9.7-5.5-2.9-3zm5.2-2.5-2.2-1.2-3.1 3.2 3.1 3.2 2.2-1.2a1.4 1.4 0 0 0 0-4z"/></svg>
         <span>Disponível no <strong>Google Play</strong></span>
       </a>
     </div>
-  </section>
 
-  <section class="up-blocks">
-    <div class="up-block">
-      <div class="up-block-ico">🎯</div>
-      <h2>O resultado exato vale mais</h2>
-      <p>Acertar quem ganha dá pontos. Acertar o resultado certo dá bastante mais. É o que
-      separa quem arrisca de quem joga pelo seguro.</p>
-    </div>
-    <div class="up-block">
-      <div class="up-block-ico">🃏</div>
-      <h2>Joker</h2>
-      <p>Uma vez por jornada podes dobrar os pontos de um jogo à tua escolha. Mas não
-      protege erros: se falhares, continua a valer zero.</p>
-    </div>
-    <div class="up-block">
-      <div class="up-block-ico">💎</div>
-      <h2>Bónus de raridade</h2>
-      <p>Se acertares um resultado que quase ninguém arriscou, levas pontos extra. Apostar
-      sempre o resultado óbvio é seguro — e raramente ganha competições.</p>
-    </div>
-    <div class="up-block">
-      <div class="up-block-ico">🏆</div>
-      <h2>Ligas privadas</h2>
-      <p>Cria uma tabela fechada para os amigos, a família ou os colegas. Apostas uma vez
-      e conta para a geral e para todas as tuas ligas.</p>
-    </div>
-    <div class="up-block">
-      <div class="up-block-ico">⏱️</div>
-      <h2>Prazos automáticos</h2>
-      <p>As apostas fecham antes do apito inicial e o jogo avisa-te antes. Sem boletins
-      em papel, sem folhas de cálculo, sem discussões sobre quem entregou a tempo.</p>
-    </div>
-    <div class="up-block">
-      <div class="up-block-ico">📊</div>
-      <h2>Tudo ao vivo</h2>
-      <p>Os resultados entram sozinhos e a classificação mexe enquanto a bola rola.
-      Depois do prazo, vês o que cada participante apostou.</p>
-    </div>
-  </section>
-
-  <section class="up-note">
-    <p>Cada competição tem a sua própria classificação e as suas regras de pontuação.
-    Consulta as <a href="/regras.html">regras</a> para perceberes como funciona, e as
-    <a href="/competicoes.html">competições</a> disponíveis.</p>
-  </section>
-
-</div>
-
-<footer class="site-footer">
-  <div class="site-footer-inner">
-    <div class="cols">
-      <div>
-        <h4>O jogo</h4>
-        <ul>
-          <li><a href="/como-funciona.html">Como funciona</a></li>
-          <li><a href="/regras.html">Regras e pontuação</a></li>
-          <li><a href="/competicoes.html">Competições</a></li>
-          <li><a href="/ligas-privadas.html">Ligas privadas</a></li>
-          <li><a href="/premium.html">Premium</a></li>
-          <li><a href="/app.html">App</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Aprender</h4>
-        <ul>
-          <li><a href="/guias/">Guias de estratégia</a></li>
-          <li><a href="/artigos/">Artigos e análises</a></li>
-          <li><a href="/faq.html">Perguntas frequentes</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4>Uncle Predictor</h4>
-        <ul>
-          <li><a href="/sobre.html">Sobre o projeto</a></li>
-          <li><a href="/contactos.html">Contactos</a></li>
-          <li><a href="/termos.html">Termos de utilização</a></li>
-          <li><a href="/privacidade.html">Privacidade e cookies</a></li>
-          <li><a href="/eliminar-conta.html">Eliminar conta</a></li>
-        </ul>
-      </div>
-    </div>
     <div class="legal">
-      Uncle Predictor — jogo de prognósticos de futebol entre amigos, sem apostas em
-      dinheiro e sem prémios monetários. Não somos afiliados da FIFA, UEFA ou Premier League.
+      <a href="/como-se-joga.html">Como se joga</a> &middot;
+      <a href="/termos.html">Termos</a> &middot;
+      <a href="/privacidade.html">Privacidade</a> &middot;
+      <a href="/contactos.html">Contactos</a> &middot;
+      <a href="/eliminar-conta.html">Eliminar conta</a> &middot;
+      <a href="/en/">English</a>
+      <br><br>
+      Uncle Predictor — jogo de prognósticos de futebol entre amigos, sem apostas em dinheiro
+      e sem prémios monetários. Não somos afiliados da FIFA, UEFA ou Premier League.
     </div>
-  
-    <div style="margin-top:10px;font-size:.85em"><a href="/en/">🇬🇧 English</a></div>
   </div>
 </footer>
 

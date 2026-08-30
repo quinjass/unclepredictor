@@ -183,6 +183,10 @@ details .body{padding:4px 0 13px; font-size:.85rem; color:var(--text)}
   margin-top:24px; padding-top:16px; border-top:1px solid var(--border);
   font-size:.76rem; color:var(--sub); line-height:1.6;
 }
+/* Rodape minimalista (sem colunas): a linha legal e o unico conteudo */
+.site-footer-inner > .legal:first-child{ margin-top:0; padding-top:0; border-top:0 }
+.site-footer .legal a{ color:var(--sub) }
+.site-footer .legal a:hover{ color:var(--gold) }
 
 /* ── Assinatura do artigo (autor + datas) ────── */
 .byline{
