@@ -1737,6 +1737,8 @@ window.UP_DICT = {
     "data por confirmar": "date to be confirmed",
     "default picks disponíveis": "default picks available",
     "default picks em toda a competição (10% dos jogos).": "default picks in the whole competition (10% of the matches).",
+    "Só cobrem jogos que começaram depois de te inscreveres": "They only cover matches that kicked off after you joined",
+    "na competição. Quem entra a meio da época não herda pontos dos jogos já jogados - leva o orçamento completo para os que faltam.": "the competition. Whoever joins mid-season inherits no points from matches already played - they take the full budget into the ones still to come.",
     "Default picks usadas - aposta do IA herdada por esquecimento (máx. 5)": "Default picks used - AI prediction inherited after a miss (max. 5)",
     "Define a tua password": "Set your password",
     "Definições": "Settings",
@@ -3154,8 +3156,18 @@ document.addEventListener('keydown', function(e){
       });
       let default_pts = 0, default_used = 0;
       if (p.code !== BOT_CODE) {
+        // 079: CORTE PESSOAL. Um jogo só pode ser coberto por default pick se
+        // tiver começado depois de o jogador se ter inscrito na competição.
+        // Sem isto, quem se inscrevia a meio da época entrava na classificação
+        // já com os pontos das default picks de todos os jogos anteriores.
+        // O Mundial (fonte = bot) fica de fora: está fechado e os joined_at
+        // dessa competição são do cutover para o Supabase, não da inscrição.
+        const joinMs = SC.defaultPickSource === 'bot'
+          ? 0
+          : (Date.parse((db.joinedAt || {})[String(p.code || '').toUpperCase()] || '') || 0);
+        const myCutMs = Math.max(cutoffMs, joinMs);
         const bg = {}; userPreds.forEach(r => { if (r.t1 != null) bg[r.game_id] = true; });
-        const cand = Object.keys(results).filter(gid => { if (bg[gid]) return false; if (!defaultPickMap[gid]) return false; const k = db.gameDatesUTC[gid] ? new Date(db.gameDatesUTC[gid]).getTime() : 0; return k >= cutoffMs; });
+        const cand = Object.keys(results).filter(gid => { if (bg[gid]) return false; if (!defaultPickMap[gid]) return false; const k = db.gameDatesUTC[gid] ? new Date(db.gameDatesUTC[gid]).getTime() : 0; return k >= myCutMs; });
         cand.sort((a, b) => { const ka = db.gameDatesUTC[a] ? new Date(db.gameDatesUTC[a]).getTime() : 0; const kb = db.gameDatesUTC[b] ? new Date(db.gameDatesUTC[b]).getTime() : 0; return ka - kb || (a < b ? -1 : a > b ? 1 : 0); });
         // Gastam-se por ordem cronológica, à medida que o jogador não aposta, até
         // esgotar o orçamento. O jogador não escolhe onde aplicar.
@@ -3244,7 +3256,7 @@ document.addEventListener('keydown', function(e){
       rest('blocks', 'code,blocked_code', '', true, 'code,blocked_code'),
       rest('notif_prefs', 'code,prefs', '', true),
       rest('config', 'key,value', ''),
-      rest('competition_members', 'code', CF),
+      rest('competition_members', 'code,joined_at', CF),
       // PREMIUM (032): quem tem passe ativo nesta competição, para o badge ⭐.
       // .catch -> [] é OBRIGATÓRIO: sem ele, se a migration 032 ainda não
       // estiver aplicada o Promise.all rejeita e a app inteira deixa de
@@ -3320,6 +3332,10 @@ document.addEventListener('keydown', function(e){
     const fcomments = comments.filter(c => lset.has(c.league_id));
     // Leaderboard só com os MEMBROS desta competição (não todos os participantes globais)
     const cmSet = new Set((compMembers || []).map(m => m.code));
+    // 079: quando é que cada jogador entrou NESTA competição. As default picks
+    // só cobrem jogos com pontapé de saída POSTERIOR a esta data — quem se
+    // inscreve a meio da época não herda pontos de jogos já jogados.
+    const joinedAt = {}; (compMembers || []).forEach(m => { if (m && m.code && m.joined_at) joinedAt[String(m.code).toUpperCase()] = m.joined_at; });
     const participantsM = participants.filter(p => cmSet.has(p.code));
     // PREMIUM (032): códigos com passe ativo. Vem vazio enquanto
     // premium_enabled='false' (a própria view filtra pelo kill-switch).
@@ -3337,7 +3353,7 @@ document.addEventListener('keydown', function(e){
       o.list.sort((a, b) => b.n - a.n);
       o.list.forEach(x => { x.pct = o.total ? Math.round(x.n * 100 / o.total) : 0; });
     });
-    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes, liveRarity,
+    const snap = { participants: participantsM, games, allPreds, prebets, results, gameDatesUTC, groupGames, koTeams, specials, config, leagues, members: fmembers, reactions: freacts, comments: fcomments, notifs, blocks, prefsMap, premiumCodes, liveRarity, joinedAt,
                   badgeDefs: badgeDefs || [], myBadges: myBadges || [],
                   badgeCounts: (badgeCountRows || []).reduce((a, r) => { a[(r.code||'').toUpperCase()] = +r.n || 0; return a; }, {}),
                   // { CODE: [{badge_key,icon,name,level,levels_n}, ...] } - já
@@ -3415,7 +3431,7 @@ document.addEventListener('keydown', function(e){
     const leaguePrebetsCfg = _pj(db.config['prebets_' + COMP]);
     const leagueTeams = _pj(db.config['teams_' + COMP]);
     const crests = _pj(db.config['crests_' + COMP]) || {}; // logótipos dos clubes (ligas/UCL)
-    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium,
+    return { preds, prebets, results: db.results, lb: built.players, lbPrev, rarityMap: built.rarityMap, joinedAt: db.joinedAt || {}, deadlineH, specials: db.specials, notifs, allPreds, allPrebets, blocks, notifPrefs, lockedResults, koTeams: db.koTeams, gameDatesUTC: db.gameDatesUTC, dbGames: db.games, scorers, leaguePrebetsCfg, leagueTeams, crests, premium,
              premiumCodes: db.premiumCodes || [],
              premiumEnabled: String(db.config.premium_enabled || 'false') === 'true',
              // Interruptor SEPARADO das vendas (9 Ago 2026). O premium_enabled liga
@@ -5850,6 +5866,7 @@ const S = {
   curMD:1, adminMD:1, mundialGrp:'A',
   preds:{}, prebets:{}, results:{}, lb:[], lbPrev:null, lbReady:false,
   rarityMap:{},
+  joinedAt:{},   // 079: CODE -> data de inscrição na competição ativa
   participants:[], deadlineH:1, pending:false, savedCards:{},
   allLeagues:[],
   demoMode: SCRIPT_URL==='COLE_AQUI_O_URL_DO_APPS_SCRIPT',
@@ -7127,6 +7144,7 @@ function renderRules(){
        ${row(`🎯 A default pick ${valTxt}. Se falhar, ficas a <strong>0</strong> - sem penalização.`)}
        ${row(`🚫 <strong>Não há joker, raridade nem aproximação</strong> nas default picks - o teto é o valor do acerto normal.`)}
        ${row(`🔢 Tens no máximo <strong>${budget} default picks</strong> em toda a competição${pctTxt}. <strong>Não escolhes onde as aplicar</strong>: gastam-se sozinhas, por ordem dos jogos, sempre que não apostas. Esgotadas, os jogos sem aposta voltam a valer 0.`)}
+       ${SC.defaultPickSource!=='bot' ? row(`📅 <strong>Só cobrem jogos que começaram depois de te inscreveres</strong> na competição. Quem entra a meio da época não herda pontos dos jogos já jogados - leva o orçamento completo para os que faltam.`) : ''}
        ${row(`📊 Contam para o <strong>Total</strong> e para o MVP, mas aparecem à parte na coluna <strong style="color:#a78bfa">D</strong> da classificação detalhada. <strong>Não contam</strong> para o número de jogos apostados.`,true)}
      </div>`);
 
@@ -7215,7 +7233,7 @@ async function enterCompetition(id){
   // erros (catch silencioso) - sem isto, uma leitura falhada deixava na ecrã a
   // classificação/apostas da competição anterior (bug de 2 Ago: a Champions
   // abria com os pontos do Mundial).
-  S.lb=[]; S.lbPrev=null; S.lbReady=false; S.rarityMap={};
+  S.lb=[]; S.lbPrev=null; S.lbReady=false; S.rarityMap={}; S.joinedAt={};   // 079: as datas de inscrição são por competição
   S.preds={}; S.savedCards={}; S.prebets={}; S.allPreds={}; S.allPrebets={};
   // Cache local DESTA competição: pinta o ecrã antes da resposta do servidor e
   // é a rede de segurança se o loadData falhar (o catch dele é silencioso).
@@ -8989,6 +9007,7 @@ async function loadData() {
     if(r.lb)S.lb=r.lb;
     S.lbPrev=r.lbPrev||null; // ranking anterior (seta de subida/descida desde o último jogo)
     if(r.rarityMap)S.rarityMap=r.rarityMap;
+    S.joinedAt=r.joinedAt||{};   // 079: corte pessoal das default picks
     if(r.deadlineH){S.deadlineH=r.deadlineH;updatePrebetDeadlineText();}
     // PREMIUM (031). r.premium vem sempre preenchido pelo adapter; com o
     // kill-switch premium_enabled='false' na BD chega cá como false, por isso
@@ -12061,7 +12080,7 @@ function openGameModal(gameId) {
       const uPreds = (S.user && u.code===S.user.code)
         ? S.preds
         : (()=>{ const m={}; Object.entries(S.allPreds||{}).forEach(([gid,mm])=>{ if(mm[u.code]) m[gid]=mm[u.code]; }); return m; })();
-      const dp = defaultPicksOf(uPreds, S.results)[gameId];
+      const dp = defaultPicksOf(uPreds, S.results, u.code)[gameId];
       if (dp) { dpick = dp; tot = dp.pts; }
     }
     return {name:u.name, code:u.code, pred, base, apr, rar, jok, tot, dpick, isMe: S.user && u.name===S.user.name};
@@ -12227,9 +12246,13 @@ function inheritedPickFor(gid){
   return {t1:Number(a), t2:Number(b)};
 }
 // Devolve {gid:{t1,t2,pts,isKO,hit}} dos jogos cobertos por default pick deste jogador
-function defaultPicksOf(preds, results){
+function defaultPicksOf(preds, results, code){
   const out = {}, SC = scoringLocal();
   const isWC = SC.defaultPickSource === 'bot';
+  // 079: corte pessoal — só jogos posteriores à inscrição deste jogador.
+  // Espelha o `myCutMs` do buildLeaderboard. Sem código (ou sem data) vale 0,
+  // que devolve exactamente o comportamento antigo.
+  const joinMs = isWC ? 0 : (Date.parse((S.joinedAt || {})[String(code || '').toUpperCase()] || '') || 0);
   const budget = SC.defaultPickRatio != null
     ? Math.max(1, Math.round((GAMES||[]).length * SC.defaultPickRatio))
     : SC.defaultPickBudget;
@@ -12238,7 +12261,7 @@ function defaultPicksOf(preds, results){
     if (!r || r.t1===undefined) return false;                    // sem resultado
     if (preds[g.id] && preds[g.id].t1!==undefined) return false; // apostou
     if (!inheritedPickFor(g.id)) return false;                   // sem pick herdada
-    return isWC ? Date.parse(g.date) >= DEFAULT_PICK_CUTOFF_MS : true;
+    return isWC ? Date.parse(g.date) >= DEFAULT_PICK_CUTOFF_MS : (Date.parse(g.date) || 0) >= joinMs;
   }).sort((a,b)=> Date.parse(a.date)-Date.parse(b.date) || (a.id<b.id?-1:1));
   for (let i=0; i<cand.length && i<budget; i++){
     const g=cand[i], r=results[g.id], bp=inheritedPickFor(g.id), isKO=!!g.ko;
@@ -12273,7 +12296,7 @@ function buildPlayerBetsHtml(playerName) {
   // Default picks deste jogador (não para o IA nem em demo)
   const lbEntry = (S.lb||[]).find(p=>p.name.toLowerCase()===playerName.toLowerCase());
   const isBotProfile = lbEntry && lbEntry.code==='BOT_IA';
-  const defPicks = (S.demoMode||isBotProfile) ? {} : defaultPicksOf(preds, results);
+  const defPicks = (S.demoMode||isBotProfile) ? {} : defaultPicksOf(preds, results, lbEntry && lbEntry.code);
   // Jogos terminados + jogos já REVELADOS (apito passou) com aposta deste jogador
   const shownGames = GAMES.filter(g =>
     results[g.id]!==undefined ||
